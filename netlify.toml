@@ -1,0 +1,18 @@
+# Netlify konfiguráció – statikus oldal, nincs build.
+# A gyökérből publikál (index.html a belépési pont).
+
+[build]
+  publish = "."
+  command = ""
+
+# A service worker mindig friss legyen, hogy a frissítések eljussanak
+# a klienshez (különben a régi sw.js ragadna a CDN cache-ben).
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/manifest.webmanifest"
+  [headers.values]
+    Cache-Control = "no-cache"

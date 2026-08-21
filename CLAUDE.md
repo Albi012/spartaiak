@@ -75,12 +75,39 @@ tartsd meg – a hívási helyek arra épülnek.
 
 1. A `PLAN` tömb a kódba van drótozva. A terv appon belüli
    szerkeszthetősége lenne a legnagyobb nyereség.
-2. Nincs PWA manifest és service worker – offline nem működik.
+2. ~~Nincs PWA manifest és service worker – offline nem működik.~~
+   **Kész:** van `manifest.webmanifest` + `sw.js`, az app telepíthető
+   és offline is fut (lásd „PWA / offline" lentebb).
 3. A pihenőóra megáll, ha a telefon képernyője elalszik.
 4. A biztonsági mentés kézi. Automatikus vagy emlékeztetős mentés jó lenne.
 
 **Amit ne csinálj elsőre:** ne írd át React/Vue keretrendszerre.
 A jelenlegi ~360 sor működik; a keretrendszer nulla új funkciót adna.
+
+## PWA / offline
+
+Az app telepíthető és offline is fut. Fájlok:
+
+- `manifest.webmanifest` – app metaadat (név, ikonok, `display: standalone`,
+  `theme_color`/`background_color`).
+- `sw.js` – service worker. **Csak a statikus app-héjat cache-eli**
+  (`index.html`, ikonok, manifest) és a Google Fonts fájlokat. A
+  `localStorage`-t (`gymlog_v1`) NEM érinti – az edzésadat a böngészőé.
+- Ikonok: `icon-192.png`, `icon-512.png`, `icon-maskable-512.png`,
+  `apple-touch-icon.png`.
+
+Stratégia: a HTML network-first (offline a cache-elt `index.html`), a
+statikus fájlok cache-first, a fontok stale-while-revalidate.
+
+**Frissítés:** ha az app-héjon változtatsz, emeld a `VERSION` konstanst a
+`sw.js` tetején – ez üríti a régi cache-t. A `netlify.toml` a `sw.js`-t
+`no-cache`-sel szolgálja ki, hogy a frissítés eljusson a klienshez.
+
+## Deploy (Netlify)
+
+`netlify.toml`: statikus oldal, nincs build, a gyökérből (`publish = "."`)
+publikál. A repót a Netlify dashboardon lehet a GitHubhoz kötni (lásd
+`README.md` → Deploy), utána minden push automatikusan deployol.
 
 ## Tesztadat
 
