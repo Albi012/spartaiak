@@ -183,6 +183,27 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--brass);out
 .kb{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px}
 .kb button{padding:16px 0;border-radius:13px;background:var(--card2);border:1px solid var(--line);font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:700}
 .kb button:active{background:var(--brass-d)}
+textarea{font-family:inherit;font-size:16px;color:var(--ink);background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:12px;line-height:1.4}
+textarea:focus{outline:2px solid var(--brass);outline-offset:2px}
+
+/* Gyakorlat-jegyzet + fotó */
+.exnote{display:flex;gap:12px;align-items:flex-start;background:var(--card2);border:1px solid var(--line);border-radius:14px;padding:10px 12px}
+.exnote-t{font-size:14px;color:var(--mut);white-space:pre-wrap;flex:1;min-width:0}
+.exphoto{width:64px;height:64px;object-fit:cover;border-radius:11px;border:1px solid var(--line);flex:none}
+.exphoto.lg{width:100%;height:auto;max-height:280px;object-fit:contain;background:var(--card2)}
+
+/* Terv kontra valóság / sérülés – választható címkék */
+.whyrow{display:flex;flex-wrap:wrap;gap:8px}
+.whyc{padding:9px 13px;border-radius:999px;border:1px solid var(--line);background:var(--card2);color:var(--mut);font-size:13px;font-weight:600}
+.whyc.on{border-color:var(--brass);color:var(--brass);background:var(--brass-d)}
+
+/* Figyelmeztető szalag */
+.banner{background:var(--brass-d);border:1px solid var(--brass);color:var(--brass);border-radius:12px;padding:10px 12px;font-size:13px;font-weight:500}
+
+/* Fotónéző */
+.photo{position:fixed;inset:0;z-index:80;display:none;align-items:center;justify-content:center;background:rgba(6,8,10,.9);padding:16px}
+.photo.on{display:flex}
+.photo img{max-width:100%;max-height:100%;border-radius:12px}
 </style>
 
 <header class="appbar"><div class="appbar-in">
@@ -196,6 +217,7 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--brass);out
     </g></svg>
     <span class="brand-name">Edzésnapló</span>
   </span>
+  <button id="injuryBtn" class="iconbtn" onclick="openInjury()" aria-label="Sérülés-mód" title="Sérülés-mód">✚</button>
   <button id="themeBtn" class="iconbtn" aria-label="Téma váltása" title="Téma váltása">☾</button>
 </div></header>
 
@@ -223,41 +245,44 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--brass);out
 
 <div class="sheet" id="sheet"><div class="inner" id="sheetIn"></div></div>
 
+<div class="photo" id="photo" onclick="this.classList.remove('on')"><img id="photoImg" alt="beállítás fotó"></div>
+
 <script>
 const PLAN = [
  {id:'pa',name:'Push A',sub:'Mell · váll · tricepsz',ex:[
-  {id:'bench',n:'Fekvenyomás',s:4,r:'5',w:55,rest:180,inc:2.5},
-  {id:'dip',n:'Tolódzkodás',s:4,r:'5',w:5,rest:180,inc:2.5,bw:1},
-  {id:'incdb',n:'Ferdepad nyomás (kézisúlyzó)',s:3,r:'8',w:17.5,rest:120,inc:2.5},
-  {id:'ohpdb',n:'Vállból nyomás ülve',s:3,r:'8',w:12.5,rest:120,inc:2.5},
-  {id:'lat',n:'Oldalemelés',s:3,r:'15',w:6,rest:60,inc:1},
-  {id:'push',n:'Tricepsz kötél lehúzás',s:3,r:'12',w:35,rest:60,inc:2.5}]},
+  {id:'bench',n:'Fekvenyomás',s:4,r:'5',w:55,rest:180,inc:2.5,mg:'mell'},
+  {id:'dip',n:'Tolódzkodás',s:4,r:'5',w:5,rest:180,inc:2.5,bw:1,mg:'mell'},
+  {id:'incdb',n:'Ferdepad nyomás (kézisúlyzó)',s:3,r:'8',w:17.5,rest:120,inc:2.5,mg:'mell'},
+  {id:'ohpdb',n:'Vállból nyomás ülve',s:3,r:'8',w:12.5,rest:120,inc:2.5,mg:'váll'},
+  {id:'lat',n:'Oldalemelés',s:3,r:'15',w:6,rest:60,inc:1,mg:'váll'},
+  {id:'push',n:'Tricepsz kötél lehúzás',s:3,r:'12',w:35,rest:60,inc:2.5,mg:'tricepsz'}]},
  {id:'la',name:'Pull A',sub:'Hát · bicepsz',ex:[
-  {id:'pull',n:'Húzódzkodás',s:4,r:'6',w:10,rest:180,inc:2.5,bw:1},
-  {id:'row',n:'Evezés rúddal',s:4,r:'6',w:55,rest:150,inc:2.5},
-  {id:'cable',n:'Ülő kábelevezés',s:3,r:'10',w:60,rest:90,inc:5},
-  {id:'face',n:'Arcvonó (face pull)',s:3,r:'15',w:20,rest:60,inc:2.5},
-  {id:'curl',n:'Bicepsz hajlítás',s:3,r:'10',w:17.5,rest:60,inc:2.5},
-  {id:'hammer',n:'Kalapácshajlítás',s:3,r:'12',w:12.5,rest:60,inc:2.5}]},
+  {id:'pull',n:'Húzódzkodás',s:4,r:'6',w:10,rest:180,inc:2.5,bw:1,mg:'hát'},
+  {id:'row',n:'Evezés rúddal',s:4,r:'6',w:55,rest:150,inc:2.5,mg:'hát'},
+  {id:'cable',n:'Ülő kábelevezés',s:3,r:'10',w:60,rest:90,inc:5,mg:'hát'},
+  {id:'face',n:'Arcvonó (face pull)',s:3,r:'15',w:20,rest:60,inc:2.5,mg:'váll'},
+  {id:'curl',n:'Bicepsz hajlítás',s:3,r:'10',w:17.5,rest:60,inc:2.5,mg:'bicepsz'},
+  {id:'hammer',n:'Kalapácshajlítás',s:3,r:'12',w:12.5,rest:60,inc:2.5,mg:'bicepsz'}]},
  {id:'pb',name:'Push B',sub:'Váll · mell · törzs',ex:[
-  {id:'ohp',n:'Ülő rúdas vállból nyomás',s:4,r:'5',w:30,rest:180,inc:2.5},
-  {id:'dbbench',n:'Fekvenyomás kézisúlyzóval',s:4,r:'8',w:17.5,rest:150,inc:2.5},
-  {id:'dipbw',n:'Tolódzkodás (testsúly)',s:3,r:'10',w:0,rest:120,inc:2.5,bw:1},
-  {id:'machinc',n:'Ferdepad gépi nyomás',s:3,r:'10',w:20,rest:120,inc:5},
-  {id:'french',n:'Tricepsz francia nyomás',s:3,r:'10',w:25,rest:60,inc:2.5},
-  {id:'plank',n:'Plank',s:3,r:'45 mp',w:0,rest:45,inc:5,bw:1,time:1}]},
+  {id:'ohp',n:'Ülő rúdas vállból nyomás',s:4,r:'5',w:30,rest:180,inc:2.5,mg:'váll'},
+  {id:'dbbench',n:'Fekvenyomás kézisúlyzóval',s:4,r:'8',w:17.5,rest:150,inc:2.5,mg:'mell'},
+  {id:'dipbw',n:'Tolódzkodás (testsúly)',s:3,r:'10',w:0,rest:120,inc:2.5,bw:1,mg:'mell'},
+  {id:'machinc',n:'Ferdepad gépi nyomás',s:3,r:'10',w:20,rest:120,inc:5,mg:'mell'},
+  {id:'french',n:'Tricepsz francia nyomás',s:3,r:'10',w:25,rest:60,inc:2.5,mg:'tricepsz'},
+  {id:'plank',n:'Plank',s:3,r:'45 mp',w:0,rest:45,inc:5,bw:1,time:1,mg:'törzs'}]},
  {id:'lb',name:'Pull B',sub:'Hát · hátsó lánc',ex:[
-  {id:'tbar',n:'T-bar / gépi evezés',s:4,r:'6',w:55,rest:150,inc:2.5},
-  {id:'wide',n:'Széles fogású lehúzás',s:4,r:'8',w:60,rest:120,inc:5},
-  {id:'onerow',n:'Egykezes kézisúlyzó evezés',s:3,r:'10',w:25,rest:90,inc:2.5},
-  {id:'legcurl',n:'Combhajlítás fekve',s:4,r:'10',w:30,rest:120,inc:5},
-  {id:'hyp',n:'Hyperextension',s:3,r:'12',w:0,rest:90,inc:5,bw:1},
-  {id:'rear',n:'Hátsó vállemelés',s:3,r:'15',w:5,rest:60,inc:1},
-  {id:'knee',n:'Hanging knee raise',s:3,r:'12',w:0,rest:60,inc:2.5,bw:1}]}
+  {id:'tbar',n:'T-bar / gépi evezés',s:4,r:'6',w:55,rest:150,inc:2.5,mg:'hát'},
+  {id:'wide',n:'Széles fogású lehúzás',s:4,r:'8',w:60,rest:120,inc:5,mg:'hát'},
+  {id:'onerow',n:'Egykezes kézisúlyzó evezés',s:3,r:'10',w:25,rest:90,inc:2.5,mg:'hát'},
+  {id:'legcurl',n:'Combhajlítás fekve',s:4,r:'10',w:30,rest:120,inc:5,mg:'láb'},
+  {id:'hyp',n:'Hyperextension',s:3,r:'12',w:0,rest:90,inc:5,bw:1,mg:'hát'},
+  {id:'rear',n:'Hátsó vállemelés',s:3,r:'15',w:5,rest:60,inc:1,mg:'váll'},
+  {id:'knee',n:'Hanging knee raise',s:3,r:'12',w:0,rest:60,inc:2.5,bw:1,mg:'törzs'}]}
 ];
+const MGS=['mell','hát','váll','tricepsz','bicepsz','láb','törzs'];
 
-let S = {sessions:[], active:null, weights:{}};
-let tab='home', playing=false, curEx=0, tInt=null, tEnd=0, tLen=0;
+let S = {sessions:[], active:null, weights:{}, notes:{}, photos:{}, injury:null, lastBackup:0};
+let tab='home', playing=false, curEx=0, tInt=null, tEnd=0, tLen=0, wl=null, nagOff=false;
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -279,7 +304,8 @@ async function load(){
   render();
 }
 async function save(){
-  const v=JSON.stringify({sessions:S.sessions,active:S.active,weights:S.weights});
+  const v=JSON.stringify({sessions:S.sessions,active:S.active,weights:S.weights,
+    notes:S.notes,photos:S.photos,injury:S.injury,lastBackup:S.lastBackup});
   const ok=await writeKey(KEY,v);
   if(!ok&&storeMode!=='none'){ storeMode='none'; render(); }
 }
@@ -292,13 +318,30 @@ const ARCHIVE = {
 function exDef(id){ for(const d of PLAN) for(const e of d.ex) if(e.id===id) return e;
   return ARCHIVE[id] || {id:id,n:id,s:3,r:'10',w:0,rest:90,inc:2.5}; }
 function lastFor(id){ for(let i=S.sessions.length-1;i>=0;i--){ const s=S.sessions[i]; if(s.log[id]) return s.log[id]; } return null; }
-function startW(id){
-  if(S.weights[id]!=null) return S.weights[id];
-  const l=lastFor(id); const d=exDef(id);
-  if(!l) return d.w;
-  const hit=l.sets.length>=d.s && l.sets.every(x=>x!=null && x>=parseInt(d.r));
-  return hit ? l.w + d.inc : l.w;
+// Okos súlyugrás: ha minden szett megvolt, a cél feletti túlteljesítés
+// arányában nagyobbat lép (nem fix +inc). Pl. 5-ös célnál 11 ismétlés
+// → ~4× lépés.
+function smartInc(e,l){
+  const t=parseInt(e.r);
+  if(!l||!l.sets.length) return e.inc;
+  const done = l.sets.length>=e.s && l.sets.every(x=>x!=null && x>=t);
+  if(!done) return 0;
+  const over = Math.min(...l.sets.filter(x=>x!=null)) - t;
+  let mult=1; if(over>=6) mult=4; else if(over>=4) mult=3; else if(over>=2) mult=2;
+  return e.inc*mult;
 }
+function startW(id){
+  const l=lastFor(id), d=exDef(id);
+  if(l) return Math.max(0, l.w + smartInc(d,l));
+  if(S.weights[id]!=null) return S.weights[id];
+  return d.w;
+}
+// Egy edzés összterhelése: súly × ismétlés összegezve (testsúlyos szettek
+// 0 súllyal szerepelnek, ezért ez a terhelt súlyra fókuszáló, relatív szám).
+function sessionLoad(s){ let sum=0; for(const id in s.log){ const l=s.log[id]; const w=l.w>0?l.w:0;
+  l.sets.forEach(r=>{ if(r!=null) sum+=w*r; }); } return Math.round(sum); }
+function injuryOn(){ return S.injury && S.injury.parts && S.injury.parts.length>0; }
+function exAffected(e){ return injuryOn() && S.injury.parts.indexOf(e.mg)>=0; }
 
 function esc(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}
 function fmtDate(t){const d=new Date(t);return d.getFullYear()+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+String(d.getDate()).padStart(2,'0')}
@@ -325,6 +368,15 @@ function homeView(){
   h += `<div class="wrap"><div class="top"><span class="eyebrow">Push / pull · 4 nap</span>
     <h1 style="font-size:34px;margin-top:4px">Melyik nap jön?</h1>
     <p class="mut small" style="margin:6px 0 0">${done} edzés összesen · ${wk} az elmúlt 7 napban</p></div>`;
+  if(needsBackup()) h+=`<div class="card" style="border-color:var(--brass)"><div class="pad">
+    <div class="row"><div class="grow"><span class="cond" style="font-size:17px;font-weight:600">Rég mentettél biztonsági másolatot</span>
+    <div class="small mut" style="margin-top:2px">Kézi mentésre senki nem emlékszik, amíg el nem veszti az adatait.</div></div>
+    <button onclick="dismissNag()" class="small dim" style="padding:8px">Később</button></div>
+    <button class="btn pri" style="margin-top:10px" onclick="backup()">Mentés most</button></div></div>`;
+  if(injuryOn()) h+=`<div class="card" style="border-color:var(--red)"><div class="pad">
+    <span class="cond" style="font-size:17px;font-weight:600;color:var(--red)">Sérülés-mód aktív – ${S.injury.parts.join(', ')}</span>
+    <div class="small mut" style="margin-top:2px">Új edzésnél az érintett gyakorlatok kimaradnak, a többi súlya csökken.</div>
+    <button class="btn" style="margin-top:10px" onclick="openInjury()">Módosítás / kikapcsolás</button></div></div>`;
   if(S.active){
     const d=PLAN.find(x=>x.id===S.active.day);
     const doneN=d.ex.filter(e=>exDone(e,S.active.log[e.id])).length;
@@ -346,30 +398,44 @@ function homeView(){
   return h+'</div>';
 }
 
+function roundTo(v,step){ return Math.max(0, Math.round(v/step)*step); }
 function startDay(id){
   if(S.active && !confirm('Van egy folyamatban lévő edzés. Eldobod és újat kezdesz?')) return;
-  S.active={day:id,t:Date.now(),log:{}};
-  PLAN.find(d=>d.id===id).ex.forEach(e=>{ S.active.log[e.id]={w:startW(e.id),sets:new Array(e.s).fill(null)}; });
+  // Kihagyás-felismerés: 10 napnál hosszabb szünet után visszalépést ajánl.
+  const lastT = S.sessions.length ? S.sessions[S.sessions.length-1].t : 0;
+  const gap = lastT ? (Date.now()-lastT)/864e5 : 0;
+  let deload=false;
+  if(gap>10) deload = confirm(Math.round(gap)+' nap kihagyás.\n\nKérsz visszalépést? (kb. -15% súly és több ismétlés a célhoz, hogy fokozatosan épülj vissza.)');
+  S.active={day:id,t:Date.now(),log:{},deload:deload};
+  PLAN.find(d=>d.id===id).ex.forEach(e=>{
+    if(exAffected(e)) return;                 // sérülés-mód: érintett gyakorlat kihagyva
+    let w=startW(e.id);
+    if(deload && !e.bw) w=roundTo(w*0.85, e.inc);
+    S.active.log[e.id]={w:w,sets:new Array(e.s).fill(null)};
+  });
   curEx=0; playing=true; save(); render(); window.scrollTo(0,0);
 }
 function resumePlayer(){ if(S.active){ playing=true; render(); window.scrollTo(0,0); } }
 function pausePlayer(){ playing=false; tab='home'; stopTimer(); render(); window.scrollTo(0,0); }
 function discardActive(){ if(confirm('Biztos eldobod ezt az edzést?')){ S.active=null; playing=false; stopTimer(); tab='home'; save(); render(); window.scrollTo(0,0); } }
-function exNav(i){ const d=PLAN.find(x=>x.id===S.active.day); curEx=Math.max(0,Math.min(d.ex.length-1,i)); render(); window.scrollTo(0,0); }
+function exNav(i){ const d=PLAN.find(x=>x.id===S.active.day); const n=d.ex.filter(x=>S.active.log[x.id]).length;
+  curEx=Math.max(0,Math.min(n-1,i)); render(); window.scrollTo(0,0); }
 
 function playerView(){
   const d=PLAN.find(x=>x.id===S.active.day);
-  if(curEx>=d.ex.length) curEx=d.ex.length-1;
-  const e=d.ex[curEx], L=S.active.log[e.id], last=lastFor(e.id);
-  const complete=exDone(e,L), hit=L.sets.every(x=>x!=null&&x>=parseInt(e.r));
-  const isLast=curEx===d.ex.length-1;
+  const exs=d.ex.filter(x=>S.active.log[x.id]);   // sérülés miatt kihagyottak nélkül
+  if(curEx>=exs.length) curEx=exs.length-1; if(curEx<0) curEx=0;
+  const e=exs[curEx], L=S.active.log[e.id], last=lastFor(e.id), t=parseInt(e.r);
+  const complete=exDone(e,L), hit=L.sets.every(x=>x!=null&&x>=t);
+  const missed=L.sets.some(x=>x!=null&&x<t);
+  const isLast=curEx===exs.length-1;
 
   let dots='';
-  d.ex.forEach((x,i)=>{ const done=exDone(x,S.active.log[x.id]);
+  exs.forEach((x,i)=>{ const done=exDone(x,S.active.log[x.id]);
     dots+=`<button class="pdot ${i===curEx?'cur':(done?'done':'')}" onclick="exNav(${i})" aria-label="gyakorlat ${i+1}"></button>`; });
 
   let chips='';
-  L.sets.forEach((v,i)=>{ const t=parseInt(e.r); const cls=v==null?'':(v>=t?'done':'miss');
+  L.sets.forEach((v,i)=>{ const cls=v==null?'':(v>=t?'done':'miss');
     chips+=`<button class="chip ${cls}" onclick="openSet('${e.id}',${i})">
       <span class="r">${v==null?'·':v}</span><span class="l">${i+1}. sz</span></button>`; });
 
@@ -382,23 +448,48 @@ function playerView(){
   let note='';
   if(last) note=`<div class="prev">Előző: ${wLabel(e,last.w)}${e.bw&&last.w<=0?'':' kg'} × ${last.sets.map(x=>x==null?'–':x).join(', ')}</div>`;
   else note=`<div class="prev dim">Első alkalom – a technika a cél, ne a súly.</div>`;
-  const hint = hit?`<div class="hint">Mind megvolt → jövő héten ${wLabel(e,L.w+e.inc)}${e.bw&&L.w+e.inc<=0?'':' kg'}</div>`:'';
+  const inc=smartInc(e,{sets:L.sets,w:L.w})||e.inc;
+  const hint = hit?`<div class="hint">Mind megvolt → jövő héten ${wLabel(e,L.w+inc)}${e.bw&&L.w+inc<=0?'':' kg'} (+${inc})</div>`:'';
+
+  // Állandó gyakorlat-jegyzet + fotó
+  const pn=S.notes[e.id], ph=S.photos[e.id];
+  const noteBlock = (pn||ph) ? `<div class="exnote">
+      ${ph?`<img class="exphoto" src="${ph}" onclick="viewPhoto('${e.id}')" alt="beállítás fotó">`:''}
+      ${pn?`<div class="exnote-t">${esc(pn)}</div>`:''}
+    </div>` : '';
+
+  // Terv kontra valóság: ha van kihagyott ismétlés, egy koppintással megkérdi az okot
+  let why='';
+  if(complete && missed && !e.time){
+    const cur=L.why;
+    why=`<div class="whyrow"><span class="small dim" style="width:100%">Miért tért el a tervtől?</span>
+      ${[['busy','Gép foglalt'],['heavy','Túl nehéz volt'],['time','Kevés idő']].map(([k,lab])=>
+        `<button class="whyc ${cur===k?'on':''}" onclick="setWhy('${e.id}','${k}')">${lab}</button>`).join('')}</div>`;
+  }
+
+  const deloadBanner = S.active.deload ? `<div class="banner">Kihagyás utáni visszaépítés: kisebb súly, a célnál pár ismétléssel több.</div>` : '';
 
   return `<div class="player">
     <div class="ptop">
       <button class="iconbtn" onclick="pausePlayer()" aria-label="Szünet" title="Szünet">‹</button>
-      <div class="pmid"><div class="d">${d.name}</div><div class="c">gyakorlat ${curEx+1} / ${d.ex.length}</div></div>
+      <div class="pmid"><div class="d">${d.name}${S.active.deload?' · visszaépítés':''}</div><div class="c">gyakorlat ${curEx+1} / ${exs.length}</div></div>
       <button class="iconbtn" onclick="finish()" aria-label="Edzés lezárása" title="Edzés lezárása" style="color:var(--sage)">✓</button>
     </div>
     <div class="pdots">${dots}</div>
     <div class="pmain">
+      ${deloadBanner}
       <div>
-        <div class="pname">${esc(e.n)}</div>
-        <div class="pmeta">${complete?'<span class="done-badge">kész</span>':`<span class="tgt">cél: ${e.s} × ${e.r}${e.time?'':' ism.'}</span>`}</div>
+        <div class="row" style="align-items:flex-start">
+          <div class="grow"><div class="pname">${esc(e.n)}</div>
+          <div class="pmeta">${complete?'<span class="done-badge">kész</span>':`<span class="tgt">cél: ${e.s} × ${e.r}${e.time?'':' ism.'}</span>`}</div></div>
+          <button class="iconbtn" onclick="openNoteSheet('ex','${e.id}')" aria-label="Jegyzet és fotó" title="Jegyzet és fotó">✎</button>
+        </div>
       </div>
+      ${noteBlock}
       ${wt}
       <div class="pchips">${chips}</div>
       ${note}${hint}
+      ${why}
     </div>
     <div class="pfoot">
       <button class="btn" onclick="exNav(${curEx-1})" ${curEx===0?'disabled':''} style="flex:0 0 40%">‹ Előző</button>
@@ -406,9 +497,13 @@ function playerView(){
         ? `<button class="btn pri" onclick="finish()" style="flex:1">Edzés lezárása</button>`
         : `<button class="btn pri" onclick="exNav(${curEx+1})" style="flex:1">Következő ›</button>`}
     </div>
-    <button class="discard" onclick="discardActive()">Edzés eldobása</button>
+    <div class="row" style="justify-content:center;gap:18px">
+      <button class="discard" onclick="openNoteSheet('day','')">Nap jegyzete${S.active.note?' •':''}</button>
+      <button class="discard" onclick="discardActive()">Edzés eldobása</button>
+    </div>
   </div>`;
 }
+function setWhy(id,k){ const L=S.active.log[id]; L.why=(L.why===k?null:k); save(); render(); }
 
 function bump(id,dir){ const e=exDef(id),L=S.active.log[id];
   L.w=Math.max(0, Math.round((L.w+dir*e.inc)*10)/10); S.weights[id]=L.w; save(); render(); }
@@ -434,12 +529,15 @@ function setRep(v){
   if(v!=null) startTimer(e.rest);
 }
 
+async function acquireWake(){ try{ if('wakeLock' in navigator && !wl){ wl=await navigator.wakeLock.request('screen'); wl.addEventListener('release',()=>{ wl=null; }); } }catch(e){ wl=null; } }
+function releaseWake(){ try{ if(wl){ wl.release(); wl=null; } }catch(e){ wl=null; } }
 function startTimer(sec){
   tLen=sec; tEnd=Date.now()+sec*1000;
   document.getElementById('rest').classList.add('on');
+  acquireWake();                                   // ne aludjon el a képernyő pihenő közben
   clearInterval(tInt); tInt=setInterval(tick,200); tick();
 }
-function stopTimer(){ clearInterval(tInt); const r=document.getElementById('rest'); if(r) r.classList.remove('on'); }
+function stopTimer(){ clearInterval(tInt); const r=document.getElementById('rest'); if(r) r.classList.remove('on'); releaseWake(); }
 function tick(){
   const left=Math.max(0,tEnd-Date.now());
   const s=Math.ceil(left/1000);
@@ -448,9 +546,12 @@ function tick(){
   const ring=document.getElementById('restRing');
   ring.style.strokeDasharray=C.toFixed(1); ring.style.strokeDashoffset=(C*(1-frac)).toFixed(1);
   if(left<=0){ clearInterval(tInt); if(navigator.vibrate) navigator.vibrate([200,100,200]);
-    setTimeout(()=>document.getElementById('rest').classList.remove('on'),1500); }
+    releaseWake(); setTimeout(()=>document.getElementById('rest').classList.remove('on'),1500); }
 }
 document.getElementById('restSkip').onclick=stopTimer;
+// A képernyőzár feloldódhat háttérbe váltáskor – ha még megy a pihenő, kérjük vissza.
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'
+  && document.getElementById('rest').classList.contains('on') && Date.now()<tEnd) acquireWake(); });
 
 function finish(){
   const any=Object.values(S.active.log).some(l=>l.sets.some(x=>x!=null));
@@ -465,16 +566,21 @@ function logView(){
     <button class="btn" onclick="restore()" style="margin-bottom:20px;color:var(--mut)">Visszaállítás mentésből</button></div>`;
   let h=`<div class="wrap"><div class="top"><h1 style="font-size:34px">Napló</h1>
     <p class="mut small" style="margin:6px 0 0">${S.sessions.length} edzés</p></div>`;
+  const loads=S.sessions.map(sessionLoad);
+  const avg=loads.reduce((a,b)=>a+b,0)/(loads.length||1);
+  const WHY={busy:'gép foglalt',heavy:'túl nehéz',time:'kevés idő'};
   [...S.sessions].reverse().forEach((s,ri)=>{
     const d=PLAN.find(x=>x.id===s.day); const idx=S.sessions.length-1-ri;
     const tot=Object.values(s.log).reduce((a,l)=>a+l.sets.filter(x=>x!=null).length,0);
+    const load=loads[idx], hi=avg>0 && load>avg*1.3;
     h+=`<div class="card"><div class="pad" style="border-bottom:1px solid var(--line)">
       <div class="row"><div class="grow"><span class="cond" style="font-size:20px;font-weight:600">${d.name}</span>
-      <div class="small dim">${fmtDate(s.t)} · ${tot} szett</div></div>
-      <button onclick="del(${idx})" class="small dim" style="padding:8px">Törlés</button></div></div>`;
+      <div class="small dim">${fmtDate(s.t)} · ${tot} szett · <span class="num">${load.toLocaleString('hu')}</span> kg terhelés${hi?' <span style="color:var(--red);font-weight:600">· kiugró</span>':''}</div></div>
+      <button onclick="del(${idx})" class="small dim" style="padding:8px">Törlés</button></div>
+      ${s.note?`<div class="small mut" style="padding:0 16px 10px">✎ ${esc(s.note)}</div>`:''}</div>`;
     const seen=new Set();
     d.ex.forEach(e=>{ seen.add(e.id); const l=s.log[e.id]; if(!l||!l.sets.some(x=>x!=null))return;
-      h+=`<div class="hrow"><span class="small grow">${esc(e.n)}</span>
+      h+=`<div class="hrow"><span class="small grow">${esc(e.n)}${l.why?` <span class="dim" style="font-size:11px">· ${WHY[l.why]}</span>`:''}</span>
         <span class="small num mut">${wLabel(e,l.w)}${e.bw&&l.w<=0?'':' kg'} × ${l.sets.map(x=>x==null?'–':x).join(', ')}</span></div>`; });
     Object.keys(s.log).forEach(id=>{ if(seen.has(id))return; const l=s.log[id];
       if(!l||!l.sets.some(x=>x!=null))return; const e=exDef(id);
@@ -488,11 +594,12 @@ function logView(){
   return h+'</div>';
 }
 function backup(){
-  const v=JSON.stringify({sessions:S.sessions,weights:S.weights});
+  const v=JSON.stringify({sessions:S.sessions,weights:S.weights,notes:S.notes,photos:S.photos});
   const b=new Blob([v],{type:'application/json'}), u=URL.createObjectURL(b);
   const a=document.createElement('a'); a.href=u;
   a.download='edzesnaplo-'+fmtDate(Date.now()).replace(/\./g,'')+'.json';
   a.click(); setTimeout(()=>URL.revokeObjectURL(u),1000);
+  S.lastBackup=Date.now(); nagOff=true; save(); render();
 }
 function restore(){
   const i=document.createElement('input'); i.type='file'; i.accept='.json,application/json';
@@ -500,7 +607,7 @@ function restore(){
     r.onload=()=>{ try{ const d=JSON.parse(r.result);
       if(!Array.isArray(d.sessions)) throw 0;
       if(!confirm('Ez felülírja a jelenlegi '+S.sessions.length+' edzést '+d.sessions.length+' mentett edzéssel. Folytatod?')) return;
-      S.sessions=d.sessions; S.weights=d.weights||{}; save(); render();
+      S.sessions=d.sessions; S.weights=d.weights||{}; if(d.notes)S.notes=d.notes; if(d.photos)S.photos=d.photos; save(); render();
     }catch(e){ alert('Ez nem érvényes mentésfájl.'); } };
     r.readAsText(f); };
   i.click();
@@ -558,6 +665,89 @@ function progView(){
   return h+'</div>';
 }
 
+/* ---- Jegyzetek (állandó + aznapi) és fotó -------------------------- */
+function openNoteSheet(kind,id){
+  let h=`<div class="grabber"></div>`;
+  if(kind==='ex'){
+    const e=exDef(id), pn=S.notes[id]||'', ph=S.photos[id];
+    h+=`<div class="row"><div class="grow"><span class="eyebrow">Gyakorlat-jegyzet</span>
+      <h2 style="font-size:22px">${esc(e.n)}</h2><span class="small dim">Állandó – padszög, ülésmagasság, technika</span></div>
+      <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
+      <textarea id="noteTa" rows="3" style="width:100%;margin-top:12px;resize:vertical" placeholder="Pl. pad 30°, ülés 4-es lyuk, könyök be">${esc(pn)}</textarea>
+      ${ph?`<img class="exphoto lg" src="${ph}" alt="beállítás fotó" style="margin-top:10px">`:''}
+      <div class="row" style="gap:8px;margin-top:10px">
+        <label class="btn" style="flex:1;margin:0;cursor:pointer">${ph?'Fotó cseréje':'Fotó hozzáadása'}<input id="photoIn" type="file" accept="image/*" capture="environment" style="display:none"></label>
+        ${ph?`<button class="btn" style="flex:0 0 42%;margin:0;color:var(--red)" onclick="removePhoto('${id}')">Fotó törlése</button>`:''}
+      </div>
+      <button class="btn pri" style="margin-top:12px" onclick="saveNote('ex','${id}')">Mentés</button>`;
+    document.getElementById('sheetIn').innerHTML=h;
+    const pin=document.getElementById('photoIn'); if(pin) pin.onchange=()=>addPhoto(id,pin.files[0]);
+  } else {
+    const cur=(S.active&&S.active.note)||'';
+    h+=`<div class="row"><div class="grow"><span class="eyebrow">Mai jegyzet</span>
+      <h2 style="font-size:22px">Nap jegyzete</h2><span class="small dim">Csak erre az edzésre</span></div>
+      <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
+      <textarea id="noteTa" rows="3" style="width:100%;margin-top:12px;resize:vertical" placeholder="Pl. fáradt voltam, jobb váll kicsit húz">${esc(cur)}</textarea>
+      <button class="btn pri" style="margin-top:12px" onclick="saveNote('day','')">Mentés</button>`;
+    document.getElementById('sheetIn').innerHTML=h;
+  }
+  document.getElementById('sheet').classList.add('on');
+}
+function saveNote(kind,id){
+  const v=document.getElementById('noteTa').value.trim();
+  if(kind==='ex'){ if(v) S.notes[id]=v; else delete S.notes[id]; }
+  else if(S.active){ if(v) S.active.note=v; else delete S.active.note; }
+  closeSheet(); save(); render();
+}
+function addPhoto(id,file){
+  if(!file) return;
+  const ta=document.getElementById('noteTa'); const keep=ta?ta.value:'';   // ne vesszen el a beírt jegyzet
+  const rd=new FileReader();
+  rd.onload=()=>{ const img=new Image(); img.onload=()=>{
+    const max=800, sc=Math.min(1,max/Math.max(img.width,img.height));
+    const c=document.createElement('canvas'); c.width=Math.round(img.width*sc); c.height=Math.round(img.height*sc);
+    c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+    let data; try{ data=c.toDataURL('image/jpeg',0.6); }catch(e){ alert('A kép feldolgozása nem sikerült.'); return; }
+    S.photos[id]=data; save();
+    if(storeMode==='none'){ delete S.photos[id]; alert('A kép nem fért el a tárolóban – törölj néhány fotót.'); }
+    openNoteSheet('ex',id);
+    const ta2=document.getElementById('noteTa'); if(ta2&&keep) ta2.value=keep;
+  }; img.src=rd.result; };
+  rd.readAsDataURL(file);
+}
+function removePhoto(id){ const ta=document.getElementById('noteTa'); const keep=ta?ta.value:'';
+  delete S.photos[id]; save(); openNoteSheet('ex',id);
+  const ta2=document.getElementById('noteTa'); if(ta2&&keep) ta2.value=keep; }
+function viewPhoto(id){ const ph=S.photos[id]; if(!ph) return;
+  document.getElementById('photoImg').src=ph; document.getElementById('photo').classList.add('on'); }
+
+/* ---- Sérülés-mód --------------------------------------------------- */
+function openInjury(){
+  const parts=(S.injury&&S.injury.parts)||[];
+  let h=`<div class="grabber"></div>
+    <div class="row"><div class="grow"><span class="eyebrow">Sérülés-mód</span>
+    <h2 style="font-size:22px">Terhelt testtáj</h2><span class="small dim">Az érintett gyakorlatok kimaradnak, a többi súlya csökken</span></div>
+    <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
+    <div class="whyrow" style="margin-top:12px">`;
+  MGS.forEach(m=>{ h+=`<button class="whyc ${parts.indexOf(m)>=0?'on':''}" onclick="toggleInjury('${m}')">${m}</button>`; });
+  h+=`</div><p class="small dim" style="margin:12px 0 0">Az új edzés indításakor lép életbe. A folyamatban lévő edzést nem módosítja.</p>
+    <button class="btn" style="margin-top:12px" onclick="clearInjury()">Sérülés-mód kikapcsolása</button>`;
+  document.getElementById('sheetIn').innerHTML=h;
+  document.getElementById('sheet').classList.add('on');
+}
+function toggleInjury(m){
+  const parts=(S.injury&&S.injury.parts)?S.injury.parts.slice():[];
+  const i=parts.indexOf(m); if(i>=0) parts.splice(i,1); else parts.push(m);
+  S.injury = parts.length ? {parts:parts,since:Date.now()} : null;
+  save(); openInjury(); updateInjuryBtn();
+}
+function clearInjury(){ S.injury=null; save(); closeSheet(); render(); updateInjuryBtn(); }
+function updateInjuryBtn(){ const b=document.getElementById('injuryBtn'); if(b) b.style.color=injuryOn()?'var(--red)':'var(--mut)'; }
+
+/* ---- Mentés-emlékeztető ------------------------------------------- */
+function needsBackup(){ return !nagOff && S.sessions.length>0 && (Date.now()-(S.lastBackup||0) > 30*864e5); }
+function dismissNag(){ nagOff=true; render(); }
+
 /* ---- Téma (világos / sötét) ---------------------------------------- */
 function currentTheme(){ try{ return localStorage.getItem('gymlog_theme')||'auto'; }catch(e){ return 'auto'; } }
 function effectiveDark(){ const t=currentTheme();
@@ -580,7 +770,7 @@ applyTheme();
 
 document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;render();window.scrollTo(0,0)});
 document.getElementById('sheet').onclick=e=>{ if(e.target.id==='sheet') closeSheet(); };
-load();
+load().then(updateInjuryBtn);
 
 // Service worker – offline app-héj. Az edzésadatot (localStorage) nem érinti.
 if('serviceWorker' in navigator){

@@ -25,7 +25,12 @@ beolvassa és átalakítja.
     }
   ],
   "active": null,
-  "weights": { "<gyakorlatId>": 55 }
+  "weights": { "<gyakorlatId>": 55 },
+
+  "notes":  { "<gyakorlatId>": "állandó jegyzet (padszög, technika)" },
+  "photos": { "<gyakorlatId>": "data:image/jpeg;base64,... (gépbeállítás)" },
+  "injury": { "parts": ["mell"], "since": 1753804800000 },
+  "lastBackup": 1753804800000
 }
 ```
 
@@ -35,6 +40,30 @@ beolvassa és átalakítja.
   `null` = a szett nem lett rögzítve.
 - `weights` – az utoljára használt súly gyakorlatonként; ebből számol
   a program progressziót a következő edzésre.
+
+**Bővített, additív mezők** (visszafelé kompatibilisek – a régi
+`gymlog_v1` adat migráció nélkül betöltődik, a hiányzó kulcsok
+alapértéket kapnak; a `save()`/`backup()`/`restore()` viszi őket):
+
+- `notes` – gyakorlathoz kötött **állandó** jegyzet (padszög, ülésmagasság,
+  technikai emlékeztető).
+- `photos` – gyakorlathoz kötött fotó (gépbeállítás-emlékeztető),
+  lekicsinyítve (max 800px, JPEG ~0.6) base64 dataURL-ként.
+- `injury` – sérülés-mód: a `parts` a terhelt testtájak (`mg` értékek).
+  Új edzés indításakor az érintett gyakorlatok kimaradnak, a többi
+  súlya −15%. `null` = kikapcsolva.
+- `lastBackup` – az utolsó biztonsági mentés ideje; ebből jön a havi
+  mentés-emlékeztető.
+- Session-szinten: `note` (aznapi jegyzet), `deload` (kihagyás utáni
+  visszaépítés jelző). Log-szinten: `why` (`busy`|`heavy`|`time` – miért
+  tért el a tervtől).
+- A PLAN gyakorlatok `mg` mezője (izomcsoport: mell, hát, váll, tricepsz,
+  bicepsz, láb, törzs) a sérülés-módot és a szűrést hajtja. Ez NEM
+  azonosító – szabadon hangolható.
+
+**Okos súlyjavaslat:** a `startW`/`smartInc` a cél feletti túlteljesítés
+arányában nagyobbat lép (nem fix +inc). Kihagyás (>10 nap) esetén a
+`startDay` visszalépést (−15%) ajánl.
 
 ## Gyakorlat-azonosítók – NE nevezd át őket
 
@@ -87,8 +116,10 @@ media-blokkban definiálva – a `:root`-on legyen az alapérték.
   és kevesebbet fogyaszt; a világos téma választható (rendszerkövetéssel).
 - **A szám a főszereplő.** A súly és az ismétlés nagy, tabuláris
   számokkal jelenik meg.
-- Nincs benne kép, videólink, közösségi funkció. Ezeket szándékosan
-  vettük ki – ne javasold vissza.
+- Nincs benne videólink, közösségi funkció. Ezeket szándékosan
+  vettük ki – ne javasold vissza. **Kivétel a fotó:** gyakorlatonként
+  egy gépbeállítás-emlékeztető kép megengedett (nem illusztráció, hanem
+  emlékeztető) – lásd `photos` mező.
 
 ## Ismert hiányosságok / lehetséges irányok
 
@@ -97,11 +128,20 @@ media-blokkban definiálva – a `:root`-on legyen az alapérték.
 2. ~~Nincs PWA manifest és service worker – offline nem működik.~~
    **Kész:** van `manifest.webmanifest` + `sw.js`, az app telepíthető
    és offline is fut (lásd „PWA / offline" lentebb).
-3. A pihenőóra megáll, ha a telefon képernyője elalszik.
-4. A biztonsági mentés kézi. Automatikus vagy emlékeztetős mentés jó lenne.
+3. ~~A pihenőóra megáll, ha a telefon képernyője elalszik.~~
+   **Kész:** Wake Lock API tartja ébren a képernyőt, amíg a pihenő megy;
+   az óra amúgy is időbélyeg-alapú, tehát háttérből visszatérve pontos.
+4. ~~A biztonsági mentés kézi.~~ **Kész:** havi mentés-emlékeztető a
+   kezdőképernyőn (`lastBackup` alapján).
+
+**Edző-funkciók (kész):** okos súlyjavaslat (túlteljesítés-arányos ugrás),
+kihagyás-felismerés (>10 nap → visszaépítés), terv-kontra-valóság
+eltérés-ok egy koppintással, összterhelés/kiugró-terhelés a naplóban,
+sérülés-mód (érintett gyakorlatok kihagyása + súlycsökkentés), kétszintű
+jegyzet (állandó + aznapi) és gépbeállítás-fotó gyakorlatonként.
 
 **Amit ne csinálj elsőre:** ne írd át React/Vue keretrendszerre.
-A jelenlegi ~360 sor működik; a keretrendszer nulla új funkciót adna.
+A keretrendszer nulla új funkciót adna.
 
 ## PWA / offline
 
