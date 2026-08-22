@@ -30,7 +30,11 @@ beolvassa és átalakítja.
   "notes":  { "<gyakorlatId>": "állandó jegyzet (padszög, technika)" },
   "photos": { "<gyakorlatId>": "data:image/jpeg;base64,... (gépbeállítás)" },
   "injury": { "parts": ["mell"], "since": 1753804800000 },
-  "lastBackup": 1753804800000
+  "lastBackup": 1753804800000,
+
+  "customEx": { "cx_abc123": { "id":"cx_abc123","n":"Bolgár kitörés","mg":"láb","s":3,"r":"10","w":20,"inc":2.5,"rest":90 } },
+  "routines": [ { "id":"r_abc123","name":"Láb nap","sub":"4 gyakorlat","ex":["legcurl","cx_abc123"] } ],
+  "programs": [ { "id":"p_abc123","name":"Heti terv","days":["pa","r_abc123"] } ]
 }
 ```
 
@@ -83,6 +87,30 @@ neve feloldható maradjon a naplóban. Ha kiveszel egy gyakorlatot a
 `PLAN`-ból, tedd át az `ARCHIVE`-ba – különben a régi adat
 azonosítóként jelenik meg a felületen.
 
+## Edzés-összeállító (saját gyakorlatok / edzések / tervek)
+
+- **Saját gyakorlat** (`customEx`): a felhasználó által létrehozott
+  gyakorlat, `cx_…` előtagú, ütközésmentes ID-vel. Az `exDef(id)` a
+  PLAN → customEx → ARCHIVE sorrendben old fel.
+- **Saját edzés** (`routines`): `{id:'r_…', name, sub, ex:[exId,…]}`, ahol
+  az `ex` beépített VAGY saját gyakorlat-ID-kat hivatkoz. A `dayDef(id)`
+  egységes `{id,name,sub,ex:[def,…]}` alakot ad vissza PLAN-ra és
+  routine-ra is; a hívók ezt használják (nem `PLAN.find`-ot).
+- **Edzésterv** (`programs`): `{id:'p_…', name, days:[dayId,…]}` – több
+  edzést (beépített napot vagy saját routine-t) fog össze. A főoldalon
+  szekcióként jelenik meg.
+- A `startDay` az aktív edzésre elmenti a `dayName`-et, hogy egy törölt
+  routine naplózott edzése is nevesíthető maradjon.
+- **NE nevezd át** a `cx_…`/`r_…`/`p_…` ID-kat – ezek is kulcsként
+  szerepelnek a mentett adatban.
+
+## Ikonok
+
+A felület ikonjai **monokróm inline SVG-k** (`ICON` objektum,
+`currentColor`), NEM unicode-glyphek/emojik – így a témát követik és nem
+válnak platformonként színes emojivá. Új ikon is így kerüljön be; a
+statikus gombok/nav ikonjait a `paintIcons()` tölti be induláskor.
+
 ## Tárolás
 
 `window.storage`-ot próbál először (ez csak Claude-artifactként fut),
@@ -123,8 +151,11 @@ media-blokkban definiálva – a `:root`-on legyen az alapérték.
 
 ## Ismert hiányosságok / lehetséges irányok
 
-1. A `PLAN` tömb a kódba van drótozva. A terv appon belüli
-   szerkeszthetősége lenne a legnagyobb nyereség.
+1. ~~A `PLAN` tömb a kódba van drótozva.~~ **Részben kész:** a beépített
+   `PLAN` (4 nap) továbbra is drótozott alapértelmezés, de a felhasználó
+   mellé **saját gyakorlatokat** (`customEx`), **saját edzéseket**
+   (`routines`) és **edzésterveket** (`programs`) hozhat létre az appban
+   (lásd „Edzés-összeállító" lentebb). A beépített azonosítók változatlanok.
 2. ~~Nincs PWA manifest és service worker – offline nem működik.~~
    **Kész:** van `manifest.webmanifest` + `sw.js`, az app telepíthető
    és offline is fut (lásd „PWA / offline" lentebb).
