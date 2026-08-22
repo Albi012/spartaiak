@@ -310,7 +310,7 @@ const ICON={
 };
 
 let S = {sessions:[], active:null, weights:{}, notes:{}, photos:{}, injury:null, lastBackup:0,
-         customEx:{}, routines:[], programs:[]};
+         customEx:{}, routines:[], programs:[], hidePlan:false};
 let tab='home', playing=false, curEx=0, tInt=null, tEnd=0, tLen=0, wl=null, nagOff=false;
 let editing=false, draft=null;   // edzés-összeállító
 
@@ -342,7 +342,7 @@ async function load(){
 async function save(){
   const v=JSON.stringify({sessions:S.sessions,active:S.active,weights:S.weights,
     notes:S.notes,photos:S.photos,injury:S.injury,lastBackup:S.lastBackup,
-    customEx:S.customEx,routines:S.routines,programs:S.programs});
+    customEx:S.customEx,routines:S.routines,programs:S.programs,hidePlan:S.hidePlan});
   const ok=await writeKey(KEY,v);
   if(!ok&&storeMode!=='none'){ storeMode='none'; render(); }
 }
@@ -611,15 +611,20 @@ function homeView(){
       <span class="small dim">${doneN}/${exN} gyakorlat kész</span></span>
       <span style="color:var(--brass);font-size:22px">›</span></button></div>`;
   }
-  const nextIdx = done ? (PLAN.findIndex(d=>d.id===S.sessions[done-1].day)+1)%4 : 0;
-  PLAN.forEach((d,i)=>{
-    const last = [...S.sessions].reverse().find(s=>s.day===d.id);
-    h += `<div class="card"><button class="daybtn" onclick="startDay('${d.id}')">
-      <span class="daytag">${i+1}</span>
-      <span class="grow"><span class="cond" style="font-size:21px;font-weight:600;display:block">${d.name}${i===nextIdx&&!S.active?'<span class="pill">KÖVETKEZŐ</span>':''}</span>
-      <span class="small dim">${d.sub}${last?' · utoljára '+fmtDate(last.t):' · még nem volt'}</span></span>
-      <span style="color:var(--dim);font-size:22px">›</span></button></div>`;
-  });
+  // Beépített alapterv (Push/Pull 4 nap) – edzéstervként, törölhetően (elrejtés).
+  if(!S.hidePlan){
+    const nextIdx = done ? (PLAN.findIndex(d=>d.id===S.sessions[done-1].day)+1)%4 : 0;
+    h+=`<div class="top" style="padding:18px 0 8px"><div class="row"><span class="eyebrow grow">Alapterv · Push / Pull</span>
+      <button class="iconbtn" onclick="deletePlan()" aria-label="Alapterv törlése" title="Alapterv törlése" style="color:var(--red)">×</button></div></div>`;
+    PLAN.forEach((d,i)=>{
+      const last = [...S.sessions].reverse().find(s=>s.day===d.id);
+      h += `<div class="card"><button class="daybtn" onclick="startDay('${d.id}')">
+        <span class="daytag">${i+1}</span>
+        <span class="grow"><span class="cond" style="font-size:21px;font-weight:600;display:block">${d.name}${i===nextIdx&&!S.active?'<span class="pill">KÖVETKEZŐ</span>':''}</span>
+        <span class="small dim">${d.sub}${last?' · utoljára '+fmtDate(last.t):' · még nem volt'}</span></span>
+        <span style="color:var(--dim);font-size:22px">›</span></button></div>`;
+    });
+  }
   // Edzéstervek (programok)
   (S.programs||[]).forEach(pr=>{
     h+=`<div class="top" style="padding:18px 0 8px"><div class="row"><span class="eyebrow grow">${esc(pr.name)}</span>
@@ -638,8 +643,13 @@ function homeView(){
   }
   h+=`<button class="btn" style="margin-top:8px" onclick="openBuilder()">+ Új edzés</button>
       <button class="btn" style="margin-top:8px" onclick="openProgram()">+ Új edzésterv</button>
+      ${S.hidePlan?`<button class="btn ghost" style="margin-top:8px;color:var(--mut)" onclick="restorePlan()">Beépített alapterv visszaállítása</button>`:''}
       <button class="btn ghost" style="margin-top:8px;margin-bottom:4px;color:var(--mut)" onclick="openManageEx()">Saját gyakorlatok kezelése${(S.customEx&&Object.keys(S.customEx).length)?' ('+Object.keys(S.customEx).length+')':''}</button>`;
   return h+'</div>';
+}
+function deletePlan(){ if(!confirm('Elrejted a beépített alaptervet (Push/Pull)? A naplózott edzéseid megmaradnak, és bármikor visszaállíthatod.')) return;
+  S.hidePlan=true; save(); render(); window.scrollTo(0,0); }
+function restorePlan(){ S.hidePlan=false; save(); render(); window.scrollTo(0,0);
 }
 function dayCard(id,name,sub,last,editable){
   return `<div class="card"><div class="row" style="gap:0">
