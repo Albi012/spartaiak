@@ -845,6 +845,8 @@ function openProgram(id){
   editing='program'; render(); window.scrollTo(0,0);
 }
 function closeProgram(){ editing=false; prog=null; render(); window.scrollTo(0,0); }
+function updateProgSave(){ const ok=prog && prog.name.trim() && prog.days.length>0;
+  document.querySelectorAll('#progSave,#progSaveTop').forEach(b=>b.disabled=!ok); }
 function progMove(i,dir){ const j=i+dir; if(j<0||j>=prog.days.length) return;
   const a=prog.days; [a[i],a[j]]=[a[j],a[i]]; render(); }
 function progRemove(i){ prog.days.splice(i,1); render(); }
@@ -873,16 +875,16 @@ function programView(){
     <div class="ptop">
       <button class="iconbtn" onclick="closeProgram()" aria-label="Mégse">${ICON.back}</button>
       <div class="pmid"><div class="d">Edzésterv</div><div class="c">${prog.isNew?'új terv':'szerkesztés'}</div></div>
-      <button class="iconbtn" onclick="saveProgram()" ${canSave?'':'disabled'} style="color:var(--sage)" aria-label="Mentés">${ICON.check}</button>
+      <button class="iconbtn" id="progSaveTop" onclick="saveProgram()" ${canSave?'':'disabled'} style="color:var(--sage)" aria-label="Mentés">${ICON.check}</button>
     </div>
     <div class="pmain" style="justify-content:flex-start;gap:12px">
       <input id="progName" type="text" placeholder="Terv neve (pl. Nyári tömeg)" value="${esc(prog.name)}"
-        oninput="prog.name=this.value" style="width:100%;font-size:18px">
+        oninput="prog.name=this.value;updateProgSave()" style="width:100%;font-size:18px">
       ${items}
       <button class="btn" onclick="openDayPicker()">+ Edzés hozzáadása</button>
       ${(S.programs||[]).some(x=>x.id===prog.id)?`<button class="btn" onclick="openSharePlan('${prog.id}')">Megosztás baráttal</button>`:''}
       ${!prog.isNew?`<button class="btn ghost" style="color:var(--red)" onclick="deleteProgram('${prog.id}')">Terv törlése</button>`:''}
-      <button class="btn pri" onclick="saveProgram()" ${canSave?'':'disabled'}>Mentés</button>
+      <button class="btn pri" id="progSave" onclick="saveProgram()" ${canSave?'':'disabled'}>Mentés</button>
     </div>
   </div>`;
 }
