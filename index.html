@@ -470,7 +470,8 @@ function homeView(){
       h+=dayCard(r.id, r.name, r.sub||(r.ex.length+' gyakorlat'), last, true); });
   }
   h+=`<button class="btn" style="margin-top:8px" onclick="openBuilder()">+ Új edzés</button>
-      <button class="btn" style="margin-top:8px;margin-bottom:4px" onclick="openProgram()">+ Új edzésterv</button>`;
+      <button class="btn" style="margin-top:8px" onclick="openProgram()">+ Új edzésterv</button>
+      <button class="btn ghost" style="margin-top:8px;margin-bottom:4px;color:var(--mut)" onclick="openManageEx()">Saját gyakorlatok kezelése${(S.customEx&&Object.keys(S.customEx).length)?' ('+Object.keys(S.customEx).length+')':''}</button>`;
   return h+'</div>';
 }
 function dayCard(id,name,sub,last,editable){
@@ -590,42 +591,73 @@ function renderPicker(){
 function addToDraft(exId){ draft.ex.push(exId); closeSheet(); render(); }
 
 /* Új saját gyakorlat űrlap */
-let cxMg='';
-function openCustomEx(){
-  cxMg='';
+/* Saját gyakorlatok kezelése (lista + szerkesztés + törlés) */
+function openManageEx(){
+  const list=Object.values(S.customEx||{});
+  const rows = list.length ? list.map(e=>`<div class="card"><div class="pad row">
+      <span class="grow"><span class="cond" style="font-size:18px;font-weight:600;display:block">${esc(e.n)}</span>
+      <span class="small dim">${e.s}×${e.r}${e.mg?' · '+e.mg:''}${e.bw?' · testsúly':''}</span></span>
+      <button class="iconbtn" onclick="openCustomEx('${e.id}','manage')" aria-label="Szerkesztés" title="Szerkesztés">${ICON.edit}</button>
+      <button class="iconbtn" style="color:var(--red)" onclick="deleteCustomEx('${e.id}')" aria-label="Törlés" title="Törlés">×</button>
+    </div></div>`).join('') : '<div class="empty">Még nincs saját gyakorlatod.</div>';
   document.getElementById('sheetIn').innerHTML=`<div class="grabber"></div>
-    <div class="row"><div class="grow"><span class="eyebrow">Új saját gyakorlat</span>
+    <div class="row"><div class="grow"><span class="eyebrow">Saját gyakorlatok</span>
+    <h2 style="font-size:22px">Kezelés</h2></div>
+    <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
+    <button class="btn pri" style="margin:12px 0" onclick="openCustomEx(null,'manage')">+ Új saját gyakorlat</button>
+    <div style="max-height:52vh;overflow-y:auto">${rows}</div>`;
+  document.getElementById('sheet').classList.add('on');
+}
+function deleteCustomEx(id){
+  const used=(S.routines||[]).some(r=>r.ex.indexOf(id)>=0);
+  if(!confirm('Törlöd ezt a saját gyakorlatot?'+(used?'\nA saját edzésekből is kikerül.':'')+'\n(A már naplózott edzésekben az adat megmarad.)')) return;
+  delete S.customEx[id];
+  (S.routines||[]).forEach(r=>{ r.ex=r.ex.filter(x=>x!==id); });
+  save(); openManageEx();
+}
+
+let cxMg='', cxEditId=null, cxReturn='picker';
+function openCustomEx(id, ret){
+  cxEditId = id || null; cxReturn = ret || 'picker';
+  const e = cxEditId ? S.customEx[cxEditId] : null;
+  cxMg = e ? (e.mg||'') : '';
+  const val=(v,d)=> e!=null ? v : d;
+  const back = cxReturn==='manage' ? 'openManageEx()' : 'renderPicker()';
+  document.getElementById('sheetIn').innerHTML=`<div class="grabber"></div>
+    <div class="row"><div class="grow"><span class="eyebrow">${cxEditId?'Saját gyakorlat szerkesztése':'Új saját gyakorlat'}</span>
     <h2 style="font-size:22px">Add meg a részleteit</h2></div>
-    <button onclick="openExPicker()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
-    <input id="cxName" placeholder="Név (pl. Bolgár kitörés)" style="width:100%;margin-top:12px">
+    <button onclick="${back}" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
+    <input id="cxName" placeholder="Név (pl. Bolgár kitörés)" value="${e?esc(e.n):''}" style="width:100%;margin-top:12px">
     <div class="small dim" style="margin-top:10px">Izomcsoport (a sérülés-módhoz)</div>
-    <div class="whyrow" id="cxMg" style="margin-top:6px">${MGS.map(m=>`<button class="whyc" data-mg="${m}" onclick="pickCxMg(this)">${m}</button>`).join('')}</div>
+    <div class="whyrow" id="cxMg" style="margin-top:6px">${MGS.map(m=>`<button class="whyc ${e&&e.mg===m?'on':''}" data-mg="${m}" onclick="pickCxMg(this)">${m}</button>`).join('')}</div>
     <div class="row" style="gap:8px;margin-top:12px">
-      <label class="small dim" style="flex:1">Szett<input id="cxSets" type="number" inputmode="numeric" value="3" style="width:100%;margin-top:4px"></label>
-      <label class="small dim" style="flex:1">Ismétlés<input id="cxReps" type="text" value="10" style="width:100%;margin-top:4px"></label>
+      <label class="small dim" style="flex:1">Szett<input id="cxSets" type="number" inputmode="numeric" value="${val(e&&e.s,3)}" style="width:100%;margin-top:4px"></label>
+      <label class="small dim" style="flex:1">Ismétlés<input id="cxReps" type="text" value="${e?esc(e.r):'10'}" style="width:100%;margin-top:4px"></label>
     </div>
     <div class="row" style="gap:8px;margin-top:8px">
-      <label class="small dim" style="flex:1">Kezdősúly<input id="cxW" type="number" inputmode="decimal" value="20" style="width:100%;margin-top:4px"></label>
-      <label class="small dim" style="flex:1">Lépés<input id="cxInc" type="number" inputmode="decimal" value="2.5" style="width:100%;margin-top:4px"></label>
-      <label class="small dim" style="flex:1">Pihenő (mp)<input id="cxRest" type="number" inputmode="numeric" value="90" style="width:100%;margin-top:4px"></label>
+      <label class="small dim" style="flex:1">Kezdősúly<input id="cxW" type="number" inputmode="decimal" value="${val(e&&e.w,20)}" style="width:100%;margin-top:4px"></label>
+      <label class="small dim" style="flex:1">Lépés<input id="cxInc" type="number" inputmode="decimal" value="${val(e&&e.inc,2.5)}" style="width:100%;margin-top:4px"></label>
+      <label class="small dim" style="flex:1">Pihenő (mp)<input id="cxRest" type="number" inputmode="numeric" value="${val(e&&e.rest,90)}" style="width:100%;margin-top:4px"></label>
     </div>
-    <label class="row small" style="gap:8px;margin-top:12px"><input id="cxBw" type="checkbox" style="width:auto"> Testsúlyos gyakorlat</label>
-    <button class="btn pri" style="margin-top:14px" onclick="saveCustomEx()">Létrehozás és hozzáadás</button>`;
+    <label class="row small" style="gap:8px;margin-top:12px"><input id="cxBw" type="checkbox" ${e&&e.bw?'checked':''} style="width:auto"> Testsúlyos gyakorlat</label>
+    <button class="btn pri" style="margin-top:14px" onclick="saveCustomEx()">${cxEditId?'Mentés':'Létrehozás és hozzáadás'}</button>`;
 }
 function pickCxMg(btn){ cxMg=btn.dataset.mg; document.querySelectorAll('#cxMg .whyc').forEach(b=>b.classList.toggle('on', b===btn)); }
 function saveCustomEx(){
   const name=(document.getElementById('cxName').value||'').trim();
   if(!name){ alert('Adj nevet a gyakorlatnak.'); return; }
-  const id=uid('cx_');
-  const e={ id, n:name, mg:cxMg||'törzs',
+  const def={ n:name, mg:cxMg||'törzs',
     s:Math.max(1,parseInt(document.getElementById('cxSets').value)||3),
     r:(document.getElementById('cxReps').value||'10').trim(),
     w:Math.max(0,parseFloat(document.getElementById('cxW').value)||0),
     inc:Math.max(0.5,parseFloat(document.getElementById('cxInc').value)||2.5),
     rest:Math.max(10,parseInt(document.getElementById('cxRest').value)||90) };
-  if(document.getElementById('cxBw').checked) e.bw=1;
-  S.customEx[id]=e; if(draft) draft.ex.push(id);
-  cxMg=''; save(); closeSheet(); render();
+  if(document.getElementById('cxBw').checked) def.bw=1;
+  if(cxEditId){ def.id=cxEditId; S.customEx[cxEditId]=def; }
+  else { const id=uid('cx_'); def.id=id; S.customEx[id]=def; if(cxReturn==='picker' && draft) draft.ex.push(id); }
+  const ret=cxReturn; cxMg=''; cxEditId=null; save();
+  if(ret==='manage') openManageEx();
+  else { closeSheet(); render(); }
 }
 
 /* ================= Edzéstervek (programok) ========================= */
