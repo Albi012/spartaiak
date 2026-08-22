@@ -731,26 +731,35 @@ function builderView(){
 /* Gyakorlat-választó lap */
 let pickerQ='', pickerMg='';
 function openExPicker(){ pickerQ=''; pickerMg=''; renderPicker(); document.getElementById('sheet').classList.add('on'); }
-function setPickerMg(m){ pickerMg = (pickerMg===m ? '' : m); renderPicker(); }
-function renderPicker(){
+// A találati listát és a chipeket külön frissítjük, hogy a kereső input
+// DOM-eleme gépelés közben ne épüljön újra (megmaradjon a fókusz + kurzor).
+function pickerRowsHtml(){
   const q=pickerQ.toLowerCase();
   const lib=exLibrary().filter(e=>
     (!q || e.n.toLowerCase().includes(q)) &&
     (!pickerMg || (e.mg||'')===pickerMg));
-  const rows=lib.map(e=>`<button class="btn" style="text-align:left;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px" onclick="addToDraft('${e.id}')">
+  return lib.map(e=>`<button class="btn" style="text-align:left;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px" onclick="addToDraft('${e.id}')">
       <span style="min-width:0"><span style="font-weight:600">${esc(e.n)}</span>
       <span class="small dim" style="display:block">${e.s}×${e.r}${e.mg?' · '+e.mg:''} · ${e.src}</span></span>
-      <span style="color:var(--brass);font-size:24px;flex:none">+</span></button>`).join('');
-  const chips=`<button class="whyc ${pickerMg===''?'on':''}" onclick="setPickerMg('')">Mind</button>`
+      <span style="color:var(--brass);font-size:24px;flex:none">+</span></button>`).join('')
+    || '<div class="empty">Nincs találat ebben az izomcsoportban.</div>';
+}
+function pickerChipsHtml(){
+  return `<button class="whyc ${pickerMg===''?'on':''}" onclick="setPickerMg('')">Mind</button>`
     + MGS.map(m=>`<button class="whyc ${pickerMg===m?'on':''}" onclick="setPickerMg('${m}')">${m}</button>`).join('');
+}
+function renderPickerRows(){ const el=document.getElementById('pickerRows'); if(el) el.innerHTML=pickerRowsHtml(); }
+function renderPickerChips(){ const el=document.getElementById('pickerChips'); if(el) el.innerHTML=pickerChipsHtml(); }
+function setPickerMg(m){ pickerMg=(pickerMg===m?'':m); renderPickerChips(); renderPickerRows(); }
+function renderPicker(){
   document.getElementById('sheetIn').innerHTML=`<div class="grabber"></div>
     <div class="row"><div class="grow"><span class="eyebrow">Gyakorlat hozzáadása</span>
     <h2 style="font-size:22px">Válassz vagy hozz létre</h2></div>
     <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
-    <input type="text" placeholder="Keresés név szerint…" value="${esc(pickerQ)}" oninput="pickerQ=this.value;renderPicker()" style="width:100%;margin:12px 0 10px">
-    <div class="whyrow" style="margin-bottom:12px">${chips}</div>
+    <input type="text" placeholder="Keresés név szerint…" value="${esc(pickerQ)}" oninput="pickerQ=this.value;renderPickerRows()" style="width:100%;margin:12px 0 10px">
+    <div class="whyrow" id="pickerChips" style="margin-bottom:12px">${pickerChipsHtml()}</div>
     <button class="btn pri" style="margin-bottom:12px" onclick="openCustomEx()">+ Új saját gyakorlat</button>
-    <div style="max-height:40vh;overflow-y:auto">${rows||'<div class="empty">Nincs találat ebben az izomcsoportban.</div>'}</div>`;
+    <div id="pickerRows" style="max-height:40vh;overflow-y:auto">${pickerRowsHtml()}</div>`;
 }
 function addToDraft(exId){ draft.ex.push(exId); closeSheet(); render(); }
 
