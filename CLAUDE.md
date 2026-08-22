@@ -82,6 +82,11 @@ Pull B: tbar, wide, onerow, legcurl, hyp, rear, knee
 Archív (már nincs a tervben, de van rá rögzített adat): rack, abs
 ```
 
+A `LIB` (beépített gyakorlat-könyvtár, `x_…` előtagú ID-k) ~80 további
+gyakorlatot ad a választóhoz, izomcsoportra szűrhetően. Ezek is
+kulcsként szerepelhetnek a naplóban – **NE nevezd át őket**. Az `exDef`
+a PLAN → customEx → LIB → ARCHIVE sorrendben old fel.
+
 Az `ARCHIVE` objektum azért van, hogy a tervből kivett gyakorlatok
 neve feloldható maradjon a naplóban. Ha kiveszel egy gyakorlatot a
 `PLAN`-ból, tedd át az `ARCHIVE`-ba – különben a régi adat

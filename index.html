@@ -350,8 +350,104 @@ const ARCHIVE = {
   abs:{id:'abs',n:'Hasprés kábelen',s:3,r:'12',w:20,rest:60,inc:5},
   ohpdb:{id:'ohpdb',n:'Vállból nyomás ülve',s:3,r:'8',w:12.5,rest:120,inc:2.5}
 };
+// Beépített gyakorlat-könyvtár – a választóban jelenik meg (izomcsoportra
+// szűrhető). Stabil `x_…` ID-k (a naplóban is kulcsként szerepelhetnek –
+// NE nevezd át őket). A PLAN 4 napja marad az alapértelmezett terv.
+const _L=(id,n,mg,s,r,w,rest,inc,extra)=>({id,n,mg,s,r,w,rest,inc,...(extra||{})});
+const LIB_ARR=[
+  // MELL
+  _L('x_inclbb','Ferde fekvenyomás rúddal','mell',4,'6',40,150,2.5),
+  _L('x_declbb','Negatív fekvenyomás rúddal','mell',4,'8',40,150,2.5),
+  _L('x_inclmach','Ferde gépi mellnyomás','mell',3,'10',20,120,5),
+  _L('x_machpress','Gépi mellnyomás','mell',3,'10',25,90,5),
+  _L('x_dbfly','Tárogatás kézisúlyzóval','mell',3,'12',10,75,2.5),
+  _L('x_lowfly','Alsó kábeltárogatás','mell',3,'15',10,60,2.5),
+  _L('x_highfly','Felső kábeltárogatás','mell',3,'15',10,60,2.5),
+  _L('x_pecdeck','Pec-deck (butterfly)','mell',3,'12',25,75,5),
+  _L('x_pushup','Fekvőtámasz','mell',3,'15',0,60,2.5,{bw:1}),
+  _L('x_declpushup','Lábemelt fekvőtámasz','mell',3,'12',0,60,2.5,{bw:1}),
+  _L('x_svend','Svend prés','mell',3,'15',5,60,1.25),
+  // HÁT
+  _L('x_deadlift','Felhúzás (deadlift)','hát',4,'5',60,180,5),
+  _L('x_pendlay','Pendlay evezés','hát',4,'6',50,150,2.5),
+  _L('x_chinup','Alsó fogású húzódzkodás','hát',4,'8',0,150,2.5,{bw:1}),
+  _L('x_neutralpd','Lehúzás semleges foggal','hát',3,'10',50,90,5),
+  _L('x_closepd','Szűk fogású lehúzás','hát',3,'10',50,90,5),
+  _L('x_straightarm','Egyenes karú lehúzás','hát',3,'15',25,60,5),
+  _L('x_seatedrow','Ülő gépi evezés','hát',3,'10',45,90,5),
+  _L('x_chestrow','Melltámaszos gépi evezés','hát',3,'10',40,90,5),
+  _L('x_meadows','Meadows evezés','hát',3,'10',20,90,2.5),
+  _L('x_shrug','Vállvonás (trapéz)','hát',4,'12',60,75,5),
+  _L('x_dbshrug','Vállvonás kézisúlyzóval','hát',4,'12',24,75,2.5),
+  _L('x_pullover','Pullover','hát',3,'12',20,75,2.5),
+  _L('x_invrow','Fordított evezés (test)','hát',3,'12',0,75,2.5,{bw:1}),
+  // VÁLL
+  _L('x_arnold','Arnold nyomás','váll',3,'10',12.5,90,2.5),
+  _L('x_dbpress','Vállnyomás kézisúlyzóval állva','váll',3,'8',14,120,2.5),
+  _L('x_machsp','Gépi vállnyomás','váll',3,'10',20,90,5),
+  _L('x_cablelat','Oldalemelés kábelen','váll',3,'15',5,60,1.25),
+  _L('x_frontraise','Elülső vállemelés','váll',3,'12',7.5,60,2.5),
+  _L('x_revpecdeck','Fordított pec-deck (hátsó váll)','váll',3,'15',15,60,5),
+  _L('x_uprightrow','Álló evezés (upright row)','váll',3,'12',25,75,2.5),
+  _L('x_pushpress','Lökés (push press)','váll',4,'5',35,150,2.5),
+  _L('x_landmine','Landmine nyomás','váll',3,'10',20,90,2.5),
+  // TRICEPSZ
+  _L('x_closegrip','Szűk fogású fekvenyomás','tricepsz',4,'8',40,120,2.5),
+  _L('x_skull','Homloktörő (skull crusher)','tricepsz',3,'10',25,75,2.5),
+  _L('x_ohext','Fej fölötti tricepsz nyújtás','tricepsz',3,'12',20,75,2.5),
+  _L('x_dbfrench','Egykezes francia nyomás','tricepsz',3,'12',10,60,2.5),
+  _L('x_dipmach','Tricepsz tolódzkodás gépen','tricepsz',3,'10',30,75,5),
+  _L('x_kickback','Tricepsz kickback','tricepsz',3,'15',7.5,60,2.5),
+  _L('x_pushbar','Tricepsz lehúzás rúddal','tricepsz',3,'12',30,60,2.5),
+  // BICEPSZ
+  _L('x_bbcurl','Rúdas bicepsz hajlítás','bicepsz',3,'8',25,75,2.5),
+  _L('x_ezcurl','EZ-rudas bicepsz','bicepsz',3,'10',20,75,2.5),
+  _L('x_preacher','Scott-pados hajlítás','bicepsz',3,'10',20,75,2.5),
+  _L('x_inclcurl','Ferdepados hajlítás','bicepsz',3,'10',10,60,2.5),
+  _L('x_cablecurl','Kábeles bicepsz','bicepsz',3,'12',20,60,2.5),
+  _L('x_concentration','Koncentrációs hajlítás','bicepsz',3,'12',10,60,2.5),
+  _L('x_spider','Pók-hajlítás','bicepsz',3,'12',10,60,2.5),
+  _L('x_reversecurl','Fordított fogású hajlítás','bicepsz',3,'12',15,60,2.5),
+  // LÁB
+  _L('x_squat','Guggolás (back squat)','láb',5,'5',60,180,5),
+  _L('x_frontsquat','Elülső guggolás','láb',4,'6',40,150,5),
+  _L('x_legpress','Lábtolás (leg press)','láb',4,'10',80,120,10),
+  _L('x_hacksquat','Hack guggolás','láb',4,'8',40,120,5),
+  _L('x_goblet','Kehelyguggolás','láb',3,'12',20,90,2.5),
+  _L('x_lunge','Kitörés (lunge)','láb',3,'10',20,90,2.5),
+  _L('x_bulgarian','Bolgár kitörés','láb',3,'10',16,90,2.5),
+  _L('x_stepup','Fellépés (step-up)','láb',3,'10',16,75,2.5),
+  _L('x_rdl','Román felhúzás (RDL)','láb',4,'8',50,150,5),
+  _L('x_stiffdl','Nyújtott lábú felhúzás','láb',3,'10',40,120,5),
+  _L('x_legext','Lábnyújtás (leg extension)','láb',3,'12',30,75,5),
+  _L('x_legcurlseat','Ülő combhajlítás','láb',3,'12',30,75,5),
+  _L('x_hipthrust','Csípőemelés (hip thrust)','láb',4,'10',40,90,5),
+  _L('x_gluteham','Glute-ham raise','láb',3,'10',0,90,2.5,{bw:1}),
+  _L('x_calfstand','Álló vádliemelés','láb',4,'12',40,60,5),
+  _L('x_calfseated','Ülő vádliemelés','láb',4,'15',20,60,5),
+  _L('x_adductor','Comb közelítő gép','láb',3,'15',30,60,5),
+  _L('x_abductor','Comb távolító gép','láb',3,'15',30,60,5),
+  _L('x_kbswing','Kettlebell lendítés','láb',4,'12',16,75,4),
+  // TÖRZS
+  _L('x_hangleg','Függő lábemelés (nyújtott)','törzs',3,'10',0,60,2.5,{bw:1}),
+  _L('x_toestobar','Lábujj a rúdhoz','törzs',3,'8',0,75,2.5,{bw:1}),
+  _L('x_legraise','Fekvő lábemelés','törzs',3,'15',0,45,2.5,{bw:1}),
+  _L('x_situp','Felülés (sit-up)','törzs',3,'15',0,45,2.5,{bw:1}),
+  _L('x_cablecrunch','Hasprés kábelen','törzs',3,'12',25,60,5),
+  _L('x_abwheel','Hasgörgő (ab wheel)','törzs',3,'10',0,60,2.5,{bw:1}),
+  _L('x_russian','Orosz csavarás','törzs',3,'20',10,45,2.5),
+  _L('x_pallof','Pallof prés (anti-rotáció)','törzs',3,'12',15,45,2.5),
+  _L('x_woodchop','Favágó (cable)','törzs',3,'12',15,45,2.5),
+  _L('x_sidebend','Oldalhajlítás kézisúlyzóval','törzs',3,'15',15,45,2.5),
+  _L('x_deadbug','Dead bug','törzs',3,'12',0,45,2.5,{bw:1}),
+  _L('x_sideplank','Oldalplank','törzs',3,'40 mp',0,45,5,{bw:1,time:1}),
+  _L('x_dragonflag','Dragon flag','törzs',3,'6',0,90,2.5,{bw:1}),
+  _L('x_farmer','Farmer séta','törzs',3,'30 mp',30,75,5,{time:1})
+];
+const LIB={}; LIB_ARR.forEach(e=>LIB[e.id]=e);
 function exDef(id){ for(const d of PLAN) for(const e of d.ex) if(e.id===id) return e;
   if(S.customEx && S.customEx[id]) return S.customEx[id];
+  if(LIB[id]) return LIB[id];
   return ARCHIVE[id] || {id:id,n:id,s:3,r:'10',w:0,rest:90,inc:2.5}; }
 // Nap (edzés) feloldása: beépített PLAN VAGY saját routine. A visszaadott
 // alak {id,name,sub,ex:[def,…]} – a hívók egységesen ezt használják.
@@ -366,6 +462,7 @@ function dayName(s){ const d=dayDef(s.day); return (d&&d.name) || s.dayName || '
 function exLibrary(){
   const seen=new Set(), out=[];
   PLAN.forEach(d=>d.ex.forEach(e=>{ if(!seen.has(e.id)){ seen.add(e.id); out.push({...e, src:'beépített'}); } }));
+  LIB_ARR.forEach(e=>{ if(!seen.has(e.id)){ seen.add(e.id); out.push({...e, src:'könyvtár'}); } });
   Object.values(ARCHIVE).forEach(e=>{ if(!seen.has(e.id)){ seen.add(e.id); out.push({...e, src:'archív'}); } });
   Object.values(S.customEx||{}).forEach(e=>{ if(!seen.has(e.id)){ seen.add(e.id); out.push({...e, src:'saját'}); } });
   return out;
