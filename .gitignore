@@ -2,3 +2,8 @@
 node_modules/
 .netlify/
 *.log
+
+# Titkok – soha ne kerüljenek a repóba (lásd supabase-config.example.js)
+supabase-config.js
+.env
+.env.*
