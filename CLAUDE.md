@@ -61,11 +61,30 @@ azonosítóként jelenik meg a felületen.
 Ha kiveszed a `window.storage` ágat, a `readKey`/`writeKey` interfészt
 tartsd meg – a hívási helyek arra épülnek.
 
+**Téma-preferencia:** külön `gymlog_theme` kulcs (`light` | `dark`;
+hiánya = rendszerkövetés). Ez FÜGGETLEN a `gymlog_v1` edzésadattól –
+a témaváltás soha nem érinti a naplót.
+
+## Téma (világos / sötét)
+
+Az app követi a rendszer beállítását, és a felső sávban lévő gombbal
+kézzel is váltható. A tokenek CSS-változók a `:root`-on:
+
+- Alap `:root` = **sötét** (teremben ez az alapértelmezett).
+- `@media (prefers-color-scheme: light) :root:not([data-theme])` =
+  világos, ha nincs kézi választás.
+- `:root[data-theme="light"|"dark"]` = a kézi váltó felülírja.
+
+A villódzás elleni inline script a `<head>`-ben állítja be a
+`data-theme`-et még festés előtt. Új szín SOHA ne legyen csak
+media-blokkban definiálva – a `:root`-on legyen az alapérték.
+
 ## Tervezési elvek
 
 - **Egy kézzel, izzadt ujjal használható.** Minden koppintható elem
   legalább 44px. A szett-rögzítés két koppintás legyen, ne több.
-- **Sötét felület.** Teremben ez kényelmesebb és kevesebbet fogyaszt.
+- **Két téma, sötét az alapértelmezett.** Teremben a sötét kényelmesebb
+  és kevesebbet fogyaszt; a világos téma választható (rendszerkövetéssel).
 - **A szám a főszereplő.** A súly és az ismétlés nagy, tabuláris
   számokkal jelenik meg.
 - Nincs benne kép, videólink, közösségi funkció. Ezeket szándékosan
