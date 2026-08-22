@@ -3,7 +3,9 @@ node_modules/
 .netlify/
 *.log
 
-# Titkok – soha ne kerüljenek a repóba (lásd supabase-config.example.js)
-supabase-config.js
+# Titkok – soha ne kerüljenek a repóba.
+# Megjegyzés: a supabase-config.js CSAK a publikálható (böngésző-biztos)
+# kulcsot tartalmazza, ezért az szándékosan a repóban van (RLS védi az adatot).
+# A valódi titkok (service_role, sb_secret_…) ezekbe kerüljenek – ezek tiltva:
 .env
 .env.*
