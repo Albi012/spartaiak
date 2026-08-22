@@ -119,10 +119,77 @@
     // mutass választót (melyik legyen az alap). Lásd TODO.
   }
 
+  // -- Profil + barátok (2. fázis) -----------------------------------
+  function randCode(){ // 6 jegyű, félreérthető karakterek nélkül
+    const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s='';
+    for(let i=0;i<6;i++) s+=A[Math.floor(Math.random()*A.length)];
+    return s;
+  }
+  async function getProfile(){
+    const c=await ensureClient(); if(!c||!cloudUser) return null;
+    let { data } = await c.from('profiles').select('display_name,friend_code').eq('id',cloudUser.id).single();
+    if(!data) return null;
+    // barát-kód biztosítása (első használatkor)
+    if(!data.friend_code){
+      let code=randCode();
+      const up=await c.from('profiles').update({friend_code:code}).eq('id',cloudUser.id).select('display_name,friend_code').single();
+      if(up.data) data=up.data;
+    }
+    return data;
+  }
+  async function saveDisplayName(name){
+    const c=await ensureClient(); if(!c||!cloudUser) return false;
+    const { error } = await c.from('profiles').update({display_name:name}).eq('id',cloudUser.id);
+    return !error;
+  }
+  async function requestFriend(code){
+    const c=await ensureClient(); if(!c||!cloudUser) return 'error';
+    const { data, error } = await c.rpc('request_friend',{ code:(code||'').trim().toUpperCase() });
+    return error ? 'error' : data;   // 'ok' | 'accepted' | 'self' | 'notfound'
+  }
+  async function listFriendships(){
+    const c=await ensureClient(); if(!c||!cloudUser) return [];
+    const { data } = await c.from('friendships').select('*')
+      .or('requester.eq.'+cloudUser.id+',addressee.eq.'+cloudUser.id);
+    return data||[];
+  }
+  async function respondFriend(requesterId, accept){
+    const c=await ensureClient(); if(!c||!cloudUser) return false;
+    if(accept){
+      const { error } = await c.from('friendships').update({status:'accepted'})
+        .eq('requester',requesterId).eq('addressee',cloudUser.id);
+      return !error;
+    } else {
+      const { error } = await c.from('friendships').delete()
+        .eq('requester',requesterId).eq('addressee',cloudUser.id);
+      return !error;
+    }
+  }
+  async function removeFriend(otherId){
+    const c=await ensureClient(); if(!c||!cloudUser) return false;
+    const { error } = await c.from('friendships').delete()
+      .or('and(requester.eq.'+cloudUser.id+',addressee.eq.'+otherId+'),and(requester.eq.'+otherId+',addressee.eq.'+cloudUser.id+')');
+    return !error;
+  }
+  async function friendStats(userId){
+    const c=await ensureClient(); if(!c||!cloudUser) return null;
+    const { data } = await c.from('shared_stats').select('display_name,data,updated_at').eq('user_id',userId).single();
+    return data||null;
+  }
+  async function publishStats(summary, displayName){
+    const c=await ensureClient(); if(!c||!cloudUser) return false;
+    const { error } = await c.from('shared_stats').upsert({
+      user_id: cloudUser.id, display_name: displayName||null,
+      data: summary||{}, updated_at: new Date().toISOString() });
+    return !error;
+  }
+
   window.Auth = {
     hooks, configured, init,
     signUp, signIn, signInOAuth, signOut, currentUser,
     cloudRead, cloudWrite, maybeImport,
+    getProfile, saveDisplayName, requestFriend, listFriendships,
+    respondFriend, removeFriend, friendStats, publishStats,
     isLoggedIn: () => !!cloudUser
   };
 })();
