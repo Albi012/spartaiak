@@ -55,6 +55,8 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0}
 body{background:var(--bg);color:var(--ink);font-family:Barlow,system-ui,sans-serif;font-size:16px;line-height:1.5;padding-bottom:120px;overscroll-behavior-y:contain;transition:background .25s,color .25s}
+body.playing{padding-bottom:0}
+body.playing .appbar,body.playing .nav{display:none}
 .num,.cond{font-family:'Barlow Condensed',Barlow,sans-serif;font-variant-numeric:tabular-nums}
 h1,h2,h3{font-family:'Barlow Condensed',sans-serif;font-weight:600;letter-spacing:.01em;margin:0}
 button{font-family:inherit;font-size:inherit;color:inherit;background:none;border:none;cursor:pointer}
@@ -62,13 +64,13 @@ input,select{font-family:inherit;font-size:inherit;color:var(--ink);background:v
 input:focus,select:focus,button:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
 .wrap{max-width:560px;margin:0 auto;padding:0 16px}
 
-/* Felső sáv */
+/* Felső sáv (böngésző mód) */
 .appbar{position:sticky;top:0;z-index:40;background:var(--bar);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line);padding-top:env(safe-area-inset-top)}
 .appbar-in{max-width:560px;margin:0 auto;padding:9px 16px;display:flex;align-items:center;gap:10px}
 .brand{display:flex;align-items:center;gap:9px;flex:1;min-width:0}
 .brand-mark{width:22px;height:22px;color:var(--brass);flex:none}
 .brand-name{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:19px;letter-spacing:.02em}
-.iconbtn{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:19px;color:var(--mut);border:1px solid var(--line);background:var(--card)}
+.iconbtn{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:19px;color:var(--mut);border:1px solid var(--line);background:var(--card);flex:none}
 .iconbtn:active{background:var(--card2);transform:scale(.94)}
 
 .top{padding:22px 0 10px}
@@ -80,7 +82,7 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--brass);out
 .mut{color:var(--mut)}.dim{color:var(--dim)}
 .small{font-size:13px}
 
-/* Kezdőképernyő – napválasztó */
+/* Napválasztó / folytatás */
 .daybtn{width:100%;text-align:left;padding:15px;display:flex;align-items:center;gap:14px}
 .daybtn:active{background:var(--card2)}
 .daytag{font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:700;line-height:1;color:var(--brass);
@@ -91,10 +93,10 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--brass);out
 
 /* Szett-chipek */
 .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
-.chip{width:54px;height:54px;border-radius:14px;background:var(--card2);border:1px solid var(--line);
+.chip{width:56px;height:56px;border-radius:14px;background:var(--card2);border:1px solid var(--line);
   display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1;transition:transform .12s,background .12s}
 .chip:active{transform:scale(.93)}
-.chip .r{font-family:'Barlow Condensed',sans-serif;font-size:23px;font-weight:700}
+.chip .r{font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:700}
 .chip .l{font-size:10px;letter-spacing:.08em;color:var(--dim);text-transform:uppercase;margin-top:2px}
 .chip.done{background:var(--sage-d);border-color:var(--sage)}
 .chip.done .r{color:var(--sage)}
@@ -103,20 +105,22 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--brass);out
 .chip.miss .r{color:var(--red)}
 
 /* Súlyállító */
-.wt{display:flex;align-items:center;gap:0;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--card2)}
-.wt button{width:56px;height:56px;font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:600;color:var(--brass)}
+.wt{display:flex;align-items:center;gap:0;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:var(--card2)}
+.wt button{width:64px;height:64px;font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:600;color:var(--brass)}
 .wt button:active{background:var(--brass-d)}
-.wt .val{flex:1;text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:31px;font-weight:700;padding:0 4px}
-.wt .val span{font-size:14px;color:var(--dim);font-family:Barlow;font-weight:500;margin-left:3px}
-.prev{font-size:13px;color:var(--mut);margin-top:10px;font-variant-numeric:tabular-nums}
-.hint{font-size:13px;color:var(--brass);margin-top:6px;font-weight:500}
+.wt .val{flex:1;text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:40px;font-weight:700;padding:0 4px}
+.wt .val span{font-size:16px;color:var(--dim);font-family:Barlow;font-weight:500;margin-left:4px}
+.prev{font-size:13px;color:var(--mut);font-variant-numeric:tabular-nums}
+.hint{font-size:13px;color:var(--brass);font-weight:500}
 
 /* Gombok */
 .btn{display:block;width:100%;text-align:center;padding:15px;border-radius:13px;background:var(--card);border:1px solid var(--line);font-weight:600;box-shadow:0 1px 2px var(--shadow)}
 .btn.pri{background:var(--brass);color:var(--on-brass);border-color:var(--brass)}
+.btn.ghost{background:transparent;box-shadow:none}
 .btn:active{transform:scale(.99);opacity:.9}
+.btn:disabled{opacity:.4}
 
-/* Lebegő alsó navigáció */
+/* Lebegő alsó navigáció (böngésző mód) */
 .nav{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom));
   width:calc(100% - 24px);max-width:420px;background:var(--bar);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
   border:1px solid var(--line);border-radius:20px;display:flex;padding:6px;gap:4px;box-shadow:0 10px 30px var(--shadow);z-index:30}
@@ -124,18 +128,45 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--brass);out
 .nav button.on{color:var(--brass);background:var(--card2)}
 .nav .ic{display:block;font-family:'Barlow Condensed',sans-serif;font-size:20px;margin-bottom:2px}
 
-/* Pihenőóra */
-.timer{position:fixed;left:12px;right:12px;bottom:calc(84px + env(safe-area-inset-bottom));margin:0 auto;max-width:536px;
-  background:var(--card);border:1px solid var(--brass);border-radius:16px;
-  padding:12px 16px;display:none;box-shadow:0 10px 30px var(--shadow);z-index:29}
-.timer.on{display:block}
-.tbar{height:5px;background:var(--card2);border-radius:3px;overflow:hidden;margin-top:9px}
-.tbar i{display:block;height:100%;background:var(--brass);width:100%}
+/* ---- Edzés-lejátszó (immerzív) ------------------------------------- */
+.player{min-height:100dvh;display:flex;flex-direction:column}
+.ptop{display:flex;align-items:center;gap:10px;padding:calc(env(safe-area-inset-top) + 10px) 14px 4px}
+.ptop .pmid{flex:1;text-align:center;min-width:0}
+.ptop .pmid .d{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);font-weight:700}
+.ptop .pmid .c{font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:16px;color:var(--mut)}
+.pdots{display:flex;gap:6px;justify-content:center;padding:8px 14px 2px;flex-wrap:wrap}
+.pdot{width:26px;height:7px;border-radius:4px;background:var(--card2);border:1px solid var(--line);padding:0}
+.pdot.done{background:var(--sage);border-color:var(--sage)}
+.pdot.cur{background:var(--brass);border-color:var(--brass);width:34px}
+.pmain{flex:1;display:flex;flex-direction:column;justify-content:center;gap:16px;
+  padding:12px 18px;max-width:560px;margin:0 auto;width:100%;overflow-y:auto}
+.pname{font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:700;line-height:1.08}
+.pmeta{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-top:4px}
+.pchips{display:flex;gap:10px;flex-wrap:wrap}
+.pchips .chip{width:64px;height:64px}
+.pchips .chip .r{font-size:27px}
+.pfoot{display:flex;gap:10px;padding:10px 16px calc(10px + env(safe-area-inset-bottom));
+  max-width:560px;margin:0 auto;width:100%;position:sticky;bottom:0;background:linear-gradient(to top,var(--bg) 55%,transparent)}
+.pfoot .btn{margin:0}
+.discard{display:block;margin:2px auto 0;padding:8px 14px;color:var(--dim);font-size:13px}
 
-/* Gyakorlat-fejléc */
+/* Pihenő – kör-időzítő overlay */
+.rest{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;
+  background:rgba(8,10,13,.72);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.rest.on{display:flex}
+.rest-card{background:var(--card);border:1px solid var(--line);border-radius:26px;padding:26px 28px;
+  display:flex;flex-direction:column;align-items:center;gap:18px;box-shadow:0 20px 60px var(--shadow);width:min(86vw,330px)}
+.ring{position:relative;width:190px;height:190px}
+.ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.ring-bg{fill:none;stroke:var(--card2);stroke-width:9}
+.ring-fg{fill:none;stroke:var(--brass);stroke-width:9;stroke-linecap:round;transition:stroke-dashoffset .2s linear}
+.ring-val{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-family:'Barlow Condensed',sans-serif;font-variant-numeric:tabular-nums;font-size:52px;font-weight:700}
+
+/* Gyakorlat-fejléc (böngésző nézetekben) */
 .exhead{display:flex;align-items:baseline;gap:8px;margin-bottom:2px}
 .exname{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:600;line-height:1.15}
-.tgt{font-size:13px;color:var(--dim);white-space:nowrap}
+.tgt{font-size:14px;color:var(--dim);white-space:nowrap}
 .done-badge{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--sage);font-weight:700}
 
 /* Napló sorok */
@@ -145,7 +176,7 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--brass);out
 .empty{text-align:center;padding:44px 20px 28px;color:var(--dim)}
 
 /* Alsó lap (szett-billentyűzet) */
-.sheet{position:fixed;inset:0;background:rgba(8,10,13,.6);display:none;align-items:flex-end;z-index:50;backdrop-filter:blur(2px)}
+.sheet{position:fixed;inset:0;background:rgba(8,10,13,.6);display:none;align-items:flex-end;z-index:70;backdrop-filter:blur(2px)}
 .sheet.on{display:flex}
 .sheet .inner{background:var(--card);width:100%;max-width:560px;margin:0 auto;border-radius:22px 22px 0 0;padding:12px 16px calc(20px + env(safe-area-inset-bottom));box-shadow:0 -8px 30px var(--shadow)}
 .grabber{width:40px;height:5px;border-radius:3px;background:var(--line);margin:0 auto 12px}
@@ -168,15 +199,20 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--brass);out
   <button id="themeBtn" class="iconbtn" aria-label="Téma váltása" title="Téma váltása">☾</button>
 </div></header>
 
-<div class="wrap" id="app"></div>
+<div id="app"></div>
 
-<div class="timer" id="timer">
-  <div class="row">
-    <div class="grow"><span class="eyebrow">Pihenő</span></div>
-    <div class="num" id="tval" style="font-size:26px;font-weight:700"></div>
-    <button class="small mut" id="tskip" style="padding:8px 14px;border:1px solid var(--line);border-radius:10px">Kihagy</button>
+<div class="rest" id="rest">
+  <div class="rest-card">
+    <span class="eyebrow">Pihenő</span>
+    <div class="ring">
+      <svg viewBox="0 0 120 120" aria-hidden="true">
+        <circle class="ring-bg" cx="60" cy="60" r="52"></circle>
+        <circle class="ring-fg" id="restRing" cx="60" cy="60" r="52"></circle>
+      </svg>
+      <div class="ring-val num" id="restVal">0:00</div>
+    </div>
+    <button class="btn" id="restSkip" style="max-width:220px">Kihagyás</button>
   </div>
-  <div class="tbar"><i id="tfill"></i></div>
 </div>
 
 <div class="nav">
@@ -221,7 +257,7 @@ const PLAN = [
 ];
 
 let S = {sessions:[], active:null, weights:{}};
-let tab='home', tInt=null, tEnd=0, tLen=0;
+let tab='home', playing=false, curEx=0, tInt=null, tEnd=0, tLen=0;
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -267,10 +303,13 @@ function startW(id){
 function esc(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}
 function fmtDate(t){const d=new Date(t);return d.getFullYear()+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+String(d.getDate()).padStart(2,'0')}
 function wLabel(e,w){ if(e.time) return w>0? '+'+w+' kg':'testsúly'; if(e.bw) return w>0? '+'+w:'testsúly'; return w }
+function exDone(e,L){ return L && L.sets.length && L.sets.every(x=>x!=null); }
 
 function render(){
   const a=document.getElementById('app');
-  if(tab==='home') a.innerHTML = S.active ? sessionView() : homeView();
+  document.body.classList.toggle('playing', playing && !!S.active);
+  if(playing && S.active) a.innerHTML = playerView();
+  else if(tab==='home') a.innerHTML = homeView();
   else if(tab==='log') a.innerHTML = logView();
   else a.innerHTML = progView();
   document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('on', b.dataset.tab===tab));
@@ -280,64 +319,95 @@ function homeView(){
   const done = S.sessions.length;
   const wk = S.sessions.filter(s=>Date.now()-s.t < 6048e5).length;
   let h='';
-  if(storeMode==='none') h+=`<div class="card" style="border-color:var(--red);margin-top:16px"><div class="pad">
+  if(storeMode==='none') h+=`<div class="wrap"><div class="card" style="border-color:var(--red);margin-top:16px"><div class="pad">
     <span class="cond" style="font-size:18px;font-weight:600;color:var(--red)">A mentés nem működik</span>
-    <div class="small mut" style="margin-top:4px">Ez a böngésző letiltotta a helyi tárolást. Kapcsold ki a privát böngészést, vagy engedélyezd a sütiket ehhez az oldalhoz – különben minden bezáráskor elvesznek az adatok.</div></div></div>`;
-  h += `<div class="top"><span class="eyebrow">Push / pull · 4 nap</span>
+    <div class="small mut" style="margin-top:4px">Ez a böngésző letiltotta a helyi tárolást. Kapcsold ki a privát böngészést, vagy engedélyezd a sütiket ehhez az oldalhoz – különben minden bezáráskor elvesznek az adatok.</div></div></div></div>`;
+  h += `<div class="wrap"><div class="top"><span class="eyebrow">Push / pull · 4 nap</span>
     <h1 style="font-size:34px;margin-top:4px">Melyik nap jön?</h1>
     <p class="mut small" style="margin:6px 0 0">${done} edzés összesen · ${wk} az elmúlt 7 napban</p></div>`;
+  if(S.active){
+    const d=PLAN.find(x=>x.id===S.active.day);
+    const doneN=d.ex.filter(e=>exDone(e,S.active.log[e.id])).length;
+    h+=`<div class="card" style="border-color:var(--brass)"><button class="daybtn" onclick="resumePlayer()">
+      <span class="daytag" style="color:var(--brass);font-size:20px">▶</span>
+      <span class="grow"><span class="cond" style="font-size:21px;font-weight:600;display:block">Folytatás – ${d.name}</span>
+      <span class="small dim">${doneN}/${d.ex.length} gyakorlat kész</span></span>
+      <span style="color:var(--brass);font-size:22px">›</span></button></div>`;
+  }
   const nextIdx = done ? (PLAN.findIndex(d=>d.id===S.sessions[done-1].day)+1)%4 : 0;
   PLAN.forEach((d,i)=>{
     const last = [...S.sessions].reverse().find(s=>s.day===d.id);
     h += `<div class="card"><button class="daybtn" onclick="startDay('${d.id}')">
       <span class="daytag">${i+1}</span>
-      <span class="grow"><span class="cond" style="font-size:21px;font-weight:600;display:block">${d.name}${i===nextIdx?'<span class="pill">KÖVETKEZŐ</span>':''}</span>
+      <span class="grow"><span class="cond" style="font-size:21px;font-weight:600;display:block">${d.name}${i===nextIdx&&!S.active?'<span class="pill">KÖVETKEZŐ</span>':''}</span>
       <span class="small dim">${d.sub}${last?' · utoljára '+fmtDate(last.t):' · még nem volt'}</span></span>
       <span style="color:var(--dim);font-size:22px">›</span></button></div>`;
   });
-  return h;
+  return h+'</div>';
 }
 
 function startDay(id){
+  if(S.active && !confirm('Van egy folyamatban lévő edzés. Eldobod és újat kezdesz?')) return;
   S.active={day:id,t:Date.now(),log:{}};
   PLAN.find(d=>d.id===id).ex.forEach(e=>{ S.active.log[e.id]={w:startW(e.id),sets:new Array(e.s).fill(null)}; });
-  save(); render(); window.scrollTo(0,0);
+  curEx=0; playing=true; save(); render(); window.scrollTo(0,0);
 }
+function resumePlayer(){ if(S.active){ playing=true; render(); window.scrollTo(0,0); } }
+function pausePlayer(){ playing=false; tab='home'; stopTimer(); render(); window.scrollTo(0,0); }
+function discardActive(){ if(confirm('Biztos eldobod ezt az edzést?')){ S.active=null; playing=false; stopTimer(); tab='home'; save(); render(); window.scrollTo(0,0); } }
+function exNav(i){ const d=PLAN.find(x=>x.id===S.active.day); curEx=Math.max(0,Math.min(d.ex.length-1,i)); render(); window.scrollTo(0,0); }
 
-function sessionView(){
+function playerView(){
   const d=PLAN.find(x=>x.id===S.active.day);
-  let h=`<div class="top"><span class="eyebrow">Folyamatban</span>
-    <h1 style="font-size:34px;margin-top:4px">${d.name}</h1></div>`;
-  d.ex.forEach(e=>{
-    const L=S.active.log[e.id];
-    const complete = L.sets.every(x=>x!=null);
-    const last=lastFor(e.id);
-    h+=`<div class="card"><div class="pad">
-      <div class="exhead"><span class="exname grow">${esc(e.n)}</span>
-      ${complete?'<span class="done-badge">kész</span>':`<span class="tgt">${e.s} × ${e.r}</span>`}</div>`;
-    if(!e.time){
-      h+=`<div class="wt" style="margin-top:10px">
-        <button onclick="bump('${e.id}',-1)" aria-label="kevesebb">−</button>
-        <div class="val">${wLabel(e,L.w)}${e.bw&&L.w<=0?'':'<span>kg</span>'}</div>
-        <button onclick="bump('${e.id}',1)" aria-label="több">+</button></div>`;
-    }
-    h+='<div class="chips">';
-    L.sets.forEach((v,i)=>{
-      const t=parseInt(e.r);
-      const cls = v==null?'':(v>=t?'done':'miss');
-      h+=`<button class="chip ${cls}" onclick="openSet('${e.id}',${i})">
-        <span class="r">${v==null?'·':v}</span><span class="l">${i+1}. sz</span></button>`;
-    });
-    h+='</div>';
-    if(last) h+=`<div class="prev">Előző: ${wLabel(e,last.w)}${e.bw&&last.w<=0?'':' kg'} × ${last.sets.map(x=>x==null?'–':x).join(', ')}</div>`;
-    if(!last) h+=`<div class="prev dim">Első alkalom – a technika a cél, ne a súly.</div>`;
-    const hit = L.sets.every(x=>x!=null&&x>=parseInt(e.r));
-    if(hit) h+=`<div class="hint">Mind megvolt → jövő héten ${wLabel(e,L.w+e.inc)}${e.bw&&L.w+e.inc<=0?'':' kg'}</div>`;
-    h+='</div></div>';
-  });
-  h+=`<button class="btn pri" onclick="finish()" style="margin-bottom:10px">Edzés lezárása</button>
-      <button class="btn" onclick="if(confirm('Biztos eldobod ezt az edzést?')){S.active=null;save();render()}" style="margin-bottom:20px;color:var(--mut)">Eldobás</button>`;
-  return h;
+  if(curEx>=d.ex.length) curEx=d.ex.length-1;
+  const e=d.ex[curEx], L=S.active.log[e.id], last=lastFor(e.id);
+  const complete=exDone(e,L), hit=L.sets.every(x=>x!=null&&x>=parseInt(e.r));
+  const isLast=curEx===d.ex.length-1;
+
+  let dots='';
+  d.ex.forEach((x,i)=>{ const done=exDone(x,S.active.log[x.id]);
+    dots+=`<button class="pdot ${i===curEx?'cur':(done?'done':'')}" onclick="exNav(${i})" aria-label="gyakorlat ${i+1}"></button>`; });
+
+  let chips='';
+  L.sets.forEach((v,i)=>{ const t=parseInt(e.r); const cls=v==null?'':(v>=t?'done':'miss');
+    chips+=`<button class="chip ${cls}" onclick="openSet('${e.id}',${i})">
+      <span class="r">${v==null?'·':v}</span><span class="l">${i+1}. sz</span></button>`; });
+
+  let wt='';
+  if(!e.time) wt=`<div class="wt">
+    <button onclick="bump('${e.id}',-1)" aria-label="kevesebb">−</button>
+    <div class="val">${wLabel(e,L.w)}${e.bw&&L.w<=0?'':'<span>kg</span>'}</div>
+    <button onclick="bump('${e.id}',1)" aria-label="több">+</button></div>`;
+
+  let note='';
+  if(last) note=`<div class="prev">Előző: ${wLabel(e,last.w)}${e.bw&&last.w<=0?'':' kg'} × ${last.sets.map(x=>x==null?'–':x).join(', ')}</div>`;
+  else note=`<div class="prev dim">Első alkalom – a technika a cél, ne a súly.</div>`;
+  const hint = hit?`<div class="hint">Mind megvolt → jövő héten ${wLabel(e,L.w+e.inc)}${e.bw&&L.w+e.inc<=0?'':' kg'}</div>`:'';
+
+  return `<div class="player">
+    <div class="ptop">
+      <button class="iconbtn" onclick="pausePlayer()" aria-label="Szünet" title="Szünet">‹</button>
+      <div class="pmid"><div class="d">${d.name}</div><div class="c">gyakorlat ${curEx+1} / ${d.ex.length}</div></div>
+      <button class="iconbtn" onclick="finish()" aria-label="Edzés lezárása" title="Edzés lezárása" style="color:var(--sage)">✓</button>
+    </div>
+    <div class="pdots">${dots}</div>
+    <div class="pmain">
+      <div>
+        <div class="pname">${esc(e.n)}</div>
+        <div class="pmeta">${complete?'<span class="done-badge">kész</span>':`<span class="tgt">cél: ${e.s} × ${e.r}${e.time?'':' ism.'}</span>`}</div>
+      </div>
+      ${wt}
+      <div class="pchips">${chips}</div>
+      ${note}${hint}
+    </div>
+    <div class="pfoot">
+      <button class="btn" onclick="exNav(${curEx-1})" ${curEx===0?'disabled':''} style="flex:0 0 40%">‹ Előző</button>
+      ${isLast
+        ? `<button class="btn pri" onclick="finish()" style="flex:1">Edzés lezárása</button>`
+        : `<button class="btn pri" onclick="exNav(${curEx+1})" style="flex:1">Következő ›</button>`}
+    </div>
+    <button class="discard" onclick="discardActive()">Edzés eldobása</button>
+  </div>`;
 }
 
 function bump(id,dir){ const e=exDef(id),L=S.active.log[id];
@@ -366,31 +436,34 @@ function setRep(v){
 
 function startTimer(sec){
   tLen=sec; tEnd=Date.now()+sec*1000;
-  document.getElementById('timer').classList.add('on');
+  document.getElementById('rest').classList.add('on');
   clearInterval(tInt); tInt=setInterval(tick,200); tick();
 }
+function stopTimer(){ clearInterval(tInt); const r=document.getElementById('rest'); if(r) r.classList.remove('on'); }
 function tick(){
   const left=Math.max(0,tEnd-Date.now());
   const s=Math.ceil(left/1000);
-  document.getElementById('tval').textContent=Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
-  document.getElementById('tfill').style.width=(left/(tLen*1000)*100)+'%';
+  document.getElementById('restVal').textContent=Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
+  const R=52, C=2*Math.PI*R, frac=tLen? left/(tLen*1000) : 0;
+  const ring=document.getElementById('restRing');
+  ring.style.strokeDasharray=C.toFixed(1); ring.style.strokeDashoffset=(C*(1-frac)).toFixed(1);
   if(left<=0){ clearInterval(tInt); if(navigator.vibrate) navigator.vibrate([200,100,200]);
-    setTimeout(()=>document.getElementById('timer').classList.remove('on'),2500); }
+    setTimeout(()=>document.getElementById('rest').classList.remove('on'),1500); }
 }
-document.getElementById('tskip').onclick=()=>{clearInterval(tInt);document.getElementById('timer').classList.remove('on')};
+document.getElementById('restSkip').onclick=stopTimer;
 
 function finish(){
   const any=Object.values(S.active.log).some(l=>l.sets.some(x=>x!=null));
   if(!any){ alert('Egyetlen szettet sem rögzítettél.'); return; }
-  S.sessions.push(S.active); S.active=null; save(); tab='log'; render(); window.scrollTo(0,0);
+  S.sessions.push(S.active); S.active=null; playing=false; stopTimer(); save(); tab='log'; render(); window.scrollTo(0,0);
 }
 
 function logView(){
-  if(!S.sessions.length) return `<div class="top"><h1 style="font-size:34px">Napló</h1></div>
+  if(!S.sessions.length) return `<div class="wrap"><div class="top"><h1 style="font-size:34px">Napló</h1></div>
     <div class="empty">Még nincs lezárt edzés.<br>Kezdd az Edzés fülön.</div>
     <button class="btn" onclick="loadBundled()" style="margin-bottom:8px;color:var(--mut)">Tesztadat betöltése</button>
-    <button class="btn" onclick="restore()" style="margin-bottom:20px;color:var(--mut)">Visszaállítás mentésből</button>`;
-  let h=`<div class="top"><h1 style="font-size:34px">Napló</h1>
+    <button class="btn" onclick="restore()" style="margin-bottom:20px;color:var(--mut)">Visszaállítás mentésből</button></div>`;
+  let h=`<div class="wrap"><div class="top"><h1 style="font-size:34px">Napló</h1>
     <p class="mut small" style="margin:6px 0 0">${S.sessions.length} edzés</p></div>`;
   [...S.sessions].reverse().forEach((s,ri)=>{
     const d=PLAN.find(x=>x.id===s.day); const idx=S.sessions.length-1-ri;
@@ -412,7 +485,7 @@ function logView(){
   h+=`<button class="btn" onclick="copyAll()" style="margin-bottom:8px">Napló másolása szövegként</button>
       <button class="btn" onclick="backup()" style="margin-bottom:8px;color:var(--mut)">Biztonsági mentés (adatfájl)</button>
       <button class="btn" onclick="restore()" style="margin-bottom:20px;color:var(--mut)">Visszaállítás mentésből</button>`;
-  return h;
+  return h+'</div>';
 }
 function backup(){
   const v=JSON.stringify({sessions:S.sessions,weights:S.weights});
@@ -464,9 +537,9 @@ function progView(){
   S.sessions.forEach(s=>Object.keys(s.log).forEach(id=>{
     if(seen.has(id)||ids.includes(id))return;
     if(s.log[id].sets.some(x=>x!=null)) ids.push(id); }));
-  if(!ids.length) return `<div class="top"><h1 style="font-size:34px">Haladás</h1></div>
-    <div class="empty">Két-három edzés után lesz mit mutatni.</div>`;
-  let h=`<div class="top"><h1 style="font-size:34px">Haladás</h1>
+  if(!ids.length) return `<div class="wrap"><div class="top"><h1 style="font-size:34px">Haladás</h1></div>
+    <div class="empty">Két-három edzés után lesz mit mutatni.</div></div>`;
+  let h=`<div class="wrap"><div class="top"><h1 style="font-size:34px">Haladás</h1>
     <p class="mut small" style="margin:6px 0 0">Munkasúly gyakorlatonként</p></div>`;
   ids.forEach(id=>{
     const e=exDef(id);
@@ -482,7 +555,7 @@ function progView(){
       ${pts.length>1?`<svg class="spark" viewBox="0 0 100 44" preserveAspectRatio="none"><path d="${d}" fill="none" stroke="var(--brass)" stroke-width="1.6" vector-effect="non-scaling-stroke" stroke-linejoin="round"/></svg>`:''}
       </div></div>`;
   });
-  return h;
+  return h+'</div>';
 }
 
 /* ---- Téma (világos / sötét) ---------------------------------------- */
