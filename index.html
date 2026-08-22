@@ -217,6 +217,7 @@ textarea:focus{outline:2px solid var(--brass);outline-offset:2px}
     </g></svg>
     <span class="brand-name">Edzésnapló</span>
   </span>
+  <button id="accountBtn" class="iconbtn" onclick="openAuthSheet()" aria-label="Fiók / felhő-szinkron" title="Fiók / felhő-szinkron">☁</button>
   <button id="injuryBtn" class="iconbtn" onclick="openInjury()" aria-label="Sérülés-mód" title="Sérülés-mód">✚</button>
   <button id="themeBtn" class="iconbtn" aria-label="Téma váltása" title="Téma váltása">☾</button>
 </div></header>
@@ -246,6 +247,11 @@ textarea:focus{outline:2px solid var(--brass);outline-offset:2px}
 <div class="sheet" id="sheet"><div class="inner" id="sheetIn"></div></div>
 
 <div class="photo" id="photo" onclick="this.classList.remove('on')"><img id="photoImg" alt="beállítás fotó"></div>
+
+<!-- Felhő-szinkron (1. fázis). A supabase-config.js opcionális; ha hiányzik,
+     az app változatlanul, localStorage-ból fut. Lásd docs/1-fazis-auth-TODO.md -->
+<script src="supabase-config.js" onerror="void 0"></script>
+<script src="js/auth.js"></script>
 
 <script>
 const PLAN = [
@@ -288,6 +294,10 @@ const KEY='gymlog_v1';
 let storeMode='none';
 
 async function readKey(k){
+  // Felhő-szinkron (1. fázis): belépve a felhő az igazság forrása.
+  if(k===KEY && window.Auth && Auth.isLoggedIn()){
+    try{ const c=await Auth.cloudRead(); if(c!=null){ storeMode='local'; return c; } }catch(e){}
+  }
   try{ if(window.storage&&window.storage.get){ const r=await window.storage.get(k); if(r&&r.value){storeMode='claude'; return r.value;} } }catch(e){}
   try{ localStorage.setItem('__t','1'); localStorage.removeItem('__t'); if(storeMode==='none')storeMode='local';
        return localStorage.getItem(k); }catch(e){ storeMode='none'; }
@@ -295,7 +305,9 @@ async function readKey(k){
 }
 async function writeKey(k,v){
   try{ if(window.storage&&window.storage.set){ await window.storage.set(k,v); return true; } }catch(e){}
-  try{ localStorage.setItem(k,v); return true; }catch(e){ return false; }
+  try{ localStorage.setItem(k,v);
+       if(k===KEY && window.Auth && Auth.isLoggedIn()) Auth.cloudWrite(v);  // felhőbe (fire-and-forget)
+       return true; }catch(e){ return false; }
 }
 
 async function load(){
@@ -748,6 +760,55 @@ function updateInjuryBtn(){ const b=document.getElementById('injuryBtn'); if(b) 
 function needsBackup(){ return !nagOff && S.sessions.length>0 && (Date.now()-(S.lastBackup||0) > 30*864e5); }
 function dismissNag(){ nagOff=true; render(); }
 
+/* ---- Fiók / felhő-szinkron (1. fázis) ------------------------------ */
+function updateAuthBtn(){
+  const b=document.getElementById('accountBtn'); if(!b) return;
+  const on=window.Auth && Auth.isLoggedIn();
+  b.style.color = on ? 'var(--sage)' : 'var(--mut)';
+  b.title = on ? ('Fiók: '+(Auth.currentUser()?.email||'bejelentkezve')) : 'Fiók / felhő-szinkron';
+}
+function openAuthSheet(){
+  const configured = window.Auth && Auth.configured();
+  const loggedIn = window.Auth && Auth.isLoggedIn();
+  let h=`<div class="grabber"></div>
+    <div class="row"><div class="grow"><span class="eyebrow">Fiók · felhő-szinkron</span>
+    <h2 style="font-size:22px">${loggedIn?'Bejelentkezve':'Belépés'}</h2></div>
+    <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>`;
+  if(!configured){
+    h+=`<p class="small mut" style="margin-top:12px">A felhő-szinkron még nincs beállítva ezen a példányon.
+      Másold a <code>supabase-config.example.js</code>-t <code>supabase-config.js</code> néven, és töltsd ki a
+      Supabase URL-lel és anon kulccsal. Nélküle az app localStorage-ból fut. Részletek:
+      <code>docs/1-fazis-auth-TODO.md</code>.</p>`;
+  } else if(loggedIn){
+    h+=`<p class="small mut" style="margin-top:12px">${esc(Auth.currentUser()?.email||'')}</p>
+      <p class="small dim" style="margin-top:6px">Az edzésadatod a fiókodhoz szinkronizálódik.</p>
+      <button class="btn" style="margin-top:12px" onclick="doSignOut()">Kijelentkezés</button>`;
+  } else {
+    h+=`<input id="authEmail" type="email" inputmode="email" autocomplete="email" placeholder="e-mail"
+        style="width:100%;margin-top:12px">
+      <input id="authPass" type="password" autocomplete="current-password" placeholder="jelszó"
+        style="width:100%;margin-top:8px">
+      <div id="authErr" class="small" style="color:var(--red);margin-top:8px;display:none"></div>
+      <button class="btn pri" style="margin-top:12px" onclick="doAuth('in')">Belépés</button>
+      <button class="btn" style="margin-top:8px" onclick="doAuth('up')">Regisztráció</button>`;
+  }
+  document.getElementById('sheetIn').innerHTML=h;
+  document.getElementById('sheet').classList.add('on');
+}
+function authErr(msg){ const e=document.getElementById('authErr'); if(e){ e.textContent=msg; e.style.display='block'; } }
+async function doAuth(kind){
+  const email=(document.getElementById('authEmail')||{}).value;
+  const pass=(document.getElementById('authPass')||{}).value;
+  if(!email||!pass){ authErr('Adj meg e-mailt és jelszót.'); return; }
+  try{
+    const { error } = kind==='up' ? await Auth.signUp(email,pass) : await Auth.signIn(email,pass);
+    if(error){ authErr(error.message||'Hiba történt.'); return; }
+    if(kind==='up'){ authErr('Kész! Erősítsd meg az e-mailt, majd lépj be.'); return; }
+    closeSheet();   // a belépés az onAuthStateChange-en át frissít
+  }catch(e){ authErr('Nem sikerült – ellenőrizd a hálózatot / a beállítást.'); }
+}
+async function doSignOut(){ await Auth.signOut(); closeSheet(); }
+
 /* ---- Téma (világos / sötét) ---------------------------------------- */
 function currentTheme(){ try{ return localStorage.getItem('gymlog_theme')||'auto'; }catch(e){ return 'auto'; } }
 function effectiveDark(){ const t=currentTheme();
@@ -771,6 +832,14 @@ applyTheme();
 document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;render();window.scrollTo(0,0)});
 document.getElementById('sheet').onclick=e=>{ if(e.target.id==='sheet') closeSheet(); };
 load().then(updateInjuryBtn);
+
+// Felhő-szinkron indítása (inert, ha nincs supabase-config.js).
+if(window.Auth){
+  Auth.hooks.reload = ()=>load().then(updateInjuryBtn);
+  Auth.hooks.onChange = updateAuthBtn;
+  Auth.init().catch(()=>{});
+}
+updateAuthBtn();
 
 // Service worker – offline app-héj. Az edzésadatot (localStorage) nem érinti.
 if('serviceWorker' in navigator){

@@ -1,8 +1,8 @@
 # 1. fázis – bekötési TODO (feat/auth-supabase)
 
-Ez az ág a **csontvázat** tartalmazza. Az app **változatlanul fut**
-localStorage-ból; a felhő csak akkor lép be, ha van kitöltött
-`supabase-config.js` ÉS bekötöd az `Auth` modult az `index.html`-be.
+Az app **változatlanul fut** localStorage-ból; a felhő csak akkor lép be,
+ha van kitöltött `supabase-config.js` és belépsz. A **bekötés kész** –
+lentebb már csak a Supabase-oldali beállítás + teszt maradt.
 
 Terv és háttér: `docs/felho-szinkron-terv.md`.
 
@@ -11,58 +11,29 @@ Terv és háttér: `docs/felho-szinkron-terv.md`.
 - `supabase/schema.sql` – futtatható séma (profiles, gym_state, RLS, trigger).
 - `supabase-config.example.js` – minta konfig (másold `supabase-config.js`-re).
 - `js/auth.js` – `window.Auth` modul: auth műveletek + felhő-adapter
-  (`cloudRead`/`cloudWrite`) + egyszeri migráció (`maybeImport`). Még nincs
-  bekötve, és offline/konfig nélkül inert.
+  (`cloudRead`/`cloudWrite`) + egyszeri migráció (`maybeImport`). Konfig
+  nélkül / offline inert.
+- **`index.html` bekötve:** `supabase-config.js` + `js/auth.js` betöltve;
+  a `readKey`/`writeKey` felhő-ágra kötve; a felső sávban „Fiók" gomb (☁);
+  belépő/regisztrációs alsó lap; `Auth.init` bekötve a `load` hookokkal.
+- **`sw.js`** cache-eli a `js/auth.js`-t (offline app-héj); `VERSION` v6.
 - `.gitignore` – a `supabase-config.js` és `.env` kimarad a repóból.
 
-## Teendők a befejezéshez
+## Teendők a befejezéshez (Supabase-oldal + teszt)
 
-- [ ] Supabase projekt létrehozása (EU régió), `schema.sql` lefuttatása.
+- [x] `index.html` bekötés + belépő UI + readKey/writeKey felhő-ág.
+- [ ] Supabase projekt létrehozása (EU régió), `schema.sql` lefuttatása. *(kész, ha lefuttattad)*
 - [ ] Auth providerek: Email (+ opcionálisan Google/Apple), Redirect URL-ek
       a Netlify-címre.
 - [ ] `supabase-config.js` kitöltése az URL + anon kulccsal (NEM commitolni).
-- [ ] `index.html` bekötés (a `<script>` blokk elé/mellé):
-
-  ```html
-  <script src="supabase-config.js"></script>   <!-- ha létezik -->
-  <script src="js/auth.js"></script>
-  ```
-
-  A meglévő `readKey`/`writeKey` bővítése (a KEY felhőből is jöjjön):
-
-  ```js
-  async function readKey(k){
-    if(k===KEY && window.Auth && Auth.isLoggedIn()){
-      const cloud = await Auth.cloudRead();
-      if(cloud!=null){ storeMode='local'; return cloud; }
-    }
-    /* … a meglévő window.storage / localStorage ág változatlan … */
-  }
-  async function writeKey(k,v){
-    let ok=false;
-    try{ localStorage.setItem(k,v); ok=true; }catch(e){}
-    if(k===KEY && window.Auth && Auth.isLoggedIn()) await Auth.cloudWrite(v);
-    return ok;
-  }
-  ```
-
-  Indításkor:
-
-  ```js
-  if(window.Auth){
-    Auth.hooks.reload = ()=>load();
-    Auth.hooks.onChange = ()=>{/* frissítsd a Fiók gomb állapotát */};
-    Auth.init();
-  }
-  ```
-
-- [ ] Belépő UI: a felső sávba egy „Fiók" gomb → alsó lap e-mail+jelszó
-      mezőkkel (`Auth.signIn` / `Auth.signUp` / `Auth.signOut`).
-- [ ] Konfliktus-választó: ha belépéskor MINDKÉT oldalon van adat, kérdezz
-      rá, melyik legyen az alap (a `maybeImport` most csak üres felhőnél tölt).
-- [ ] Offline: döntsd el, a Supabase JS CDN-ről jöjjön-e (egyszerű, de nem
-      offline) vagy a repóból + `sw.js` cache (offline, de kell hozzá build
-      vagy a fájl repóba tétele). Lásd a terv 6. pontját.
+- [ ] Élő teszt: belépés → a helyi napló feltöltésének felajánlása → másik
+      eszközön ugyanaz.
+- [ ] Konfliktus-választó: ha belépéskor MINDKÉT oldalon van adat, most a
+      `maybeImport` CSAK üres felhőnél tölt – ide jöhet egy „melyik legyen
+      az alap?" választó.
+- [ ] Offline döntés: a Supabase JS most CDN-ről (esm.sh) jön → belépett
+      módban online kell az első betöltéshez. Ha teljes offline kell,
+      a supabase-js-t a repóba + `sw.js` cache-be kell tenni (lásd terv 6.).
 
 ## Tesztelés
 

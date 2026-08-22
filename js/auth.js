@@ -33,9 +33,11 @@
   async function ensureClient(){
     if(sb) return sb;
     if(!configured()) return null;
-    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
-    sb = createClient(window.SUPABASE_CONFIG.url, window.SUPABASE_CONFIG.anonKey);
-    return sb;
+    try{
+      const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+      sb = createClient(window.SUPABASE_CONFIG.url, window.SUPABASE_CONFIG.anonKey);
+      return sb;
+    }catch(e){ console.warn('Supabase kliens nem tölthető be (offline?)', e); return null; }
   }
 
   // -- Auth műveletek (stub-ok – a valós UI a bekötéskor jön) ----------
