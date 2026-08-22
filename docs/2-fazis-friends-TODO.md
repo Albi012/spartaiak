@@ -7,6 +7,9 @@ utána merge a `main`-be.
 
 ## Beüzemelés
 
+0. **Edzésterv-megosztáshoz** futtasd a **`supabase/schema-plan-shares.sql`**-t
+   is (a `plan_shares` tábla + RLS). Enélkül a barátok fül és a haladás
+   megy, csak a terv küldése/importja nem.
 1. Supabase → SQL Editor → futtasd a **`supabase/schema-friends.sql`**-t
    (feltételezi az 1. fázis `schema.sql`-jét: profiles, gym_state).
 2. Deployold ezt az ágat (vagy futtasd lokálisan), és lépj be a fiókoddal.

@@ -184,12 +184,36 @@
     return !error;
   }
 
+  // -- Edzésterv-megosztás -------------------------------------------
+  async function sharePlan(toUser, name, payload){
+    const c=await ensureClient(); if(!c||!cloudUser) return false;
+    const { error } = await c.from('plan_shares').insert({
+      from_user: cloudUser.id, from_name: (await myName()), to_user: toUser, name: name||'Terv', payload: payload||{} });
+    return !error;
+  }
+  async function myName(){
+    try{ const c=await ensureClient(); if(!c||!cloudUser) return null;
+      const { data } = await c.from('profiles').select('display_name').eq('id',cloudUser.id).single();
+      return data ? data.display_name : null; }catch(e){ return null; }
+  }
+  async function listSharedPlans(){
+    const c=await ensureClient(); if(!c||!cloudUser) return [];
+    const { data } = await c.from('plan_shares').select('*').eq('to_user',cloudUser.id).order('created_at',{ascending:false});
+    return data||[];
+  }
+  async function deleteSharedPlan(id){
+    const c=await ensureClient(); if(!c||!cloudUser) return false;
+    const { error } = await c.from('plan_shares').delete().eq('id',id);
+    return !error;
+  }
+
   window.Auth = {
     hooks, configured, init,
     signUp, signIn, signInOAuth, signOut, currentUser,
     cloudRead, cloudWrite, maybeImport,
     getProfile, saveDisplayName, requestFriend, listFriendships,
     respondFriend, removeFriend, friendStats, publishStats,
+    sharePlan, listSharedPlans, deleteSharedPlan,
     isLoggedIn: () => !!cloudUser
   };
 })();

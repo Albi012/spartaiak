@@ -246,6 +246,7 @@ textarea:focus{outline:2px solid var(--brass);outline-offset:2px}
   <button data-tab="home" class="on"><span class="ic">▣</span>Edzés</button>
   <button data-tab="log"><span class="ic">≡</span>Napló</button>
   <button data-tab="prog"><span class="ic">↗</span>Haladás</button>
+  <button data-tab="friends"><span class="ic">☺</span>Barátok</button>
 </div>
 
 <div class="sheet" id="sheet"><div class="inner" id="sheetIn"></div></div>
@@ -304,7 +305,8 @@ const ICON={
   play:'<svg class="svgic" viewBox="0 0 24 24" fill="currentColor"><path d="M7 5v14l11-7z"/></svg>',
   dumbbell:'<svg class="svgic" viewBox="0 0 24 24" fill="currentColor"><rect x="1.5" y="9" width="2.5" height="6" rx="1"/><rect x="4" y="6.8" width="2.4" height="10.4" rx="1"/><rect x="6.4" y="10.6" width="11.2" height="2.8" rx="1.2"/><rect x="17.6" y="6.8" width="2.4" height="10.4" rx="1"/><rect x="20" y="9" width="2.5" height="6" rx="1"/></svg>',
   list:_s+'<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>',
-  chart:_s+'<path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>'
+  chart:_s+'<path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>',
+  friends:_s+'<circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16 6.2a3 3 0 0 1 0 5.6"/><path d="M17.5 20a5.3 5.3 0 0 0-2.3-3.6"/></svg>'
 };
 
 let S = {sessions:[], active:null, weights:{}, notes:{}, photos:{}, injury:null, lastBackup:0,
@@ -575,6 +577,7 @@ function render(){
   else if(playing && S.active) a.innerHTML = playerView();
   else if(tab==='home') a.innerHTML = homeView();
   else if(tab==='log') a.innerHTML = logView();
+  else if(tab==='friends') a.innerHTML = friendsView();
   else a.innerHTML = progView();
   document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('on', b.dataset.tab===tab));
 }
@@ -877,6 +880,7 @@ function programView(){
         oninput="prog.name=this.value" style="width:100%;font-size:18px">
       ${items}
       <button class="btn" onclick="openDayPicker()">+ Edzés hozzáadása</button>
+      ${(S.programs||[]).some(x=>x.id===prog.id)?`<button class="btn" onclick="openSharePlan('${prog.id}')">Megosztás baráttal</button>`:''}
       ${!prog.isNew?`<button class="btn ghost" style="color:var(--red)" onclick="deleteProgram('${prog.id}')">Terv törlése</button>`:''}
       <button class="btn pri" onclick="saveProgram()" ${canSave?'':'disabled'}>Mentés</button>
     </div>
@@ -1255,7 +1259,7 @@ function openAuthSheet(){
         <input id="dispName" type="text" placeholder="Neved" value="${esc(nm)}" style="flex:1">
         <button class="btn" style="width:auto;margin:0;padding:12px 16px" onclick="saveDispName()">Mentés</button>
       </div>
-      <button class="btn pri" style="margin-top:14px" onclick="openFriends()">Barátok</button>
+      <button class="btn pri" style="margin-top:14px" onclick="closeSheet();tab='friends';render();refreshFriends();">Barátok</button>
       <button class="btn" style="margin-top:8px;color:var(--mut)" onclick="doSignOut()">Kijelentkezés</button>`;
   } else {
     h+=`<input id="authEmail" type="email" inputmode="email" autocomplete="email" placeholder="e-mail"
@@ -1304,49 +1308,63 @@ function shareSummary(){
 }
 async function syncStats(){ if(window.Auth&&Auth.isLoggedIn()){ try{ await Auth.publishStats(shareSummary(), myProfile&&myProfile.display_name); }catch(e){} } }
 
-async function openFriends(){
-  document.getElementById('sheetIn').innerHTML=`<div class="grabber"></div>
-    <div class="row"><div class="grow"><span class="eyebrow">Barátok</span><h2 style="font-size:22px">Betöltés…</h2></div>
-    <button onclick="openAuthSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>`;
-  document.getElementById('sheet').classList.add('on');
+let friendsData=null, sharedPlansData=null;
+async function refreshFriends(){
+  if(!(window.Auth&&Auth.isLoggedIn())){ if(tab==='friends') render(); return; }
   if(!myProfile) await loadProfile();
-  let rows=[]; try{ rows=await Auth.listFriendships(); }catch(e){}
-  renderFriends(rows);
+  try{ friendsData=await Auth.listFriendships(); }catch(e){ friendsData=[]; }
+  try{ sharedPlansData=await Auth.listSharedPlans(); }catch(e){ sharedPlansData=[]; }
+  if(tab==='friends') render();
 }
-function renderFriends(rows){
-  const me=Auth.currentUser().id;
+function friendsView(){
+  const wrap = inner => `<div class="wrap"><div class="top"><span class="eyebrow">Közösség</span>
+    <h1 style="font-size:34px;margin-top:4px">Barátok</h1></div>${inner}</div>`;
+  if(!(window.Auth&&Auth.configured()))
+    return wrap(`<div class="empty">A barátokhoz felhő-fiók kell, ami ezen a példányon nincs beállítva.</div>`);
+  if(!Auth.isLoggedIn())
+    return wrap(`<div class="empty">Lépj be a fiókodba a barátokhoz.</div>
+      <button class="btn pri" onclick="openAuthSheet()">Belépés / fiók</button>`);
+  if(friendsData==null){ refreshFriends(); return wrap(`<div class="empty">Betöltés…</div>`); }
+
+  const me=Auth.currentUser().id, rows=friendsData;
   const accepted=rows.filter(r=>r.status==='accepted');
   const incoming=rows.filter(r=>r.status==='pending' && r.addressee===me);
   const outgoing=rows.filter(r=>r.status==='pending' && r.requester===me);
   const nameOf=r=> r.requester===me ? (r.addressee_name||'Barát') : (r.requester_name||'Barát');
   const otherId=r=> r.requester===me ? r.addressee : r.requester;
-  let h=`<div class="grabber"></div>
-    <div class="row"><div class="grow"><span class="eyebrow">Barátok</span><h2 style="font-size:22px">Kezelés</h2></div>
-    <button onclick="openAuthSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
-    <div class="card" style="margin-top:12px"><div class="pad">
+  let h=`<div class="card"><div class="pad">
       <span class="small dim">A te barát-kódod</span>
       <div class="cond" style="font-size:28px;font-weight:700;letter-spacing:.14em">${esc((myProfile&&myProfile.friend_code)||'…')}</div>
       <div class="small mut" style="margin-top:4px">Oszd meg egy baráttal, hogy bejelöljön.</div></div></div>
-    <div class="row" style="gap:8px;margin-top:6px">
+    <div class="row" style="gap:8px;margin-top:2px">
       <input id="friendCode" type="text" placeholder="Barát kódja" style="flex:1;text-transform:uppercase">
       <button class="btn pri" style="width:auto;margin:0;padding:12px 16px" onclick="doAddFriend()">Bejelölés</button></div>
     <div id="friendErr" class="small" style="color:var(--red);margin-top:6px;display:none"></div>`;
-  if(incoming.length){ h+=`<div class="top" style="padding:16px 0 6px"><span class="eyebrow">Bejövő kérések</span></div>`;
+  // Beérkezett megosztott edzéstervek
+  const shared=sharedPlansData||[];
+  if(shared.length){ h+=`<div class="top" style="padding:18px 0 6px"><span class="eyebrow">Megosztott edzéstervek</span></div>`;
+    shared.forEach(sp=>{ h+=`<div class="card"><div class="pad">
+      <div class="row"><div class="grow"><span class="cond" style="font-size:18px;font-weight:600;display:block">${esc(sp.name||'Terv')}</span>
+      <span class="small dim">${esc(sp.from_name||'Barát')} küldte</span></div></div>
+      <div class="row" style="gap:8px;margin-top:10px">
+        <button class="btn pri" style="flex:1;margin:0" onclick="doImportPlan('${sp.id}')">Importálás</button>
+        <button class="btn" style="width:auto;margin:0;padding:12px 16px;color:var(--mut)" onclick="doDiscardPlan('${sp.id}')">Elvet</button></div></div>`; }); }
+  if(incoming.length){ h+=`<div class="top" style="padding:18px 0 6px"><span class="eyebrow">Bejövő kérések</span></div>`;
     incoming.forEach(r=>{ h+=`<div class="card"><div class="pad row">
       <span class="grow cond" style="font-size:18px;font-weight:600">${esc(r.requester_name||'Barát')}</span>
       <button class="btn" style="width:auto;margin:0;padding:10px 14px;color:var(--sage)" onclick="doRespond('${r.requester}',true)">Elfogad</button>
       <button class="iconbtn" style="color:var(--red);margin-left:8px" onclick="doRespond('${r.requester}',false)">×</button></div></div>`; }); }
-  h+=`<div class="top" style="padding:16px 0 6px"><span class="eyebrow">Barátaid (${accepted.length})</span></div>`;
+  h+=`<div class="top" style="padding:18px 0 6px"><span class="eyebrow">Barátaid (${accepted.length})</span></div>`;
   if(!accepted.length) h+=`<div class="empty" style="padding:16px 0">Még nincs barátod. Add meg egy barát kódját fentebb.</div>`;
   accepted.forEach(r=>{ const id=otherId(r);
     h+=`<div class="card"><div class="pad row">
-      <button class="grow" style="text-align:left;padding:0" onclick="openFriendStats('${id}','${esc(nameOf(r))}')">
+      <button class="grow" style="text-align:left;padding:0;background:none" onclick="openFriendStats('${id}','${esc(nameOf(r))}')">
         <span class="cond" style="font-size:18px;font-weight:600;display:block">${esc(nameOf(r))}</span>
         <span class="small dim">koppints a haladásához ›</span></button>
       <button class="iconbtn" style="color:var(--red)" onclick="doRemoveFriend('${id}')" aria-label="Törlés">×</button></div></div>`; });
-  if(outgoing.length){ h+=`<div class="top" style="padding:16px 0 6px"><span class="eyebrow">Elküldött kérések</span></div>`;
+  if(outgoing.length){ h+=`<div class="top" style="padding:18px 0 6px"><span class="eyebrow">Elküldött kérések</span></div>`;
     outgoing.forEach(r=>{ h+=`<div class="card"><div class="pad small mut">${esc(r.addressee_name||'Barát')} · függőben</div></div>`; }); }
-  document.getElementById('sheetIn').innerHTML=h;
+  return wrap(h);
 }
 async function doAddFriend(){
   const code=(document.getElementById('friendCode').value||'').trim();
@@ -1355,15 +1373,16 @@ async function doAddFriend(){
   const errEl=document.getElementById('friendErr');
   const msg={ notfound:'Nincs ilyen kód.', self:'Ez a saját kódod.', error:'Hiba történt – ellenőrizd a hálózatot.' }[res];
   if(msg){ if(errEl){ errEl.textContent=msg; errEl.style.display='block'; } return; }
-  openFriends();   // 'ok' vagy 'accepted' → frissítés
+  refreshFriends();   // 'ok' vagy 'accepted' → frissítés
 }
-async function doRespond(requesterId, accept){ try{ await Auth.respondFriend(requesterId, accept); }catch(e){} openFriends(); }
-async function doRemoveFriend(id){ if(!confirm('Törlöd ezt a barátot?')) return; try{ await Auth.removeFriend(id); }catch(e){} openFriends(); }
+async function doRespond(requesterId, accept){ try{ await Auth.respondFriend(requesterId, accept); }catch(e){} refreshFriends(); }
+async function doRemoveFriend(id){ if(!confirm('Törlöd ezt a barátot?')) return; try{ await Auth.removeFriend(id); }catch(e){} refreshFriends(); }
 async function openFriendStats(id, name){
   const head=n=>`<div class="grabber"></div>
     <div class="row"><div class="grow"><span class="eyebrow">Barát haladása</span><h2 style="font-size:22px">${esc(n)}</h2></div>
-    <button onclick="openFriends()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>`;
+    <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>`;
   document.getElementById('sheetIn').innerHTML=head(name)+`<div class="empty" style="padding:16px 0">Betöltés…</div>`;
+  document.getElementById('sheet').classList.add('on');
   let st=null; try{ st=await Auth.friendStats(id); }catch(e){}
   let h=head((st&&st.display_name)||name);
   if(!st||!st.data||!st.data.sessions){ h+=`<div class="empty" style="padding:16px 0">Ez a barát még nem osztott meg adatot.</div>`; }
@@ -1378,6 +1397,57 @@ async function openFriendStats(id, name){
   }
   document.getElementById('sheetIn').innerHTML=h;
 }
+
+/* ---- Edzésterv megosztása / importálása ---------------------------- */
+// A megosztott terv önálló csomag: a program + a benne lévő SAJÁT edzések
+// + a hivatkozott SAJÁT gyakorlatok defjei. A beépítettek a fogadónál oldódnak fel.
+function buildPlanPayload(programId){
+  const p=(S.programs||[]).find(x=>x.id===programId); if(!p) return null;
+  const routines={}, customEx={};
+  p.days.forEach(dId=>{ const r=(S.routines||[]).find(x=>x.id===dId);
+    if(r){ routines[r.id]=JSON.parse(JSON.stringify(r));
+      (r.ex||[]).forEach(exId=>{ if(S.customEx&&S.customEx[exId]) customEx[exId]=JSON.parse(JSON.stringify(S.customEx[exId])); }); } });
+  return { program:{name:p.name, days:p.days.slice()}, routines, customEx };
+}
+function importPlan(payload){
+  if(!payload||!payload.program) return;
+  const exMap={};
+  Object.values(payload.customEx||{}).forEach(e=>{ const nid=uid('cx_'); exMap[e.id]=nid; S.customEx[nid]={...e, id:nid}; });
+  const dayMap={};
+  Object.values(payload.routines||{}).forEach(r=>{ const nid=uid('r_'); dayMap[r.id]=nid;
+    const ex=(r.ex||[]).map(x=> exMap[x]||x );
+    S.routines.push({ id:nid, name:r.name, sub:ex.length+' gyakorlat', ex }); });
+  const days=(payload.program.days||[]).map(d=> dayMap[d]||d );
+  S.programs.push({ id:uid('p_'), name:payload.program.name||'Megosztott terv', days });
+  save();
+}
+async function openSharePlan(programId){
+  if(!(window.Auth&&Auth.isLoggedIn())){ alert('A megosztáshoz lépj be a fiókodba (Barátok fül).'); return; }
+  if(!friendsData) await refreshFriends();
+  const me=Auth.currentUser().id;
+  const acc=(friendsData||[]).filter(r=>r.status==='accepted');
+  let h=`<div class="grabber"></div>
+    <div class="row"><div class="grow"><span class="eyebrow">Edzésterv megosztása</span><h2 style="font-size:22px">Melyik baráttal?</h2></div>
+    <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>`;
+  if(!acc.length){ h+=`<div class="empty" style="padding:16px 0">Előbb vegyél fel barátot a Barátok fülön.</div>`; }
+  else acc.forEach(r=>{ const id=r.requester===me?r.addressee:r.requester; const nm=r.requester===me?(r.addressee_name||'Barát'):(r.requester_name||'Barát');
+    h+=`<button class="btn" style="margin-bottom:8px" onclick="doSharePlan('${programId}','${id}','${esc(nm)}')">${esc(nm)}</button>`; });
+  document.getElementById('sheetIn').innerHTML=h;
+  document.getElementById('sheet').classList.add('on');
+}
+async function doSharePlan(programId, toId, toName){
+  const payload=buildPlanPayload(programId); const p=(S.programs||[]).find(x=>x.id===programId);
+  if(!payload){ alert('Előbb mentsd el a tervet.'); return; }
+  let ok=false; try{ ok=await Auth.sharePlan(toId, p.name, payload); }catch(e){}
+  closeSheet(); alert(ok? ('Elküldve neki: '+toName) : 'Nem sikerült elküldeni.');
+}
+async function doImportPlan(shareId){
+  const sp=(sharedPlansData||[]).find(x=>x.id===shareId); if(!sp) return;
+  importPlan(sp.payload);
+  try{ await Auth.deleteSharedPlan(shareId); }catch(e){}
+  refreshFriends(); alert('Terv importálva – megtalálod a főoldaladon.');
+}
+async function doDiscardPlan(shareId){ try{ await Auth.deleteSharedPlan(shareId); }catch(e){} refreshFriends(); }
 
 /* ---- Téma (világos / sötét) ---------------------------------------- */
 function currentTheme(){ try{ return localStorage.getItem('gymlog_theme')||'auto'; }catch(e){ return 'auto'; } }
@@ -1395,8 +1465,9 @@ function paintIcons(){
   const set=(sel,svg)=>{ const el=document.querySelector(sel); if(el) el.innerHTML=svg; };
   set('#accountBtn', ICON.account);
   set('#injuryBtn', ICON.injury);
+  const navIcon={home:ICON.dumbbell, log:ICON.list, prog:ICON.chart, friends:ICON.friends};
   document.querySelectorAll('.nav button').forEach(btn=>{ const ic=btn.querySelector('.ic'); if(ic)
-    ic.innerHTML = btn.dataset.tab==='home'?ICON.dumbbell : btn.dataset.tab==='log'?ICON.list : ICON.chart; });
+    ic.innerHTML = navIcon[btn.dataset.tab] || ICON.chart; });
 }
 function toggleTheme(){
   try{ localStorage.setItem('gymlog_theme', effectiveDark()?'light':'dark'); }catch(e){}
@@ -1406,7 +1477,8 @@ document.getElementById('themeBtn').onclick=toggleTheme;
 if(window.matchMedia){ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{ if(currentTheme()==='auto') applyTheme(); }); }
 applyTheme();
 
-document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;render();window.scrollTo(0,0)});
+document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;render();window.scrollTo(0,0);
+  if(tab==='friends') refreshFriends();});
 document.getElementById('sheet').onclick=e=>{ if(e.target.id==='sheet') closeSheet(); };
 paintIcons();
 load().then(updateInjuryBtn);
@@ -1415,7 +1487,8 @@ load().then(updateInjuryBtn);
 if(window.Auth){
   Auth.hooks.reload = ()=>load().then(updateInjuryBtn);
   Auth.hooks.onChange = async ()=>{ updateAuthBtn();
-    if(Auth.isLoggedIn()){ await loadProfile(); syncStats(); } else { myProfile=null; } };
+    if(Auth.isLoggedIn()){ await loadProfile(); syncStats(); refreshFriends(); }
+    else { myProfile=null; friendsData=null; sharedPlansData=null; if(tab==='friends') render(); } };
   Auth.init().catch(()=>{});
 }
 updateAuthBtn();
