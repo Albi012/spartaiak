@@ -306,11 +306,12 @@ const ICON={
   dumbbell:'<svg class="svgic" viewBox="0 0 24 24" fill="currentColor"><rect x="1.5" y="9" width="2.5" height="6" rx="1"/><rect x="4" y="6.8" width="2.4" height="10.4" rx="1"/><rect x="6.4" y="10.6" width="11.2" height="2.8" rx="1.2"/><rect x="17.6" y="6.8" width="2.4" height="10.4" rx="1"/><rect x="20" y="9" width="2.5" height="6" rx="1"/></svg>',
   list:_s+'<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>',
   chart:_s+'<path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>',
-  friends:_s+'<circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16 6.2a3 3 0 0 1 0 5.6"/><path d="M17.5 20a5.3 5.3 0 0 0-2.3-3.6"/></svg>'
+  friends:_s+'<circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16 6.2a3 3 0 0 1 0 5.6"/><path d="M17.5 20a5.3 5.3 0 0 0-2.3-3.6"/></svg>',
+  share:_s+'<circle cx="18" cy="5" r="2.6"/><circle cx="6" cy="12" r="2.6"/><circle cx="18" cy="19" r="2.6"/><path d="M8.3 10.8l7.4-4.3M8.3 13.2l7.4 4.3"/></svg>'
 };
 
 let S = {sessions:[], active:null, weights:{}, notes:{}, photos:{}, injury:null, lastBackup:0,
-         customEx:{}, routines:[], programs:[], hidePlan:false};
+         customEx:{}, routines:[], programs:[], hidePlan:false, activeProgram:null};
 let tab='home', playing=false, curEx=0, tInt=null, tEnd=0, tLen=0, wl=null, nagOff=false;
 let editing=false, draft=null;   // edzés-összeállító
 
@@ -342,7 +343,7 @@ async function load(){
 async function save(){
   const v=JSON.stringify({sessions:S.sessions,active:S.active,weights:S.weights,
     notes:S.notes,photos:S.photos,injury:S.injury,lastBackup:S.lastBackup,
-    customEx:S.customEx,routines:S.routines,programs:S.programs,hidePlan:S.hidePlan});
+    customEx:S.customEx,routines:S.routines,programs:S.programs,hidePlan:S.hidePlan,activeProgram:S.activeProgram});
   const ok=await writeKey(KEY,v);
   if(!ok&&storeMode!=='none'){ storeMode='none'; render(); }
 }
@@ -527,6 +528,23 @@ function dayDef(id){
   return null;
 }
 function dayName(s){ const d=dayDef(s.day); return (d&&d.name) || s.dayName || 'Edzés'; }
+// Edzéstervek egységes listája: a beépített Alapterv (ha nincs elrejtve) +
+// a saját programok. Ebből választható az aktív terv.
+function progById(id){
+  if(id==='plan') return {id:'plan', name:'Alapterv · Push / Pull', days:['pa','la','pb','lb'], builtin:true};
+  const p=(S.programs||[]).find(x=>x.id===id); return p ? {...p, builtin:false} : null;
+}
+function programsList(){
+  const arr=[]; if(!S.hidePlan) arr.push(progById('plan'));
+  (S.programs||[]).forEach(p=>arr.push({...p, builtin:false}));
+  return arr;
+}
+function activeProg(){
+  const list=programsList(); if(!list.length) return null;
+  let a=list.find(p=>p.id===S.activeProgram); if(!a){ a=list[0]; S.activeProgram=a.id; }
+  return a;
+}
+function setActiveProgram(id){ S.activeProgram=id; save(); render(); window.scrollTo(0,0); }
 // Minden választható gyakorlat: beépítettek (PLAN, dedup) + archív + saját.
 function exLibrary(){
   const seen=new Set(), out=[];
@@ -611,28 +629,36 @@ function homeView(){
       <span class="small dim">${doneN}/${exN} gyakorlat kész</span></span>
       <span style="color:var(--brass);font-size:22px">›</span></button></div>`;
   }
-  // Beépített alapterv (Push/Pull 4 nap) – edzéstervként, törölhetően (elrejtés).
-  if(!S.hidePlan){
-    const nextIdx = done ? (PLAN.findIndex(d=>d.id===S.sessions[done-1].day)+1)%4 : 0;
-    h+=`<div class="top" style="padding:18px 0 8px"><div class="row"><span class="eyebrow grow">Alapterv · Push / Pull</span>
-      <button class="iconbtn" onclick="deletePlan()" aria-label="Alapterv törlése" title="Alapterv törlése" style="color:var(--red)">×</button></div></div>`;
-    PLAN.forEach((d,i)=>{
-      const last = [...S.sessions].reverse().find(s=>s.day===d.id);
-      h += `<div class="card"><button class="daybtn" onclick="startDay('${d.id}')">
-        <span class="daytag">${i+1}</span>
-        <span class="grow"><span class="cond" style="font-size:21px;font-weight:600;display:block">${d.name}${i===nextIdx&&!S.active?'<span class="pill">KÖVETKEZŐ</span>':''}</span>
-        <span class="small dim">${d.sub}${last?' · utoljára '+fmtDate(last.t):' · még nem volt'}</span></span>
+  // Edzéstervek: aktív választó + a kiválasztott terv napjai
+  const plist=programsList(), act=activeProg();
+  if(plist.length>1){
+    h+=`<div class="top" style="padding:16px 0 6px"><span class="eyebrow">Aktív edzésterv</span></div>
+      <div class="whyrow" style="margin-bottom:6px">`+
+      plist.map(p=>`<button class="whyc ${act&&p.id===act.id?'on':''}" onclick="setActiveProgram('${p.id}')">${esc(p.builtin?'Alapterv':p.name)}</button>`).join('')
+      +`</div>`;
+  }
+  if(act){
+    h+=`<div class="top" style="padding:12px 0 8px"><div class="row"><span class="eyebrow grow">${esc(act.name)}</span>
+      <button class="iconbtn" onclick="openSharePlan('${act.id}')" aria-label="Megosztás baráttal" title="Megosztás baráttal">${ICON.share}</button>
+      ${act.builtin
+        ? `<button class="iconbtn" onclick="deletePlan()" aria-label="Alapterv törlése" title="Alapterv törlése" style="color:var(--red)">×</button>`
+        : `<button class="iconbtn" onclick="openProgram('${act.id}')" aria-label="Szerkesztés" title="Szerkesztés">${ICON.edit}</button>`}
+      </div></div>`;
+    const dayIds=act.days;
+    const lastInProg=[...S.sessions].reverse().find(s=>dayIds.indexOf(s.day)>=0);
+    const nextIdx = lastInProg ? (dayIds.indexOf(lastInProg.day)+1)%dayIds.length : 0;
+    dayIds.forEach((dId,i)=>{ const d=dayDef(dId); if(!d) return;
+      const last=[...S.sessions].reverse().find(s=>s.day===dId);
+      const pIdx=PLAN.findIndex(x=>x.id===dId);
+      const tag = pIdx>=0 ? (pIdx+1) : ICON.dumbbell;
+      const isNext = i===nextIdx && !S.active;
+      h+=`<div class="card"><button class="daybtn" onclick="startDay('${dId}')">
+        <span class="daytag">${tag}</span>
+        <span class="grow"><span class="cond" style="font-size:21px;font-weight:600;display:block">${esc(d.name)}${isNext?'<span class="pill">KÖVETKEZŐ</span>':''}</span>
+        <span class="small dim">${esc(d.sub||(d.ex.length+' gyakorlat'))}${last?' · utoljára '+fmtDate(last.t):' · még nem volt'}</span></span>
         <span style="color:var(--dim);font-size:22px">›</span></button></div>`;
     });
   }
-  // Edzéstervek (programok)
-  (S.programs||[]).forEach(pr=>{
-    h+=`<div class="top" style="padding:18px 0 8px"><div class="row"><span class="eyebrow grow">${esc(pr.name)}</span>
-      <button class="iconbtn" onclick="openProgram('${pr.id}')" aria-label="Terv szerkesztése" title="Terv szerkesztése">${ICON.edit}</button></div></div>`;
-    pr.days.forEach(dId=>{ const d=dayDef(dId); if(!d) return;
-      const last=[...S.sessions].reverse().find(s=>s.day===dId);
-      h+=dayCard(dId, d.name, d.sub||(d.ex.length+' gyakorlat'), last, !!d.custom); });
-  });
   // Saját edzések (amik nincsenek egyik tervben sem)
   const inProg=new Set(); (S.programs||[]).forEach(p=>p.days.forEach(x=>inProg.add(x)));
   const loose=(S.routines||[]).filter(r=>!inProg.has(r.id));
@@ -1414,7 +1440,7 @@ async function openFriendStats(id, name){
 // A megosztott terv önálló csomag: a program + a benne lévő SAJÁT edzések
 // + a hivatkozott SAJÁT gyakorlatok defjei. A beépítettek a fogadónál oldódnak fel.
 function buildPlanPayload(programId){
-  const p=(S.programs||[]).find(x=>x.id===programId); if(!p) return null;
+  const p=progById(programId); if(!p) return null;
   const routines={}, customEx={};
   p.days.forEach(dId=>{ const r=(S.routines||[]).find(x=>x.id===dId);
     if(r){ routines[r.id]=JSON.parse(JSON.stringify(r));
@@ -1448,7 +1474,7 @@ async function openSharePlan(programId){
   document.getElementById('sheet').classList.add('on');
 }
 async function doSharePlan(programId, toId, toName){
-  const payload=buildPlanPayload(programId); const p=(S.programs||[]).find(x=>x.id===programId);
+  const payload=buildPlanPayload(programId); const p=progById(programId);
   if(!payload){ alert('Előbb mentsd el a tervet.'); return; }
   let ok=false; try{ ok=await Auth.sharePlan(toId, p.name, payload); }catch(e){}
   closeSheet(); alert(ok? ('Elküldve neki: '+toName) : 'Nem sikerült elküldeni.');
