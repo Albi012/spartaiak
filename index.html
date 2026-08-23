@@ -1018,9 +1018,9 @@ function playerView(){
         ? `<button class="btn pri" onclick="finish()" style="flex:1">Edzés lezárása</button>`
         : `<button class="btn pri" onclick="exNav(${curEx+1})" style="flex:1">Következő ›</button>`}
     </div>
-    <div class="row" style="justify-content:center;gap:18px">
-      <button class="discard" onclick="openNoteSheet('day','')">Nap jegyzete${S.active.note?' •':''}</button>
-      <button class="discard" onclick="discardActive()">Edzés eldobása</button>
+    <div class="row" style="gap:10px;max-width:560px;margin:0 auto;padding:0 16px 16px;width:100%">
+      <button class="btn" style="flex:1;margin:0" onclick="openNoteSheet('day','')">Nap jegyzete${S.active.note?' •':''}</button>
+      <button class="btn ghost" style="flex:1;margin:0;color:var(--red)" onclick="discardActive()">Edzés eldobása</button>
     </div>
   </div>`;
 }
