@@ -1140,7 +1140,8 @@ function logView(){
         <span class="small num mut">${wLabel(e,l.w)}${e.bw&&l.w<=0?'':' kg'} × ${l.sets.map(x=>x==null?'–':x).join(', ')}</span></div>`; });
     h+='</div>';
   });
-  h+=`<button class="btn" onclick="copyAll()" style="margin-bottom:8px">Napló másolása szövegként</button>
+  h+=`<button class="btn pri" onclick="openWeeklyExport()" style="margin-bottom:8px">Heti összefoglaló edzőnek</button>
+      <button class="btn" onclick="copyAll()" style="margin-bottom:8px">Napló másolása szövegként</button>
       <button class="btn" onclick="backup()" style="margin-bottom:8px;color:var(--mut)">Biztonsági mentés (adatfájl)</button>
       <button class="btn" onclick="restore()" style="margin-bottom:20px;color:var(--mut)">Visszaállítás mentésből</button>`;
   return h+'</div>';
@@ -1190,6 +1191,58 @@ function copyAll(){
       t+='  '+e.n+' (kivéve): '+wLabel(e,l.w)+(e.bw&&l.w<=0?'':' kg')+' × '+l.sets.map(x=>x==null?'–':x).join(', ')+'\n';});
     t+='\n'; });
   navigator.clipboard.writeText(t).then(()=>uiAlert('Vágólapra másolva. Beillesztheted a chatbe.'),()=>uiAlert('Nem sikerült a másolás.'));
+}
+
+/* ---- Heti összefoglaló (AI edzőnek) -------------------------------- */
+// Az elmúlt 7 nap edzései a jegyzetekkel; ha héten nincs, az utolsó 3 edzés.
+function weeklyReport(){
+  const WHY={busy:'gép foglalt',heavy:'túl nehéz',time:'kevés idő'};
+  const cutoff=Date.now()-7*864e5;
+  let sess=(S.sessions||[]).filter(s=>s.t>=cutoff), weekly=true;
+  if(!sess.length){ sess=(S.sessions||[]).slice(-3); weekly=false; }
+  let t='Edzésnapló – ';
+  if(sess.length){ const from=fmtDate(sess[0].t), to=fmtDate(sess[sess.length-1].t);
+    t += weekly ? 'heti összefoglaló ('+from+' – '+to+')' : 'utolsó '+sess.length+' edzés ('+from+' – '+to+')'; }
+  else t+='heti összefoglaló';
+  t+='\n\nKérlek, edzőként nézd át ezeket az edzéseket, és adj rövid visszajelzést + javaslatot a következő hétre.\n';
+  if(!sess.length) return t+'\n(Nincs rögzített edzés.)';
+  const line=(e,l,extraName)=>{
+    const sets=l.sets.map(x=>x==null?'–':x).join(', ');
+    const w=wLabel(e,l.w)+(e.bw&&l.w<=0?'':' kg');
+    let ex=''; if(l.why) ex+=' ['+(WHY[l.why]||l.why)+']';
+    const pn=S.notes&&S.notes[e.id]; if(pn) ex+=' (jegyzet: '+pn+')';
+    return '  '+e.n+(extraName||'')+': '+w+' × '+sets+ex+'\n';
+  };
+  sess.forEach(s=>{ const d=dayDef(s.day)||{ex:[]};
+    t+='\n— '+fmtDate(s.t)+' — '+dayName(s)+' (összterhelés: '+sessionLoad(s).toLocaleString('hu')+' kg)\n';
+    if(s.note) t+='  Aznapi jegyzet: '+s.note+'\n';
+    const seen=new Set();
+    d.ex.forEach(e=>{ seen.add(e.id); const l=s.log[e.id]; if(l&&l.sets.some(x=>x!=null)) t+=line(e,l); });
+    Object.keys(s.log).forEach(id=>{ if(seen.has(id))return; const l=s.log[id];
+      if(!l.sets.some(x=>x!=null))return; t+=line(exDef(id),l,' (kivéve)'); });
+  });
+  return t;
+}
+let _weeklyText='';
+function openWeeklyExport(){
+  _weeklyText=weeklyReport();
+  document.getElementById('sheetIn').innerHTML=`<div class="grabber"></div>
+    <div class="row"><div class="grow"><span class="eyebrow">Heti összefoglaló</span>
+    <h2 style="font-size:22px">Küldd el az edződnek</h2></div>
+    <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
+    <p class="small dim" style="margin-top:6px">Az elmúlt 7 nap edzései a jegyzetekkel, AI-edzőnek kész szöveggel.</p>
+    <textarea id="weeklyTa" rows="9" readonly style="width:100%;margin-top:10px">${esc(_weeklyText)}</textarea>
+    <div class="row" style="gap:8px;margin-top:12px">
+      <button class="btn pri" style="flex:1;margin:0" onclick="shareWeekly()">Megosztás</button>
+      <button class="btn" style="flex:1;margin:0" onclick="copyWeekly()">Másolás</button>
+    </div>`;
+  document.getElementById('sheet').classList.add('on');
+}
+function copyWeekly(){ navigator.clipboard.writeText(_weeklyText).then(()=>uiAlert('Vágólapra másolva – beillesztheted az AI edződnek.'),()=>uiAlert('Nem sikerült a másolás.')); }
+async function shareWeekly(){
+  if(navigator.share){ try{ await navigator.share({title:'Edzésnapló – heti összefoglaló', text:_weeklyText}); return; }
+    catch(e){ if(e&&e.name==='AbortError') return; } }
+  copyWeekly();
 }
 
 function progView(){
