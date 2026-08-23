@@ -598,7 +598,10 @@ function exAffected(e){ return injuryOn() && S.injury.parts.indexOf(e.mg)>=0; }
 
 function esc(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}
 function fmtDate(t){const d=new Date(t);return d.getFullYear()+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+String(d.getDate()).padStart(2,'0')}
-function wLabel(e,w){ if(e.time) return w>0? '+'+w+' kg':'testsúly'; if(e.bw) return w>0? '+'+w:'testsúly'; return w }
+// A ' kg' egységet a hívók fűzik hozzá (e.bw && w<=0 esetén nem). Ezért itt
+// a testsúlyos (idős is) gyakorlatnál csak '+hozzáadott' vagy 'testsúly',
+// egyébként a szám – így nincs dupla 'kg' (pl. Plank +5).
+function wLabel(e,w){ if(e.bw) return w>0? '+'+w:'testsúly'; return w }
 function exDone(e,L){ return L && L.sets.length && L.sets.every(x=>x!=null); }
 
 function render(){
