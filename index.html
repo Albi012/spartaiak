@@ -196,6 +196,9 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--brass);out
 .mgtrack{flex:1;height:12px;background:var(--card2);border-radius:7px;overflow:hidden}
 .mgfill{display:block;height:100%;border-radius:7px}
 .mgval{flex:0 0 26px;font-size:18px;font-weight:700;text-align:right}
+.seg{display:flex;gap:0;margin:12px 0 2px;border:1px solid var(--line);border-radius:11px;overflow:hidden}
+.seg button{flex:1;background:var(--card);color:var(--mut);border:0;padding:9px 0;font-size:14px;font-weight:600}
+.seg button.on{background:var(--brass);color:var(--on-brass)}
 .empty{text-align:center;padding:44px 20px 28px;color:var(--dim)}
 
 /* Alsó lap (szett-billentyűzet) */
@@ -1359,13 +1362,21 @@ function progView(){
   return h+'</div>';
 }
 
-// Részletes lap egy gyakorlathoz: nagy grafikon + teljes előzmény.
-function openProgDetail(id){
+// Egy edzés–gyakorlat metrikája a részletlap görbéjéhez. 'w' = munkasúly;
+// 'vol' = térfogat (súly×ismétlés; testsúlyosnál az összes ismétlés).
+function progMetric(L, metric){
+  if(metric==='vol') return L.w>0 ? L.w*repSum(L.sets) : repSum(L.sets);
+  return L.w;
+}
+// Részletes lap egy gyakorlathoz: nagy grafikon (súly/térfogat) + előzmény.
+function openProgDetail(id, metric){
+  metric = metric==='vol' ? 'vol' : 'w';
   const e=exDef(id);
   const rows=S.sessions.filter(s=>s.log[id]&&s.log[id].sets.some(x=>x!=null))
     .map(s=>({ t:s.t, L:s.log[id] })).sort((a,b)=>a.t-b.t);
-  const pts=rows.map(r=>r.L.w);
-  const pr=Math.max(...pts);
+  const pts=rows.map(r=>progMetric(r.L, metric));
+  const volUnit = e.bw ? ' ism' : ' kg';                 // térfogat egysége
+  const pr=Math.max(...rows.map(r=>r.L.w));               // a csúcs mindig a súly-PR
   const d=sparkPath(pts,100,120,10);
   const mn=Math.min(...pts), rng=(Math.max(...pts)-mn)||1;
   const area=pts.length>1 ? `M0 120 `+pts.map((p,i)=>{ const x=i/(pts.length-1)*100; const y=(120-10)-((p-mn)/rng)*(120-20); return 'L'+x.toFixed(1)+' '+y.toFixed(1); }).join(' ')+` L100 120 Z` : '';
@@ -1373,21 +1384,28 @@ function openProgDetail(id){
     <div class="row"><div class="grow"><span class="eyebrow">Haladás</span>
       <h2 style="font-size:22px">${esc(e.n)}</h2>
       <span class="small dim">Csúcs ${wLabel(e,pr)}${e.bw&&pr<=0?'':' kg'} · ${rows.length} alkalom</span></div>
-      <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>`;
+      <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
+    <div class="seg">
+      <button class="${metric==='w'?'on':''}" onclick="openProgDetail('${id}','w')">Súly</button>
+      <button class="${metric==='vol'?'on':''}" onclick="openProgDetail('${id}','vol')">Térfogat</button>
+    </div>`;
   if(pts.length>1){
     h+=`<svg class="chartbig" viewBox="0 0 100 120" preserveAspectRatio="none">
       <path d="${area}" fill="var(--brass-d)" opacity=".55"/>
       <path d="${d}" fill="none" stroke="var(--brass)" stroke-width="1.8" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
-      ${rows.map((r,i)=>{ const x=i/(rows.length-1)*100; const y=(120-10)-((r.L.w-mn)/rng)*(120-20); return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="1.9" fill="var(--brass)" vector-effect="non-scaling-stroke"/>`; }).join('')}
+      ${rows.map((r,i)=>{ const x=i/(rows.length-1)*100; const y=(120-10)-((progMetric(r.L,metric)-mn)/rng)*(120-20); return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="1.9" fill="var(--brass)" vector-effect="non-scaling-stroke"/>`; }).join('')}
     </svg>`;
   }
+  const volMax=Math.max(...rows.map(r=>progMetric(r.L,'vol')));
   h+=`<div style="margin-top:6px">`;
   rows.slice().reverse().forEach(r=>{
     const reps=(r.L.sets||[]).filter(x=>x!=null);
-    const isPr=r.L.w===pr && pr>0;
+    let main, isPr;
+    if(metric==='vol'){ const v=progMetric(r.L,'vol'); main=v+volUnit; isPr=v===volMax && v>0; }
+    else { main=wLabel(e,r.L.w)+(e.bw&&r.L.w<=0?'':' kg'); isPr=r.L.w===pr && pr>0; }
     h+=`<div class="histrow">
       <span class="d">${fmtDate(r.t)}</span>
-      <span class="w">${wLabel(e,r.L.w)}${e.bw&&r.L.w<=0?'':' kg'}${isPr?' <span class="small" style="color:var(--brass);font-weight:600">CSÚCS</span>':''}</span>
+      <span class="w">${main}${isPr?' <span class="small" style="color:var(--brass);font-weight:600">CSÚCS</span>':''}</span>
       <span class="r">${reps.length?reps.join(' · '):'—'}</span>
     </div>`;
   });
