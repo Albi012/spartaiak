@@ -211,6 +211,16 @@ textarea:focus{outline:2px solid var(--brass);outline-offset:2px}
 .photo{position:fixed;inset:0;z-index:80;display:none;align-items:center;justify-content:center;background:rgba(6,8,10,.9);padding:16px}
 .photo.on{display:flex}
 .photo img{max-width:100%;max-height:100%;border-radius:12px}
+
+/* Témázott megerősítő / értesítő modál (a natív confirm/alert helyett) */
+.modal{position:fixed;inset:0;z-index:90;display:none;align-items:center;justify-content:center;
+  background:rgba(8,10,13,.6);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);padding:20px}
+.modal.on{display:flex}
+.modal-card{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:20px;
+  padding:22px 20px;width:min(92vw,380px);box-shadow:0 20px 60px var(--shadow)}
+.modal-msg{font-size:16px;line-height:1.5;white-space:pre-wrap}
+.modal-actions{display:flex;gap:10px;margin-top:18px}
+.btn.danger{background:var(--red);color:#fff;border-color:var(--red)}
 </style>
 
 <header class="appbar"><div class="appbar-in">
@@ -255,6 +265,8 @@ textarea:focus{outline:2px solid var(--brass);outline-offset:2px}
 <div class="sheet" id="sheet"><div class="inner" id="sheetIn"></div></div>
 
 <div class="photo" id="photo" onclick="this.classList.remove('on')"><img id="photoImg" alt="beállítás fotó"></div>
+
+<div class="modal" id="modal"><div class="modal-card" id="modalIn"></div></div>
 
 <!-- Felhő-szinkron (1. fázis). A supabase-config.js opcionális; ha hiányzik,
      az app változatlanul, localStorage-ból fut. Lásd docs/1-fazis-auth-TODO.md -->
@@ -676,7 +688,7 @@ function homeView(){
       <button class="btn ghost" style="margin-top:8px;margin-bottom:4px;color:var(--mut)" onclick="openManageEx()">Saját gyakorlatok kezelése${(S.customEx&&Object.keys(S.customEx).length)?' ('+Object.keys(S.customEx).length+')':''}</button>`;
   return h+'</div>';
 }
-function deletePlan(){ if(!confirm('Elrejted a beépített alaptervet (Push/Pull)? A naplózott edzéseid megmaradnak, és bármikor visszaállíthatod.')) return;
+async function deletePlan(){ if(!await uiConfirm('Elrejted a beépített alaptervet (Push/Pull)?\nA naplózott edzéseid megmaradnak, és bármikor visszaállíthatod.', {ok:'Elrejtés', danger:true})) return;
   S.hidePlan=true; save(); render(); window.scrollTo(0,0); }
 function restorePlan(){ S.hidePlan=false; save(); render(); window.scrollTo(0,0);
 }
@@ -691,13 +703,13 @@ function dayCard(id,name,sub,last,editable){
 }
 
 function roundTo(v,step){ return Math.max(0, Math.round(v/step)*step); }
-function startDay(id){
-  if(S.active && !confirm('Van egy folyamatban lévő edzés. Eldobod és újat kezdesz?')) return;
+async function startDay(id){
+  if(S.active && !(await uiConfirm('Van egy folyamatban lévő edzés. Eldobod és újat kezdesz?', {ok:'Új edzés', danger:true}))) return;
   // Kihagyás-felismerés: 10 napnál hosszabb szünet után visszalépést ajánl.
   const lastT = S.sessions.length ? S.sessions[S.sessions.length-1].t : 0;
   const gap = lastT ? (Date.now()-lastT)/864e5 : 0;
   let deload=false;
-  if(gap>10) deload = confirm(Math.round(gap)+' nap kihagyás.\n\nKérsz visszalépést? (kb. -15% súly és több ismétlés a célhoz, hogy fokozatosan épülj vissza.)');
+  if(gap>10) deload = await uiConfirm(Math.round(gap)+' nap kihagyás.\n\nKérsz visszalépést? (kb. -15% súly és több ismétlés a célhoz, hogy fokozatosan épülj vissza.)', {ok:'Igen, visszalépés', cancel:'Nem'});
   const d=dayDef(id); if(!d){ return; }
   S.active={day:id,t:Date.now(),log:{},deload:deload,dayName:d.name};
   d.ex.forEach(e=>{
@@ -710,7 +722,7 @@ function startDay(id){
 }
 function resumePlayer(){ if(S.active){ playing=true; render(); window.scrollTo(0,0); } }
 function pausePlayer(){ playing=false; tab='home'; stopTimer(); render(); window.scrollTo(0,0); }
-function discardActive(){ if(confirm('Biztos eldobod ezt az edzést?')){ S.active=null; playing=false; stopTimer(); tab='home'; save(); render(); window.scrollTo(0,0); } }
+async function discardActive(){ if(await uiConfirm('Biztos eldobod ezt az edzést?', {ok:'Eldobás', danger:true})){ S.active=null; playing=false; stopTimer(); tab='home'; save(); render(); window.scrollTo(0,0); } }
 function exNav(i){ const d=dayDef(S.active.day)||{ex:[]}; const n=d.ex.filter(x=>S.active.log[x.id]).length;
   curEx=Math.max(0,Math.min(n-1,i)); render(); window.scrollTo(0,0); }
 
@@ -728,14 +740,14 @@ function draftMove(i,dir){ const j=i+dir; if(j<0||j>=draft.ex.length) return;
   const a=draft.ex; [a[i],a[j]]=[a[j],a[i]]; render(); }
 function draftRemove(i){ draft.ex.splice(i,1); render(); }
 function saveDraft(){
-  if(!draft.name.trim()||!draft.ex.length){ alert('Adj nevet és legalább egy gyakorlatot.'); return; }
+  if(!draft.name.trim()||!draft.ex.length){ uiAlert('Adj nevet és legalább egy gyakorlatot.'); return; }
   const r={id:draft.id,name:draft.name.trim(),sub:draft.ex.length+' gyakorlat',ex:draft.ex.slice()};
   const idx=S.routines.findIndex(x=>x.id===draft.id);
   if(idx>=0) S.routines[idx]=r; else S.routines.push(r);
   editing=false; draft=null; save(); tab='home'; render(); window.scrollTo(0,0);
 }
-function deleteRoutine(id){
-  if(!confirm('Törlöd ezt a saját edzést? (A már naplózott edzések megmaradnak.)')) return;
+async function deleteRoutine(id){
+  if(!await uiConfirm('Törlöd ezt a saját edzést?\n(A már naplózott edzések megmaradnak.)', {ok:'Törlés', danger:true})) return;
   S.routines=S.routines.filter(x=>x.id!==id);
   (S.programs||[]).forEach(p=>{ p.days=p.days.filter(d=>d!==id); });
   editing=false; draft=null; save(); tab='home'; render(); window.scrollTo(0,0);
@@ -823,9 +835,9 @@ function openManageEx(){
     <div style="max-height:52vh;overflow-y:auto">${rows}</div>`;
   document.getElementById('sheet').classList.add('on');
 }
-function deleteCustomEx(id){
+async function deleteCustomEx(id){
   const used=(S.routines||[]).some(r=>r.ex.indexOf(id)>=0);
-  if(!confirm('Törlöd ezt a saját gyakorlatot?'+(used?'\nA saját edzésekből is kikerül.':'')+'\n(A már naplózott edzésekben az adat megmarad.)')) return;
+  if(!await uiConfirm('Törlöd ezt a saját gyakorlatot?'+(used?'\nA saját edzésekből is kikerül.':'')+'\n(A már naplózott edzésekben az adat megmarad.)', {ok:'Törlés', danger:true})) return;
   delete S.customEx[id];
   (S.routines||[]).forEach(r=>{ r.ex=r.ex.filter(x=>x!==id); });
   save(); openManageEx();
@@ -860,7 +872,7 @@ function openCustomEx(id, ret){
 function pickCxMg(btn){ cxMg=btn.dataset.mg; document.querySelectorAll('#cxMg .whyc').forEach(b=>b.classList.toggle('on', b===btn)); }
 function saveCustomEx(){
   const name=(document.getElementById('cxName').value||'').trim();
-  if(!name){ alert('Adj nevet a gyakorlatnak.'); return; }
+  if(!name){ uiAlert('Adj nevet a gyakorlatnak.'); return; }
   const def={ n:name, mg:cxMg||'törzs',
     s:Math.max(1,parseInt(document.getElementById('cxSets').value)||3),
     r:(document.getElementById('cxReps').value||'10').trim(),
@@ -890,13 +902,13 @@ function progMove(i,dir){ const j=i+dir; if(j<0||j>=prog.days.length) return;
   const a=prog.days; [a[i],a[j]]=[a[j],a[i]]; render(); }
 function progRemove(i){ prog.days.splice(i,1); render(); }
 function saveProgram(){
-  if(!prog.name.trim()||!prog.days.length){ alert('Adj nevet és legalább egy edzést.'); return; }
+  if(!prog.name.trim()||!prog.days.length){ uiAlert('Adj nevet és legalább egy edzést.'); return; }
   const p={id:prog.id,name:prog.name.trim(),days:prog.days.slice()};
   const idx=S.programs.findIndex(x=>x.id===prog.id);
   if(idx>=0) S.programs[idx]=p; else S.programs.push(p);
   editing=false; prog=null; save(); tab='home'; render(); window.scrollTo(0,0);
 }
-function deleteProgram(id){ if(!confirm('Törlöd ezt az edzéstervet? (A benne lévő edzések megmaradnak.)')) return;
+async function deleteProgram(id){ if(!await uiConfirm('Törlöd ezt az edzéstervet?\n(A benne lévő edzések megmaradnak.)', {ok:'Törlés', danger:true})) return;
   S.programs=S.programs.filter(x=>x.id!==id); editing=false; prog=null; save(); tab='home'; render(); window.scrollTo(0,0); }
 function programView(){
   const canSave = prog.name.trim() && prog.days.length>0;
@@ -1044,6 +1056,25 @@ function openSet(id,i){
   document.getElementById('sheet').classList.add('on');
 }
 function closeSheet(){ document.getElementById('sheet').classList.remove('on'); }
+
+/* ---- Témázott modál (confirm/alert helyett) ------------------------ */
+let _modalRes=null;
+function _closeModal(v){ document.getElementById('modal').classList.remove('on'); const r=_modalRes; _modalRes=null; if(r) r(v); }
+function uiConfirm(msg, opts){ opts=opts||{};
+  return new Promise(res=>{ _modalRes=res;
+    document.getElementById('modalIn').innerHTML=`<div class="modal-msg">${esc(msg)}</div>
+      <div class="modal-actions">
+        <button class="btn" style="flex:1;margin:0" onclick="_closeModal(false)">${esc(opts.cancel||'Mégse')}</button>
+        <button class="btn ${opts.danger?'danger':'pri'}" style="flex:1;margin:0" onclick="_closeModal(true)">${esc(opts.ok||'Rendben')}</button>
+      </div>`;
+    document.getElementById('modal').classList.add('on'); });
+}
+function uiAlert(msg, opts){ opts=opts||{};
+  return new Promise(res=>{ _modalRes=res;
+    document.getElementById('modalIn').innerHTML=`<div class="modal-msg">${esc(msg)}</div>
+      <div class="modal-actions"><button class="btn pri" style="flex:1;margin:0" onclick="_closeModal()">${esc(opts.ok||'Rendben')}</button></div>`;
+    document.getElementById('modal').classList.add('on'); });
+}
 function setRep(v){
   const e=exDef(cur.id); S.active.log[cur.id].sets[cur.i]=v;
   closeSheet(); save(); render();
@@ -1076,7 +1107,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==
 
 function finish(){
   const any=Object.values(S.active.log).some(l=>l.sets.some(x=>x!=null));
-  if(!any){ alert('Egyetlen szettet sem rögzítettél.'); return; }
+  if(!any){ uiAlert('Egyetlen szettet sem rögzítettél.'); return; }
   S.sessions.push(S.active); S.active=null; playing=false; stopTimer(); save(); syncStats(); tab='log'; render(); window.scrollTo(0,0);
 }
 
@@ -1126,13 +1157,13 @@ function backup(){
 function restore(){
   const i=document.createElement('input'); i.type='file'; i.accept='.json,application/json';
   i.onchange=()=>{ const f=i.files[0]; if(!f)return; const r=new FileReader();
-    r.onload=()=>{ try{ const d=JSON.parse(r.result);
+    r.onload=async()=>{ try{ const d=JSON.parse(r.result);
       if(!Array.isArray(d.sessions)) throw 0;
-      if(!confirm('Ez felülírja a jelenlegi '+S.sessions.length+' edzést '+d.sessions.length+' mentett edzéssel. Folytatod?')) return;
+      if(!(await uiConfirm('Ez felülírja a jelenlegi '+S.sessions.length+' edzést '+d.sessions.length+' mentett edzéssel. Folytatod?', {ok:'Visszaállítás', danger:true}))) return;
       S.sessions=d.sessions; S.weights=d.weights||{}; if(d.notes)S.notes=d.notes; if(d.photos)S.photos=d.photos;
       if(d.customEx)S.customEx=d.customEx; if(d.routines)S.routines=d.routines; if(d.programs)S.programs=d.programs;
       save(); render();
-    }catch(e){ alert('Ez nem érvényes mentésfájl.'); } };
+    }catch(e){ uiAlert('Ez nem érvényes mentésfájl.'); } };
     r.readAsText(f); };
   i.click();
 }
@@ -1142,11 +1173,11 @@ async function loadBundled(){
     if(!res.ok) throw 0;
     const d=await res.json();
     if(!Array.isArray(d.sessions)) throw 0;
-    if(S.sessions.length && !confirm('Ez felülírja a jelenlegi '+S.sessions.length+' edzést '+d.sessions.length+' mentett edzéssel. Folytatod?')) return;
+    if(S.sessions.length && !(await uiConfirm('Ez felülírja a jelenlegi '+S.sessions.length+' edzést '+d.sessions.length+' mentett edzéssel. Folytatod?', {ok:'Betöltés', danger:true}))) return;
     S.sessions=d.sessions; S.weights=d.weights||{}; save(); render();
-  }catch(e){ alert('A tesztadat betöltése nem sikerült.'); }
+  }catch(e){ uiAlert('A tesztadat betöltése nem sikerült.'); }
 }
-function del(i){ if(confirm('Törlöd ezt az edzést?')){ S.sessions.splice(i,1); save(); render(); } }
+async function del(i){ if(await uiConfirm('Törlöd ezt az edzést?', {ok:'Törlés', danger:true})){ S.sessions.splice(i,1); save(); render(); } }
 function copyAll(){
   let t='Edzésnapló\n\n';
   S.sessions.forEach(s=>{ const d=dayDef(s.day)||{ex:[]};
@@ -1158,7 +1189,7 @@ function copyAll(){
       if(!l.sets.some(x=>x!=null))return; const e=exDef(id);
       t+='  '+e.n+' (kivéve): '+wLabel(e,l.w)+(e.bw&&l.w<=0?'':' kg')+' × '+l.sets.map(x=>x==null?'–':x).join(', ')+'\n';});
     t+='\n'; });
-  navigator.clipboard.writeText(t).then(()=>alert('Vágólapra másolva. Beillesztheted a chatbe.'),()=>alert('Nem sikerült a másolás.'));
+  navigator.clipboard.writeText(t).then(()=>uiAlert('Vágólapra másolva. Beillesztheted a chatbe.'),()=>uiAlert('Nem sikerült a másolás.'));
 }
 
 function progView(){
@@ -1231,9 +1262,9 @@ function addPhoto(id,file){
     const max=800, sc=Math.min(1,max/Math.max(img.width,img.height));
     const c=document.createElement('canvas'); c.width=Math.round(img.width*sc); c.height=Math.round(img.height*sc);
     c.getContext('2d').drawImage(img,0,0,c.width,c.height);
-    let data; try{ data=c.toDataURL('image/jpeg',0.6); }catch(e){ alert('A kép feldolgozása nem sikerült.'); return; }
+    let data; try{ data=c.toDataURL('image/jpeg',0.6); }catch(e){ uiAlert('A kép feldolgozása nem sikerült.'); return; }
     S.photos[id]=data; save();
-    if(storeMode==='none'){ delete S.photos[id]; alert('A kép nem fért el a tárolóban – törölj néhány fotót.'); }
+    if(storeMode==='none'){ delete S.photos[id]; uiAlert('A kép nem fért el a tárolóban – törölj néhány fotót.'); }
     openNoteSheet('ex',id);
     const ta2=document.getElementById('noteTa'); if(ta2&&keep) ta2.value=keep;
   }; img.src=rd.result; };
@@ -1335,9 +1366,9 @@ let myProfile=null;
 async function loadProfile(){ if(!(window.Auth&&Auth.isLoggedIn())) return; try{ myProfile=await Auth.getProfile(); }catch(e){} }
 async function saveDispName(){
   const v=(document.getElementById('dispName').value||'').trim();
-  if(!v){ alert('Adj meg egy nevet.'); return; }
+  if(!v){ uiAlert('Adj meg egy nevet.'); return; }
   await Auth.saveDisplayName(v); if(myProfile) myProfile.display_name=v; else myProfile={display_name:v};
-  syncStats(); alert('Név elmentve.');
+  syncStats(); uiAlert('Név elmentve.');
 }
 // Csak nem érzékeny összefoglaló megy a barátoknak (nincs jegyzet/fotó/sérülés).
 function shareSummary(){
@@ -1426,7 +1457,7 @@ async function doAddFriend(){
   refreshFriends();   // 'ok' vagy 'accepted' → frissítés
 }
 async function doRespond(requesterId, accept){ try{ await Auth.respondFriend(requesterId, accept); }catch(e){} refreshFriends(); }
-async function doRemoveFriend(id){ if(!confirm('Törlöd ezt a barátot?')) return; try{ await Auth.removeFriend(id); }catch(e){} refreshFriends(); }
+async function doRemoveFriend(id){ if(!(await uiConfirm('Törlöd ezt a barátot?', {ok:'Törlés', danger:true}))) return; try{ await Auth.removeFriend(id); }catch(e){} refreshFriends(); }
 async function openFriendStats(id, name){
   const head=n=>`<div class="grabber"></div>
     <div class="row"><div class="grow"><span class="eyebrow">Barát haladása</span><h2 style="font-size:22px">${esc(n)}</h2></div>
@@ -1472,7 +1503,7 @@ function importPlan(payload){
   save();
 }
 async function openSharePlan(programId){
-  if(!(window.Auth&&Auth.isLoggedIn())){ alert('A megosztáshoz lépj be a fiókodba (Barátok fül).'); return; }
+  if(!(window.Auth&&Auth.isLoggedIn())){ uiAlert('A megosztáshoz lépj be a fiókodba (Barátok fül).'); return; }
   if(!friendsData) await refreshFriends();
   const me=Auth.currentUser().id;
   const acc=(friendsData||[]).filter(r=>r.status==='accepted');
@@ -1487,15 +1518,15 @@ async function openSharePlan(programId){
 }
 async function doSharePlan(programId, toId, toName){
   const payload=buildPlanPayload(programId); const p=progById(programId);
-  if(!payload){ alert('Előbb mentsd el a tervet.'); return; }
+  if(!payload){ uiAlert('Előbb mentsd el a tervet.'); return; }
   let ok=false; try{ ok=await Auth.sharePlan(toId, p.name, payload); }catch(e){}
-  closeSheet(); alert(ok? ('Elküldve neki: '+toName) : 'Nem sikerült elküldeni.');
+  closeSheet(); uiAlert(ok? ('Elküldve neki: '+toName) : 'Nem sikerült elküldeni.');
 }
 async function doImportPlan(shareId){
   const sp=(sharedPlansData||[]).find(x=>x.id===shareId); if(!sp) return;
   importPlan(sp.payload);
   try{ await Auth.deleteSharedPlan(shareId); }catch(e){}
-  refreshFriends(); alert('Terv importálva – megtalálod a főoldaladon.');
+  refreshFriends(); uiAlert('Terv importálva – megtalálod a főoldaladon.');
 }
 async function doDiscardPlan(shareId){ try{ await Auth.deleteSharedPlan(shareId); }catch(e){} refreshFriends(); }
 
@@ -1530,6 +1561,7 @@ applyTheme();
 document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;render();window.scrollTo(0,0);
   if(tab==='friends') refreshFriends();});
 document.getElementById('sheet').onclick=e=>{ if(e.target.id==='sheet') closeSheet(); };
+document.getElementById('modal').onclick=e=>{ if(e.target.id==='modal') _closeModal(false); };
 paintIcons();
 load().then(updateInjuryBtn);
 
