@@ -191,6 +191,11 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--brass);out
 .histrow .w{font-family:'Barlow Condensed',sans-serif;font-variant-numeric:tabular-nums;font-size:20px;font-weight:700;flex:0 0 auto}
 .histrow .r{color:var(--dim);font-size:13px;flex:1;text-align:right}
 .chartbig{width:100%;height:120px;display:block;margin:6px 0 2px}
+.mgrow{display:flex;align-items:center;gap:10px;margin:7px 0}
+.mglbl{flex:0 0 74px;font-size:14px;color:var(--mut);text-transform:capitalize}
+.mgtrack{flex:1;height:12px;background:var(--card2);border-radius:7px;overflow:hidden}
+.mgfill{display:block;height:100%;border-radius:7px}
+.mgval{flex:0 0 26px;font-size:18px;font-weight:700;text-align:right}
 .empty{text-align:center;padding:44px 20px 28px;color:var(--dim)}
 
 /* Alsó lap (szett-billentyűzet) */
@@ -1282,6 +1287,24 @@ function progStats(){
 // Össztömeg emberi alakja: 1 t felett tonnában, egyébként kg-ban.
 function fmtTon(kg){ return kg>=1000 ? (kg/1000).toFixed(kg>=10000?0:1)+' t' : Math.round(kg)+' kg'; }
 
+// Az aktuális hét (hétfőtől) munkaszettjei izomcsoportonként. Egy
+// "munkaszett" = egy rögzített (nem null) szett; a gyakorlat `mg` mezője
+// dönti el, melyik izomcsoporthoz számít. Ez az edzésminőség jó proxyja
+// (a hipertrófiához nagyjából 10+ munkaszett/izom/hét az irányadó).
+function weekVolume(){
+  const wk=weekStart(Date.now()), acc={};
+  S.sessions.forEach(s=>{
+    if(weekStart(s.t)!==wk) return;
+    Object.keys(s.log||{}).forEach(id=>{
+      const filled=(s.log[id].sets||[]).filter(x=>x!=null).length;
+      if(!filled) return;
+      const mg=exDef(id).mg||'egyéb';
+      acc[mg]=(acc[mg]||0)+filled;
+    });
+  });
+  return Object.keys(acc).map(mg=>({mg,sets:acc[mg]})).sort((a,b)=>b.sets-a.sets);
+}
+
 // A grafikonhoz: pontsor → SVG útvonal (viewBox szélesség×magasság, felső/alsó margó).
 function sparkPath(pts,W,H,pad){
   const mn=Math.min(...pts), mx=Math.max(...pts), rng=(mx-mn)||1;
@@ -1305,8 +1328,20 @@ function progView(){
       <div class="stat"><span class="num">${st.month}</span><span class="statlbl">e hónap</span></div>
       <div class="stat"><span class="num">${st.streak}</span><span class="statlbl">hetes sorozat</span></div>
       <div class="stat"><span class="num">${fmtTon(st.tonnage)}</span><span class="statlbl">össztömeg</span></div>
-    </div></div></div>
-    <p class="mut small" style="margin:0 2px 8px">Munkasúly gyakorlatonként · koppints a részletekért ›</p>`;
+    </div></div></div>`;
+  const wv=weekVolume();
+  if(wv.length){
+    const mx=Math.max(...wv.map(v=>v.sets));
+    h+=`<div class="card"><div class="pad">
+      <span class="eyebrow">Heti terhelés · munkaszett izomcsoportra</span>
+      <p class="mut small" style="margin:4px 0 10px">Ezen a héten (hétfőtől) · a zöld sáv a 10+ szettet jelzi</p>`;
+    wv.forEach(v=>{ const pct=Math.max(8,Math.round(v.sets/mx*100)), good=v.sets>=10;
+      h+=`<div class="mgrow"><span class="mglbl">${esc(v.mg)}</span>
+        <span class="mgtrack"><span class="mgfill" style="width:${pct}%;background:${good?'var(--sage)':'var(--brass)'}"></span></span>
+        <span class="mgval num">${v.sets}</span></div>`; });
+    h+=`</div></div>`;
+  }
+  h+=`<p class="mut small" style="margin:0 2px 8px">Munkasúly gyakorlatonként · koppints a részletekért ›</p>`;
   ids.forEach(id=>{
     const e=exDef(id);
     const pts=S.sessions.filter(s=>s.log[id]&&s.log[id].sets.some(x=>x!=null)).map(s=>s.log[id].w);
