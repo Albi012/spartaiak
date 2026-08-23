@@ -127,6 +127,18 @@ tartsd meg – a hívási helyek arra épülnek.
 hiánya = rendszerkövetés). Ez FÜGGETLEN a `gymlog_v1` edzésadattól –
 a témaváltás soha nem érinti a naplót.
 
+**Felhő-szinkron – veszteségmentes összefésülés:** belépve a felhő nem
+felülír, hanem UNIÓT képez a helyi naplóval (`Auth.mergeGym` az
+`js/auth.js`-ben; a `cloudRead`/`cloudWrite` is ezen megy át). Az
+edzéseket azonosító (`t`+`day`) szerint egyesíti; ütközésnél a logot
+gyakorlatonként a gazdagabb (több rögzített szett) verzió nyeri. A
+kulcsolt mezők (`weights`/`notes`/`photos`/`customEx`) per-kulcs unióban,
+a `routines`/`programs` id szerint unióban, a skalár preferenciák
+(`injury`/`activeProgram`/`hidePlan`/`active`) az újabb állapotból (a
+legutóbbi edzés időbélyege a frisseség-proxy). Így két eszköz közt egyetlen
+rögzített edzés sem veszik el. **Ha a szinkron-logikát bővíted, tartsd meg
+ezt a garanciát** – vak felülírás (`upsert` merge nélkül) tilos.
+
 ## Téma (világos / sötét)
 
 Az app követi a rendszer beállítását, és a felső sávban lévő gombbal

@@ -76,18 +76,60 @@
   }
   function currentUser(){ return cloudUser; }
 
-  // -- Felhő-tároló adapter (a readKey/writeKey ehhez hív) ------------
-  // Csak a KEY-t szinkronizáljuk; be kell jelentkezve lenni.
-  async function cloudRead(){
-    const c = await ensureClient(); if(!c || !cloudUser) return null;
-    const { data, error } = await c.from('gym_state')
-      .select('data').eq('user_id', cloudUser.id).single();
-    if(error || !data) return null;
-    const str = JSON.stringify(data.data);
-    hooks.setLocal(str);            // helyi cache frissítése
-    return str;
+  // -- Veszteségmentes összefésülés (két eszköz közti csendes adat-
+  //    vesztés ellen) -------------------------------------------------
+  // A felhő és a helyi napló UNIÓJA: egyetlen rögzített edzés sem veszik
+  // el. Az edzéseket azonosító (t + day) szerint egyesítjük; ütközésnél a
+  // logot gyakorlatonként a gazdagabb (több rögzített szett) verzió nyeri.
+  // A skalár preferenciák (injury, activeProgram, hidePlan, active) és a
+  // kulcsolt mezők per-kulcs az ÚJABB állapotból jönnek (a legutóbbi edzés
+  // időbélyege a frisseség-proxy) – az edzéslistát ez sosem csonkítja.
+  function _filled(L){ return (L&&L.sets||[]).filter(x=>x!=null).length; }
+  function _mergeSession(x, y){
+    const out = Object.assign({}, x, y);     // y a bázis a skalárokhoz (note, w, why…)
+    out.log = Object.assign({}, x.log||{});
+    Object.keys(y.log||{}).forEach(id=>{
+      const cur = out.log[id], nw = y.log[id];
+      out.log[id] = (!cur || _filled(nw) >= _filled(cur)) ? nw : cur;
+    });
+    return out;
   }
-  async function cloudWrite(value){
+  function mergeGym(aStr, bStr){
+    let a=null, b=null;
+    try{ a = aStr ? JSON.parse(aStr) : null; }catch(e){}
+    try{ b = bStr ? JSON.parse(bStr) : null; }catch(e){}
+    if(!a) return bStr || null;
+    if(!b) return aStr || null;
+    const latest = s => (s.sessions||[]).reduce((m,x)=>Math.max(m, x.t||0), 0);
+    const aNew = latest(a) >= latest(b);
+    const newer = aNew ? a : b, older = aNew ? b : a;
+    const out = Object.assign({}, older, newer);   // skalárok: újabb nyer
+    // Edzések: unió azonosító szerint, ütközésnél log-szintű összefésülés.
+    const map = new Map(), key = s => (s.t||0)+'|'+(s.day||'');
+    (a.sessions||[]).concat(b.sessions||[]).forEach(s=>{
+      const k = key(s), ex = map.get(k);
+      map.set(k, ex ? _mergeSession(ex, s) : s);
+    });
+    out.sessions = [...map.values()].sort((x,y)=>(x.t||0)-(y.t||0));
+    // Kulcsolt mezők: unió (per-kulcs az újabb nyer, a régi kulcsok maradnak).
+    ['weights','notes','photos','customEx'].forEach(f=>{
+      if(a[f]||b[f]) out[f] = Object.assign({}, older[f]||{}, newer[f]||{});
+    });
+    // Id-kulcsolt tömbök: unió id szerint.
+    ['routines','programs'].forEach(f=>{
+      const m = new Map();
+      (older[f]||[]).concat(newer[f]||[]).forEach(it=>{ if(it&&it.id) m.set(it.id, it); });
+      if(a[f]||b[f]) out[f] = [...m.values()];
+    });
+    out.lastBackup = Math.max(a.lastBackup||0, b.lastBackup||0) || null;
+    // Folyamatban lévő edzés: ne törölje egy másik eszköz null-ja.
+    out.active = (newer.active!=null) ? newer.active : (older.active!=null ? older.active : null);
+    return JSON.stringify(out);
+  }
+
+  // -- Felhő-tároló adapter (a readKey/writeKey ehhez hív) ------------
+  // Nyers felírás (összefésülés nélkül) – belső használat.
+  async function rawWrite(value){
     const c = await ensureClient(); if(!c || !cloudUser) return false;
     const { error } = await c.from('gym_state').upsert({
       user_id: cloudUser.id,
@@ -96,27 +138,40 @@
     });
     return !error;
   }
-
-  // -- Egyszeri migráció: localStorage → felhő ------------------------
-  async function maybeImport(){
-    const local = hooks.getLocal();
-    if(!local) return;
-    let localSessions = 0;
-    try{ localSessions = (JSON.parse(local).sessions || []).length; }catch(e){}
-    if(!localSessions) return;
-
-    const cloud = await cloudRead();            // felhő állapota
-    let cloudSessions = 0;
-    try{ cloudSessions = cloud ? (JSON.parse(cloud).sessions || []).length : 0; }catch(e){}
-
-    if(cloudSessions === 0){
-      if(confirm('Feltöltsem a helyi naplódat ('+localSessions+
-                 ' edzés) a fiókodba?')){
-        await cloudWrite(local);
-      }
+  async function fetchCloud(){
+    const c = await ensureClient(); if(!c || !cloudUser) return null;
+    const { data, error } = await c.from('gym_state')
+      .select('data').eq('user_id', cloudUser.id).single();
+    return (error || !data) ? null : JSON.stringify(data.data);
+  }
+  // Olvasás: a felhő ÉS a helyi napló összefésült uniója; a felhőt is
+  // frissítjük rá (konvergencia), a helyi cache-t is.
+  async function cloudRead(){
+    const c = await ensureClient(); if(!c || !cloudUser) return null;
+    const cloudStr = await fetchCloud();
+    const localStr = hooks.getLocal();
+    const merged = mergeGym(localStr, cloudStr) || cloudStr || localStr;
+    if(merged){
+      hooks.setLocal(merged);
+      if(merged !== cloudStr){ try{ await rawWrite(merged); }catch(e){} }
     }
-    // Ha mindkét oldalon van adat: NE dönts helyette – a bekötéskor
-    // mutass választót (melyik legyen az alap). Lásd TODO.
+    return merged;
+  }
+  // Írás: a beérkező (helyi) állapotot a felhő aktuális tartalmával
+  // fésüljük össze, majd az uniót írjuk vissza – így egy elavult eszköz
+  // sem törölheti a másik edzéseit.
+  async function cloudWrite(value){
+    const c = await ensureClient(); if(!c || !cloudUser) return false;
+    const cloudStr = await fetchCloud();
+    const merged = mergeGym(value, cloudStr) || value;
+    hooks.setLocal(merged);
+    return rawWrite(merged);
+  }
+
+  // -- Bejelentkezéskori összefésülés (a régi „migráció" helyett) -----
+  async function maybeImport(){
+    // Nincs kérdés/felülírás: a cloudRead uniót képez és konvergál.
+    await cloudRead();
   }
 
   // -- Profil + barátok (2. fázis) -----------------------------------
@@ -210,7 +265,7 @@
   window.Auth = {
     hooks, configured, init,
     signUp, signIn, signInOAuth, signOut, currentUser,
-    cloudRead, cloudWrite, maybeImport,
+    cloudRead, cloudWrite, maybeImport, mergeGym,
     getProfile, saveDisplayName, requestFriend, listFriendships,
     respondFriend, removeFriend, friendStats, publishStats,
     sharePlan, listSharedPlans, deleteSharedPlan,
