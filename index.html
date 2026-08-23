@@ -180,6 +180,17 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--brass);out
 .hrow{display:flex;justify-content:space-between;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line)}
 .hrow:last-child{border-bottom:none}
 .spark{width:100%;height:44px;display:block;margin-top:10px}
+.statgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.stat{display:flex;flex-direction:column;align-items:flex-start}
+.stat .num{font-size:34px;font-weight:700;line-height:1}
+.statlbl{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);font-weight:600;margin-top:3px}
+.pcard{cursor:pointer}
+.pcard:active{background:var(--card2)}
+.histrow{display:flex;align-items:baseline;gap:10px;padding:9px 0;border-top:1px solid var(--line)}
+.histrow .d{color:var(--mut);font-size:14px;flex:0 0 82px;font-variant-numeric:tabular-nums}
+.histrow .w{font-family:'Barlow Condensed',sans-serif;font-variant-numeric:tabular-nums;font-size:20px;font-weight:700;flex:0 0 auto}
+.histrow .r{color:var(--dim);font-size:13px;flex:1;text-align:right}
+.chartbig{width:100%;height:120px;display:block;margin:6px 0 2px}
 .empty{text-align:center;padding:44px 20px 28px;color:var(--dim)}
 
 /* Alsó lap (szett-billentyűzet) */
@@ -1248,6 +1259,36 @@ async function shareWeekly(){
   copyWeekly();
 }
 
+// Egy szett-tömb rögzített (nem null) ismétléseinek összege.
+function repSum(sets){ return (sets||[]).reduce((a,x)=>a+(x!=null?x:0),0); }
+// Egy edzés–gyakorlat "térfogata" kg-ban: súly × összes ismétlés. Testsúlyos
+// (w<=0) gyakorlatnál kg-ban 0 volna, ezért ott az ismétlésszám a mérőszám.
+function exVolume(L){ return L.w>0 ? L.w*repSum(L.sets) : 0; }
+// A hét (hétfő 00:00) időbélyege – a hetes sorozat számításához.
+function weekStart(t){ const d=new Date(t); d.setHours(0,0,0,0); const wd=(d.getDay()+6)%7; d.setDate(d.getDate()-wd); return d.getTime(); }
+
+// Összegző statisztikák a Haladás fül fejlécéhez.
+function progStats(){
+  const now=new Date(), ym=now.getFullYear()+'-'+now.getMonth();
+  let month=0, tonnage=0;
+  S.sessions.forEach(s=>{
+    const d=new Date(s.t); if(d.getFullYear()+'-'+d.getMonth()===ym) month++;
+    Object.values(s.log).forEach(L=>{ tonnage+=exVolume(L); });
+  });
+  const weeks=[...new Set(S.sessions.map(s=>weekStart(s.t)))].sort((a,b)=>b-a);
+  let streak=0; if(weeks.length){ streak=1; for(let i=1;i<weeks.length;i++){ if(weeks[i-1]-weeks[i]===7*864e5) streak++; else break; } }
+  return { total:S.sessions.length, month, streak, tonnage };
+}
+// Össztömeg emberi alakja: 1 t felett tonnában, egyébként kg-ban.
+function fmtTon(kg){ return kg>=1000 ? (kg/1000).toFixed(kg>=10000?0:1)+' t' : Math.round(kg)+' kg'; }
+
+// A grafikonhoz: pontsor → SVG útvonal (viewBox szélesség×magasság, felső/alsó margó).
+function sparkPath(pts,W,H,pad){
+  const mn=Math.min(...pts), mx=Math.max(...pts), rng=(mx-mn)||1;
+  return pts.map((p,i)=>{ const x=pts.length>1? i/(pts.length-1)*W : W/2;
+    const y=(H-pad)-((p-mn)/rng)*(H-2*pad); return (i?'L':'M')+x.toFixed(1)+' '+y.toFixed(1); }).join(' ');
+}
+
 function progView(){
   const ids=[]; const seen=new Set();
   PLAN.forEach(d=>d.ex.forEach(e=>{ seen.add(e.id);
@@ -1257,23 +1298,67 @@ function progView(){
     if(s.log[id].sets.some(x=>x!=null)) ids.push(id); }));
   if(!ids.length) return `<div class="wrap"><div class="top"><h1 style="font-size:34px">Haladás</h1></div>
     <div class="empty">Két-három edzés után lesz mit mutatni.</div></div>`;
-  let h=`<div class="wrap"><div class="top"><h1 style="font-size:34px">Haladás</h1>
-    <p class="mut small" style="margin:6px 0 0">Munkasúly gyakorlatonként</p></div>`;
+  const st=progStats();
+  let h=`<div class="wrap"><div class="top"><h1 style="font-size:34px">Haladás</h1></div>
+    <div class="card"><div class="pad"><div class="statgrid">
+      <div class="stat"><span class="num">${st.total}</span><span class="statlbl">edzés</span></div>
+      <div class="stat"><span class="num">${st.month}</span><span class="statlbl">e hónap</span></div>
+      <div class="stat"><span class="num">${st.streak}</span><span class="statlbl">hetes sorozat</span></div>
+      <div class="stat"><span class="num">${fmtTon(st.tonnage)}</span><span class="statlbl">össztömeg</span></div>
+    </div></div></div>
+    <p class="mut small" style="margin:0 2px 8px">Munkasúly gyakorlatonként · koppints a részletekért ›</p>`;
   ids.forEach(id=>{
     const e=exDef(id);
     const pts=S.sessions.filter(s=>s.log[id]&&s.log[id].sets.some(x=>x!=null)).map(s=>s.log[id].w);
-    const mn=Math.min(...pts), mx=Math.max(...pts), rng=(mx-mn)||1;
-    let d='';
-    pts.forEach((p,i)=>{ const x=pts.length>1? i/(pts.length-1)*100 : 50; const y=38-((p-mn)/rng)*32; d+=(i?' L':'M')+x.toFixed(1)+' '+y.toFixed(1); });
-    const delta=pts[pts.length-1]-pts[0];
-    h+=`<div class="card"><div class="pad">
+    const last=pts[pts.length-1], mn=Math.min(...pts), rng=(Math.max(...pts)-mn)||1;
+    const d=sparkPath(pts,100,44,6);
+    const ex=pts.length>1? 100 : 50, ey=(44-6)-((last-mn)/rng)*(44-12);
+    const delta=last-pts[0];
+    h+=`<div class="card pcard" onclick="openProgDetail('${id}')"><div class="pad">
       <div class="row" style="align-items:baseline"><span class="cond grow" style="font-size:19px;font-weight:600">${esc(e.n)}</span>
-      <span class="num" style="font-size:24px;font-weight:700">${wLabel(e,pts[pts.length-1])}<span class="small dim" style="font-weight:400">${e.bw&&pts[pts.length-1]<=0?'':' kg'}</span></span></div>
+      <span class="num" style="font-size:24px;font-weight:700">${wLabel(e,last)}<span class="small dim" style="font-weight:400">${e.bw&&last<=0?'':' kg'}</span></span></div>
       <div class="small ${delta>0?'':'dim'}" style="${delta>0?'color:var(--sage)':''}">${delta>0?'+'+delta+' kg az indulás óta':delta<0?delta+' kg':'változatlan'} · ${pts.length} alkalom</div>
-      ${pts.length>1?`<svg class="spark" viewBox="0 0 100 44" preserveAspectRatio="none"><path d="${d}" fill="none" stroke="var(--brass)" stroke-width="1.6" vector-effect="non-scaling-stroke" stroke-linejoin="round"/></svg>`:''}
+      ${pts.length>1?`<svg class="spark" viewBox="0 0 100 44" preserveAspectRatio="none"><path d="${d}" fill="none" stroke="var(--brass)" stroke-width="1.6" vector-effect="non-scaling-stroke" stroke-linejoin="round"/><circle cx="${ex.toFixed(1)}" cy="${ey.toFixed(1)}" r="2.4" fill="var(--brass)" vector-effect="non-scaling-stroke"/></svg>`:''}
       </div></div>`;
   });
   return h+'</div>';
+}
+
+// Részletes lap egy gyakorlathoz: nagy grafikon + teljes előzmény.
+function openProgDetail(id){
+  const e=exDef(id);
+  const rows=S.sessions.filter(s=>s.log[id]&&s.log[id].sets.some(x=>x!=null))
+    .map(s=>({ t:s.t, L:s.log[id] })).sort((a,b)=>a.t-b.t);
+  const pts=rows.map(r=>r.L.w);
+  const pr=Math.max(...pts);
+  const d=sparkPath(pts,100,120,10);
+  const mn=Math.min(...pts), rng=(Math.max(...pts)-mn)||1;
+  const area=pts.length>1 ? `M0 120 `+pts.map((p,i)=>{ const x=i/(pts.length-1)*100; const y=(120-10)-((p-mn)/rng)*(120-20); return 'L'+x.toFixed(1)+' '+y.toFixed(1); }).join(' ')+` L100 120 Z` : '';
+  let h=`<div class="grabber"></div>
+    <div class="row"><div class="grow"><span class="eyebrow">Haladás</span>
+      <h2 style="font-size:22px">${esc(e.n)}</h2>
+      <span class="small dim">Csúcs ${wLabel(e,pr)}${e.bw&&pr<=0?'':' kg'} · ${rows.length} alkalom</span></div>
+      <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>`;
+  if(pts.length>1){
+    h+=`<svg class="chartbig" viewBox="0 0 100 120" preserveAspectRatio="none">
+      <path d="${area}" fill="var(--brass-d)" opacity=".55"/>
+      <path d="${d}" fill="none" stroke="var(--brass)" stroke-width="1.8" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
+      ${rows.map((r,i)=>{ const x=i/(rows.length-1)*100; const y=(120-10)-((r.L.w-mn)/rng)*(120-20); return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="1.9" fill="var(--brass)" vector-effect="non-scaling-stroke"/>`; }).join('')}
+    </svg>`;
+  }
+  h+=`<div style="margin-top:6px">`;
+  rows.slice().reverse().forEach(r=>{
+    const reps=(r.L.sets||[]).filter(x=>x!=null);
+    const isPr=r.L.w===pr && pr>0;
+    h+=`<div class="histrow">
+      <span class="d">${fmtDate(r.t)}</span>
+      <span class="w">${wLabel(e,r.L.w)}${e.bw&&r.L.w<=0?'':' kg'}${isPr?' <span class="small" style="color:var(--brass);font-weight:600">CSÚCS</span>':''}</span>
+      <span class="r">${reps.length?reps.join(' · '):'—'}</span>
+    </div>`;
+  });
+  h+=`</div>`;
+  document.getElementById('sheetIn').innerHTML=h;
+  document.getElementById('sheet').classList.add('on');
 }
 
 /* ---- Jegyzetek (állandó + aznapi) és fotó -------------------------- */
