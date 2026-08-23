@@ -130,7 +130,10 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--brass);out
   border:1px solid var(--line);border-radius:20px;display:flex;padding:6px;gap:4px;box-shadow:0 10px 30px var(--shadow);z-index:30}
 .nav button{flex:1;padding:9px 4px;border-radius:14px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);font-weight:600}
 .nav button.on{color:var(--brass);background:var(--card2)}
+.nav button{position:relative}
 .nav .ic{display:block;font-family:'Barlow Condensed',sans-serif;font-size:20px;margin-bottom:2px}
+.ndot{position:absolute;top:6px;right:calc(50% - 20px);width:9px;height:9px;border-radius:50%;background:var(--red);border:1.5px solid var(--bar);display:none}
+.ndot.on{display:block}
 
 /* ---- Edzés-lejátszó (immerzív) ------------------------------------- */
 .player{min-height:100dvh;display:flex;flex-direction:column}
@@ -246,7 +249,7 @@ textarea:focus{outline:2px solid var(--brass);outline-offset:2px}
   <button data-tab="home" class="on"><span class="ic">▣</span>Edzés</button>
   <button data-tab="log"><span class="ic">≡</span>Napló</button>
   <button data-tab="prog"><span class="ic">↗</span>Haladás</button>
-  <button data-tab="friends"><span class="ic">☺</span>Barátok</button>
+  <button data-tab="friends"><span class="ndot" id="friendsDot"></span><span class="ic">☺</span>Barátok</button>
 </div>
 
 <div class="sheet" id="sheet"><div class="inner" id="sheetIn"></div></div>
@@ -1348,12 +1351,21 @@ async function syncStats(){ if(window.Auth&&Auth.isLoggedIn()){ try{ await Auth.
 
 let friendsData=null, sharedPlansData=null;
 async function refreshFriends(){
-  if(!(window.Auth&&Auth.isLoggedIn())){ if(tab==='friends') render(); return; }
+  if(!(window.Auth&&Auth.isLoggedIn())){ if(tab==='friends') render(); updateFriendsBadge(); return; }
   if(!myProfile) await loadProfile();
   try{ friendsData=await Auth.listFriendships(); }catch(e){ friendsData=[]; }
   try{ sharedPlansData=await Auth.listSharedPlans(); }catch(e){ sharedPlansData=[]; }
+  updateFriendsBadge();
   if(tab==='friends') render();
 }
+// Értesítés-pötty: bejövő barát-kérés vagy megosztott edzésterv vár.
+function friendsPending(){
+  if(!(window.Auth&&Auth.isLoggedIn())) return 0;
+  const me=Auth.currentUser().id;
+  const inc=(friendsData||[]).filter(r=>r.status==='pending'&&r.addressee===me).length;
+  return inc + (sharedPlansData||[]).length;
+}
+function updateFriendsBadge(){ const d=document.getElementById('friendsDot'); if(d) d.classList.toggle('on', friendsPending()>0); }
 function friendsView(){
   const wrap = inner => `<div class="wrap"><div class="top"><span class="eyebrow">Közösség</span>
     <h1 style="font-size:34px;margin-top:4px">Barátok</h1></div>${inner}</div>`;
@@ -1526,7 +1538,7 @@ if(window.Auth){
   Auth.hooks.reload = ()=>load().then(updateInjuryBtn);
   Auth.hooks.onChange = async ()=>{ updateAuthBtn();
     if(Auth.isLoggedIn()){ await loadProfile(); syncStats(); refreshFriends(); }
-    else { myProfile=null; friendsData=null; sharedPlansData=null; if(tab==='friends') render(); } };
+    else { myProfile=null; friendsData=null; sharedPlansData=null; updateFriendsBadge(); if(tab==='friends') render(); } };
   Auth.init().catch(()=>{});
 }
 updateAuthBtn();
