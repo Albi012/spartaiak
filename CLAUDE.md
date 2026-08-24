@@ -76,6 +76,15 @@ alapértéket kapnak; a `save()`/`backup()`/`restore()` viszi őket):
 arányában nagyobbat lép (nem fix +inc). Kihagyás (>10 nap) esetén a
 `startDay` visszalépést (−15%) ajánl.
 
+**Progressziós programok (`prog`):** választható, gyakorlatonkénti
+szabály, hogy a súly hogyan lépjen a következő edzésre. Kulcsolt, additív
+mező: `prog[exId] = 'linear'|'greyskull'|'double'|'off'` (a `'smart'` =
+alapértelmezés, NEM tárolódik, törlődik a kulcs). A `progNext(id, L)` a
+következő súlyt + indoklást a naplóból származtatja (nincs elmentett
+számláló). A `startW` és a player-hint ezt használja; a hintre koppintva
+az `openProgPolicy` választó nyílik (a gyakorlat-jegyzet lapról is elérhető).
+Szinkron: per-kulcs unió a `weights`/`notes`/… mellett.
+
 ## Gyakorlat-azonosítók – NE nevezd át őket
 
 Ezek kulcsként szerepelnek a mentett adatokban. Átnevezésük

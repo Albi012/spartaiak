@@ -354,10 +354,10 @@ const ICON={
 
 let S = {sessions:[], active:null, weights:{}, notes:{}, photos:{}, injury:null, lastBackup:0,
          customEx:{}, routines:[], programs:[], hidePlan:false, activeProgram:null,
-         bw:[], bwGoal:null, deleted:[], activeT:0};
+         bw:[], bwGoal:null, deleted:[], activeT:0, prog:{}};
 let tab='home', playing=false, curEx=0, tInt=null, tEnd=0, tLen=0, wl=null, nagOff=false;
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v32';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v33';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -398,7 +398,7 @@ async function save(){
   const v=JSON.stringify({sessions:S.sessions,active:S.active,weights:S.weights,
     notes:S.notes,photos:S.photos,injury:S.injury,lastBackup:S.lastBackup,
     customEx:S.customEx,routines:S.routines,programs:S.programs,hidePlan:S.hidePlan,activeProgram:S.activeProgram,
-    bw:S.bw,bwGoal:S.bwGoal,deleted:S.deleted,activeT:S.activeT});
+    bw:S.bw,bwGoal:S.bwGoal,deleted:S.deleted,activeT:S.activeT,prog:S.prog});
   const ok=await writeKey(KEY,v);
   if(!ok&&storeMode!=='none'){ storeMode='none'; render(); }
 }
@@ -623,12 +623,81 @@ function smartInc(e,l){
   let mult=1; if(over>=6) mult=4; else if(over>=4) mult=3; else if(over>=2) mult=2;
   return e.inc*mult;
 }
-function startW(id){
-  const l=lastFor(id), d=exDef(id);
-  if(l) return Math.max(0, l.w + smartInc(d,l));
-  if(S.weights[id]!=null) return S.weights[id];
-  return d.w;
+// -- Progressziós programok (választható, auditálható szabályok) ------
+// Saját implementáció. A következő súlyt MINDIG a naplóból származtatjuk,
+// nincs elmentett számláló, ami elcsúszhatna. Policy gyakorlatonként
+// állítható (S.prog[id]); alapértelmezés a 'smart' (a régi viselkedés).
+const POLICIES=['smart','linear','greyskull','double','off'];
+const POLICY_NAME={ smart:'Okos (túlteljesítés-arányos)', linear:'Lineáris', greyskull:'Greyskull LP', double:'Dupla progresszió', off:'Fix (nincs auto)' };
+const POLICY_DESC={
+  smart:'Ha minden ismétlés megvolt, a cél feletti túlteljesítés arányában lép nagyobbat. Ez az alapértelmezés.',
+  linear:'Minden ismétlés megvan minden szettben → +inc. 3 sikertelen edzés után −10% visszaépítés.',
+  greyskull:'A záró szett maximumig megy. A célt túllépve +inc (duplázva, ha dupla ismétlés). Egy bukás −10%.',
+  double:'Egy ismétlés-tartományban dolgozol azonos súllyal; ha minden szett eléri a tetejét → +inc, ismétlések vissza az aljára.',
+  off:'A súly ott marad, ahová állítod – nincs automatikus javaslat.'
+};
+function progPolicy(id){ const p=S.prog&&S.prog[id]; return POLICIES.indexOf(p)>=0 ? p : 'smart'; }
+// Hány egymást követő, LEGUTÓBBI naplózott edzés maradt a cél alatt (deloadhoz).
+function failStreak(id){ const e=exDef(id), t=parseInt(e.r)||8; let n=0;
+  for(let i=S.sessions.length-1;i>=0;i--){ const L=S.sessions[i].log[id]; if(!L) continue;
+    const done=L.sets.length>=e.s && L.sets.every(x=>x!=null&&x>=t); if(done) break; n++; }
+  return n; }
+// A következő súly + indoklás egy befejezett edzés (L={w,sets}) alapján.
+function progNext(id,L){
+  const e=exDef(id), inc=e.inc||2.5, t=parseInt(e.r)||8, pol=progPolicy(id);
+  if(!L||!L.sets||!L.sets.length){
+    const w=(S.weights[id]!=null?S.weights[id]:e.w);
+    return {w, delta:0, reason:'Első alkalom – a technika a cél.'};
+  }
+  const cur=L.w, filled=L.sets.filter(x=>x!=null);
+  const allDone=L.sets.length>=e.s && filled.length===L.sets.length && filled.every(x=>x>=t);
+  const R=w=>roundTo(w,inc);
+  const up=(m,why)=>({w:R(cur+inc*m), delta:inc*m, reason:why});
+  const same=why=>({w:cur, delta:0, reason:why});
+  const down=why=>{ const w=Math.max(inc,R(cur*0.9)); return {w, delta:w-cur, reason:why}; };
+  switch(pol){
+    case 'off': return same('Fix súly – nincs automatikus progresszió.');
+    case 'linear':
+      if(allDone) return up(1, `Lineáris: minden ismétlés megvolt (${t}+) → +${inc} kg.`);
+      if(failStreak(id)>=3) return down('Lineáris: 3 sikertelen edzés → −10% visszaépítés.');
+      return same('Lineáris: nem lett meg minden – maradj a súlyon, próbáld újra.');
+    case 'greyskull': { const lastSet=filled.length?filled[filled.length-1]:0;
+      if(lastSet>=2*t) return up(2, `Greyskull: záró szett ${lastSet} ism (≥2×${t}) → +${inc*2} kg.`);
+      if(lastSet>=t)   return up(1, `Greyskull: záró szett ${lastSet} ism (≥${t}) → +${inc} kg.`);
+      return down(`Greyskull: záró szett ${lastSet} < ${t} → −10%.`); }
+    case 'double': { const hi=t, lo=Math.max(1,hi-3);
+      if(allDone) return up(1, `Dupla: minden szett elérte a ${hi}-t → +${inc} kg (ismétlések vissza ${lo}-re).`);
+      return same(`Dupla: dolgozz ${lo}–${hi} ism között azonos súllyal, amíg mind ${hi} nem lesz.`); }
+    default: { const d=smartInc(e,L);
+      if(d>0){ const over=Math.min(...filled)-t; return {w:R(cur+d), delta:d, reason:`Okos: +${over} a célon → +${d} kg.`}; }
+      return same('Okos: nem lett meg minden ismétlés → marad a súly.'); }
+  }
 }
+function startW(id){
+  const l=lastFor(id);
+  if(l) return Math.max(0, progNext(id,l).w);
+  if(S.weights[id]!=null) return S.weights[id];
+  return exDef(id).w;
+}
+// Progressziós szabály választó gyakorlatonként.
+function openProgPolicy(id){
+  const e=exDef(id), cur=progPolicy(id);
+  let h=`<div class="grabber"></div>
+    <div class="row"><div class="grow"><span class="eyebrow">Progresszió</span>
+      <h2 style="font-size:22px">${esc(e.n)}</h2>
+      <span class="small dim">Hogyan lépjen a súly a következő edzésre</span></div>
+      <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>`;
+  POLICIES.forEach(p=>{
+    h+=`<button class="btn" style="text-align:left;margin-top:8px;${p===cur?'border-color:var(--brass)':''}" onclick="setProgPolicy('${id}','${p}')">
+      <b>${POLICY_NAME[p]}</b>${p===cur?' <span class="small" style="color:var(--brass)">✓ aktív</span>':''}
+      <div class="small dim" style="margin-top:2px;font-weight:400">${POLICY_DESC[p]}</div></button>`;
+  });
+  document.getElementById('sheetIn').innerHTML=h;
+  document.getElementById('sheet').classList.add('on');
+}
+function setProgPolicy(id,p){ if(!S.prog) S.prog={};
+  if(p==='smart') delete S.prog[id]; else S.prog[id]=p;   // 'smart' = alapértelmezés, nem tároljuk
+  save(); closeSheet(); render(); }
 // Egy edzés összterhelése: súly × ismétlés összegezve (testsúlyos szettek
 // 0 súllyal szerepelnek, ezért ez a terhelt súlyra fókuszáló, relatív szám).
 function sessionLoad(s){ let sum=0; for(const id in s.log){ const l=s.log[id]; const w=l.w>0?l.w:0;
@@ -1025,8 +1094,14 @@ function playerView(){
   let note='';
   if(last) note=`<div class="prev">Előző: ${wLabel(e,last.w)}${e.bw&&last.w<=0?'':' kg'} × ${last.sets.map(x=>x==null?'–':x).join(', ')}</div>`;
   else note=`<div class="prev dim">Első alkalom – a technika a cél, ne a súly.</div>`;
-  const inc=smartInc(e,{sets:L.sets,w:L.w})||e.inc;
-  const hint = hit?`<div class="hint">Mind megvolt → jövő héten ${wLabel(e,L.w+inc)}${e.bw&&L.w+inc<=0?'':' kg'} (+${inc})</div>`:'';
+  // Következő edzés súlyjavaslata a választott progressziós szabály szerint,
+  // indoklással (auditálható). Csak akkor, ha van már rögzített szett.
+  let hint='';
+  if(!e.bw && L.sets.some(x=>x!=null)){
+    const nx=progNext(e.id,{w:L.w,sets:L.sets});
+    const arrow = nx.delta>0?`↑ ${wLabel(e,nx.w)} kg`:nx.delta<0?`↓ ${wLabel(e,nx.w)} kg`:`= ${wLabel(e,nx.w)} kg`;
+    hint=`<div class="hint" onclick="openProgPolicy('${e.id}')" style="cursor:pointer">Következőre: <b>${arrow}</b> · ${esc(nx.reason)} <span class="dim">›</span></div>`;
+  }
 
   // Állandó gyakorlat-jegyzet + fotó
   const pn=S.notes[e.id], ph=S.photos[e.id];
@@ -1600,7 +1675,9 @@ function openNoteSheet(kind,id){
         <label class="btn" style="flex:1;margin:0;cursor:pointer">${ph?'Fotó cseréje':'Fotó hozzáadása'}<input id="photoIn" type="file" accept="image/*" capture="environment" style="display:none"></label>
         ${ph?`<button class="btn" style="flex:0 0 42%;margin:0;color:var(--red)" onclick="removePhoto('${id}')">Fotó törlése</button>`:''}
       </div>
-      <button class="btn pri" style="margin-top:12px" onclick="saveNote('ex','${id}')">Mentés</button>`;
+      <button class="btn pri" style="margin-top:12px" onclick="saveNote('ex','${id}')">Mentés</button>
+      ${e.bw?'':`<button class="btn" style="margin-top:8px;text-align:left" onclick="openProgPolicy('${id}')">
+        <span class="small dim">Progresszió</span><br><b>${POLICY_NAME[progPolicy(id)]}</b> <span class="dim">›</span></button>`}`;
     document.getElementById('sheetIn').innerHTML=h;
     const pin=document.getElementById('photoIn'); if(pin) pin.onchange=()=>addPhoto(id,pin.files[0]);
   } else {

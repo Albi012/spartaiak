@@ -121,7 +121,7 @@
     });
     out.sessions = [...map.values()].sort((x,y)=>(x.t||0)-(y.t||0));
     // Kulcsolt mezők: unió (per-kulcs az újabb nyer, a régi kulcsok maradnak).
-    ['weights','notes','photos','customEx'].forEach(f=>{
+    ['weights','notes','photos','customEx','prog'].forEach(f=>{
       if(a[f]||b[f]) out[f] = Object.assign({}, older[f]||{}, newer[f]||{});
     });
     // Id-kulcsolt tömbök: unió id szerint.
