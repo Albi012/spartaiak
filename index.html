@@ -357,6 +357,7 @@ let S = {sessions:[], active:null, weights:{}, notes:{}, photos:{}, injury:null,
          bw:[], bwGoal:null, deleted:[]};
 let tab='home', playing=false, curEx=0, tInt=null, tEnd=0, tLen=0, wl=null, nagOff=false;
 let editing=false, draft=null;   // edzés-összeállító
+const APP_VERSION='v30';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -1697,6 +1698,7 @@ function openAuthSheet(){
       <button class="btn pri" style="margin-top:12px" onclick="doAuth('in')">Belépés</button>
       <button class="btn" style="margin-top:8px" onclick="doAuth('up')">Regisztráció</button>`;
   }
+  h+=`<div class="small dim" style="text-align:center;margin-top:18px">Verzió ${APP_VERSION}</div>`;
   document.getElementById('sheetIn').innerHTML=h;
   document.getElementById('sheet').classList.add('on');
   if(loggedIn && !myProfile){ loadProfile().then(()=>{ const s=document.getElementById('sheet');
