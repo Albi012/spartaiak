@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Edzésnapló – merge regressziós teszt</title>
+<style>
+  body{font-family:system-ui,sans-serif;max-width:760px;margin:24px auto;padding:0 16px;background:#0F1317;color:#EAF0F5}
+  h1{font-size:20px} .ok{color:#63C295} .fail{color:#E9694C;font-weight:700}
+  #sum{font-size:18px;font-weight:700;margin:12px 0}
+  ul{list-style:none;padding:0} li{padding:4px 0;border-bottom:1px solid #2A343F;font-size:14px}
+  code{color:#E0A93E}
+</style>
+</head>
+<body>
+<h1>merge-test · <code>Auth.mergeGym</code> regresszió</h1>
+<div id="sum">Futtatás…</div>
+<ul id="out"></ul>
+
+<!-- A valódi szinkron-logika; supabase-config nélkül inert, de a mergeGym elérhető. -->
+<script src="../js/auth.js"></script>
+<script>
+const M = window.Auth.mergeGym;
+const out = document.getElementById('out');
+let pass=0, fail=0;
+function ok(name, cond){
+  const li=document.createElement('li');
+  li.innerHTML = (cond?'<span class="ok">✓</span> ':'<span class="fail">✗</span> ')+name;
+  out.appendChild(li); cond?pass++:fail++;
+}
+const J = o => JSON.stringify(o);
+const parse = s => JSON.parse(s);
+const S = o => JSON.stringify(o);
+// Egy-elemű edzés-gyár
+const sess = (t,day,log)=>({t,day,log:log||{}});
+
+// 1) Diszjunkt edzések uniója
+{
+  const a=S({sessions:[sess(1000,'pa',{bench:{w:50,sets:[5,5,5]}})], weights:{bench:50}});
+  const b=S({sessions:[sess(2000,'pb',{ohp:{w:30,sets:[8,8]}})], weights:{ohp:30}, activeProgram:'p_x'});
+  const m=parse(M(a,b));
+  ok('unió: mindkét edzés megvan', J(m.sessions.map(s=>s.t))===J([1000,2000]));
+  ok('unió: súlyok egyesülnek', m.weights.bench===50 && m.weights.ohp===30);
+  ok('unió: újabb preferencia nyer (activeProgram)', m.activeProgram==='p_x');
+}
+// 2) Azonos edzés-id ütközés: gazdagabb szett nyer + gyakorlat-unió
+{
+  const a=S({sessions:[sess(5000,'pa',{bench:{w:55,sets:[5,10,null,null]}, dip:{w:0,sets:[6,6]}})]});
+  const b=S({sessions:[sess(5000,'pa',{bench:{w:55,sets:[5,10,11,11]}, lat:{w:40,sets:[10]}})]});
+  const m=parse(M(a,b));
+  ok('ütközés: nem duplázódik', m.sessions.length===1);
+  ok('ütközés: gazdagabb szett nyer', J(m.sessions[0].log.bench.sets)===J([5,10,11,11]));
+  ok('ütközés: gyakorlatok unióban (dip+lat)', !!m.sessions[0].log.dip && !!m.sessions[0].log.lat);
+}
+// 3) Null-kezelés
+{
+  const a=S({sessions:[sess(1,'pa',{})]});
+  ok('null felhő: helyi marad', parse(M(a,null)).sessions.length===1);
+  ok('null helyi: felhő marad', parse(M(null,a)).sessions.length===1);
+  ok('mindkettő null', M(null,null)===null);
+}
+// 4) Kulcsolt mezők + id-tömbök uniója
+{
+  const a=S({sessions:[sess(100,'pa',{})], notes:{bench:'pad 30'}, photos:{bench:'x'}, customEx:{cx_1:{id:'cx_1'}}, routines:[{id:'r_1'}]});
+  const b=S({sessions:[sess(200,'pa',{})], notes:{dip:'mély'}, customEx:{cx_2:{id:'cx_2'}}, routines:[{id:'r_2'}], programs:[{id:'p_1'}]});
+  const m=parse(M(a,b));
+  ok('jegyzetek uniója', J(Object.keys(m.notes).sort())===J(['bench','dip']));
+  ok('customEx uniója', J(Object.keys(m.customEx).sort())===J(['cx_1','cx_2']));
+  ok('routines uniója id szerint', J(m.routines.map(r=>r.id).sort())===J(['r_1','r_2']));
+  ok('programs átvitele', J(m.programs.map(p=>p.id))===J(['p_1']));
+}
+// 5) Tombstone: törölt edzés nem jön vissza + propagál
+{
+  const cloud=S({sessions:[sess(1000,'pa',{}),sess(2000,'pb',{})], deleted:[]});
+  const local=S({sessions:[sess(2000,'pb',{})], deleted:[{k:'1000|pa',at:3000}]});
+  ok('tombstone: törölt nem tér vissza', J(parse(M(local,cloud)).sessions.map(s=>s.t))===J([2000]));
+  ok('tombstone: megőrződik', J(parse(M(local,cloud)).deleted.map(d=>d.k))===J(['1000|pa']));
+  ok('tombstone: propagál a másik irányba is', J(parse(M(cloud,local)).sessions.map(s=>s.t))===J([2000]));
+}
+// 6) Tombstone-uniónál a frissebb at nyer
+{
+  const a=S({sessions:[], deleted:[{k:'9|pa',at:100}]});
+  const b=S({sessions:[], deleted:[{k:'9|pa',at:200}]});
+  ok('tombstone: frissebb at', parse(M(a,b)).deleted[0].at===200);
+}
+// 7) Testsúly: unió nap szerint, ütközésnél újabb állapot nyer, cél skalár
+{
+  const day=86400000, base=1_700_000_000_000;
+  const a=S({sessions:[sess(base+5*day,'pa',{})], bw:[{t:base+day,kg:80}], bwGoal:75});
+  const b=S({sessions:[sess(base+1,'pa',{})], bw:[{t:base+2*day,kg:81},{t:base+day,kg:79.5}], bwGoal:null});
+  const m=parse(M(a,b));
+  ok('bw: unió nap szerint (2 nap)', m.bw.length===2);
+  ok('bw: ütközésnél az újabb állapot nyer (80)', m.bw.find(e=>Math.round(e.t/day)===Math.round((base+day)/day)).kg===80);
+  ok('bwGoal: az újabb állapotból (75)', m.bwGoal===75);
+}
+// 8) Aktív edzés: activeT dönt
+{
+  const W=sess(5,'pb',{ohp:{w:30,sets:[8]}});
+  ok('active: eldobás nyer (friss activeT null-lal)',
+     parse(M(S({sessions:[],active:null,activeT:200}), S({sessions:[],active:W,activeT:100}))).active===null);
+  ok('active: friss indítás megmarad',
+     !!parse(M(S({sessions:[],active:W,activeT:200}), S({sessions:[],active:null,activeT:100}))).active);
+  ok('active: activeT max megőrződik',
+     parse(M(S({sessions:[],active:null,activeT:200}), S({sessions:[],active:W,activeT:100}))).activeT===200);
+}
+// 9) Aktív/befejezett dedup: ha aktív = már naplózott edzés, az aktív elvetődik
+{
+  const done=sess(777,'pb',{ohp:{w:30,sets:[8,8,8]}});
+  const a=S({sessions:[done], active:null, activeT:100});         // A befejezte
+  const b=S({sessions:[], active:sess(777,'pb',{ohp:{w:30,sets:[8]}}), activeT:200}); // B még aktívként hozza
+  const m=parse(M(a,b));
+  ok('dedup: befejezett edzés a naplóban', m.sessions.length===1 && m.sessions[0].t===777);
+  ok('dedup: nincs duplikált aktív', m.active===null);
+}
+// 10) Idempotencia + lastBackup max
+{
+  const a=S({sessions:[sess(1,'pa',{})], lastBackup:500});
+  ok('idempotencia: A⊕A = A (edzésszám)', parse(M(a,a)).sessions.length===1);
+  const b=S({sessions:[sess(2,'pb',{})], lastBackup:900});
+  ok('lastBackup: max', parse(M(a,b)).lastBackup===900);
+}
+
+document.getElementById('sum').innerHTML =
+  fail===0 ? `<span class="ok">MIND ZÖLD – ${pass} teszt</span>`
+           : `<span class="fail">${fail} BUKÁS</span> / ${pass+fail} teszt`;
+window.__RESULT__ = { pass, fail };
+</script>
+</body>
+</html>

@@ -357,7 +357,7 @@ let S = {sessions:[], active:null, weights:{}, notes:{}, photos:{}, injury:null,
          bw:[], bwGoal:null, deleted:[], activeT:0};
 let tab='home', playing=false, curEx=0, tInt=null, tEnd=0, tLen=0, wl=null, nagOff=false;
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v31';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v32';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -372,10 +372,20 @@ async function readKey(k){
        return localStorage.getItem(k); }catch(e){ storeMode='none'; }
   return null;
 }
+// Felhő-push debounce: gyors egymás utáni mentések (szettről szettre) egyetlen
+// hálózati írássá vonódnak össze, hogy teremben ne torlódjanak/versenyezzenek.
+// A HELYI mentés attól még minden hívásnál azonnal megtörténik (lásd writeKey).
+let _cloudTimer=null, _cloudPending=null;
+function cloudPush(v){
+  _cloudPending=v;
+  if(_cloudTimer) return;
+  _cloudTimer=setTimeout(()=>{ _cloudTimer=null; const val=_cloudPending; _cloudPending=null;
+    if(val!=null && window.Auth && Auth.isLoggedIn()){ try{ Auth.cloudWrite(val); }catch(e){} } }, 1200);
+}
 async function writeKey(k,v){
   try{ if(window.storage&&window.storage.set){ await window.storage.set(k,v); return true; } }catch(e){}
   try{ localStorage.setItem(k,v);
-       if(k===KEY && window.Auth && Auth.isLoggedIn()) Auth.cloudWrite(v);  // felhőbe (fire-and-forget)
+       if(k===KEY && window.Auth && Auth.isLoggedIn()) cloudPush(v);  // felhőbe (összevont, fire-and-forget)
        return true; }catch(e){ return false; }
 }
 

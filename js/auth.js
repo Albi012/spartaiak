@@ -145,6 +145,10 @@
     const aT=a.activeT||0, bT=b.activeT||0;
     if(aT||bT){ const src = aT>=bT ? a : b; out.active = src.active!=null ? src.active : null; out.activeT = Math.max(aT,bT); }
     else { out.active = (newer.active!=null) ? newer.active : (older.active!=null ? older.active : null); }
+    // Biztonság: ha az aktív edzés már befejezett edzésként is szerepel a
+    // naplóban (egyik eszköz befejezte, a másik még aktívként hozza), ne
+    // duplázzuk – az aktívat elvetjük.
+    if(out.active && map.has(key(out.active))) out.active = null;
     return JSON.stringify(out);
   }
 
