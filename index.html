@@ -365,7 +365,7 @@ let S = {sessions:[], active:null, weights:{}, notes:{}, photos:{}, injury:null,
 let tab='home', playing=false, curEx=0, tInt=null, tEnd=0, tLen=0, wl=null, nagOff=false;
 let logFilter=null;   // Napló szűrő edzéstípusra (day id) – null = mind
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v44';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v45';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -739,13 +739,21 @@ function render(){
 function homeView(){
   const done = S.sessions.length;
   const wk = S.sessions.filter(s=>Date.now()-s.t < 6048e5).length;
+  const lastT = done ? Math.max(...S.sessions.map(s=>s.t)) : 0;
+  const daysSince = done ? Math.floor((Date.now()-lastT)/864e5) : null;
+  const ago = daysSince==null?'':(daysSince<=0?'ma':daysSince===1?'tegnap':daysSince+' napja');
   let h='';
   if(storeMode==='none') h+=`<div class="wrap"><div class="card" style="border-color:var(--red);margin-top:16px"><div class="pad">
     <span class="cond" style="font-size:18px;font-weight:600;color:var(--red)">A mentés nem működik</span>
     <div class="small mut" style="margin-top:4px">Ez a böngésző letiltotta a helyi tárolást. Kapcsold ki a privát böngészést, vagy engedélyezd a sütiket ehhez az oldalhoz – különben minden bezáráskor elvesznek az adatok.</div></div></div></div>`;
   h += `<div class="wrap"><div class="top"><span class="eyebrow">Push / pull · 4 nap</span>
     <h1 style="font-size:34px;margin-top:4px">Melyik nap jön?</h1>
-    <p class="mut small" style="margin:6px 0 0">${done} edzés összesen · ${wk} az elmúlt 7 napban</p></div>`;
+    <p class="mut small" style="margin:6px 0 0">${done} edzés összesen · ${wk} az elmúlt 7 napban${done?' · utoljára '+ago:''}</p></div>`;
+  // Finom emlékeztető, ha csúszol (a rendszeresség a lényeg). Magától eltűnik,
+  // amint legközelebb edzel.
+  if(done && daysSince>=5 && !S.active) h+=`<div class="card" style="border-color:var(--brass)"><div class="pad">
+    <span class="cond" style="font-size:17px;font-weight:600">Már ${daysSince} napja nem edzettél</span>
+    <div class="small mut" style="margin-top:2px">A rendszeresség többet ér a tökéletes edzésnél. Válassz egy napot alább, és csak kezdd el.</div></div></div>`;
   if(needsBackup()) h+=`<div class="card" style="border-color:var(--brass)"><div class="pad">
     <div class="row"><div class="grow"><span class="cond" style="font-size:17px;font-weight:600">Rég mentettél biztonsági másolatot</span>
     <div class="small mut" style="margin-top:2px">Kézi mentésre senki nem emlékszik, amíg el nem veszti az adatait.</div></div>
@@ -1430,6 +1438,8 @@ function openFinishSummary(sess){
 function closeFinish(){ closeSheet(); }
 
 function setLogFilter(id){ logFilter=(id===logFilter?null:id); render(); window.scrollTo(0,0); }
+const HU_MONTHS=['január','február','március','április','május','június','július','augusztus','szeptember','október','november','december'];
+function monthLabel(t){ const d=new Date(t); return d.getFullYear()+'. '+HU_MONTHS[d.getMonth()]; }
 function logView(){
   if(!S.sessions.length) return `<div class="wrap"><div class="top"><h1 style="font-size:34px">Napló</h1></div>
     <div class="empty">Még nincs lezárt edzés.<br>Kezdd az Edzés fülön.</div>
@@ -1440,6 +1450,13 @@ function logView(){
   const shownCount = S.sessions.filter(s=>!logFilter||s.day===logFilter).length;
   let h=`<div class="wrap"><div class="top"><h1 style="font-size:34px">Napló</h1>
     <p class="mut small" style="margin:6px 0 0">${logFilter?shownCount+' / '+S.sessions.length:S.sessions.length} edzés</p></div>`;
+  // Összegző sáv (a teljes naplóból, a szűrőtől függetlenül).
+  const st=progStats(), wk=S.sessions.filter(s=>weekStart(s.t)===weekStart(Date.now())).length;
+  h+=`<div class="card"><div class="pad"><div class="statgrid" style="grid-template-columns:1fr 1fr 1fr">
+    <div class="stat"><span class="num">${wk}</span><span class="statlbl">e héten</span></div>
+    <div class="stat"><span class="num">${st.month}</span><span class="statlbl">e hónap</span></div>
+    <div class="stat"><span class="num">${st.streak}</span><span class="statlbl">hetes sorozat</span></div>
+  </div></div></div>`;
   // Szűrő edzéstípusra (day id). Csak akkor, ha többféle típus van.
   const dayIds=[...new Set(S.sessions.map(s=>s.day))];
   if(dayIds.length>1){
@@ -1452,7 +1469,10 @@ function logView(){
   const loads=S.sessions.map(sessionLoad);
   const avg=loads.reduce((a,b)=>a+b,0)/(loads.length||1);
   const WHY={busy:'gép foglalt',heavy:'túl nehéz',time:'kevés idő'};
+  let curMonth=null;
   [...S.sessions].reverse().filter(s=>!logFilter||s.day===logFilter).forEach(s=>{
+    const mk=monthLabel(s.t); if(mk!==curMonth){ curMonth=mk;
+      h+=`<div class="top" style="padding:14px 0 6px"><span class="eyebrow">${mk}</span></div>`; }
     const d=dayDef(s.day)||{ex:[]}; const dn=dayName(s); const idx=S.sessions.indexOf(s);
     const tot=Object.values(s.log).reduce((a,l)=>a+l.sets.filter(x=>x!=null).length,0);
     const load=loads[idx], hi=avg>0 && load>avg*1.3;
