@@ -359,7 +359,7 @@ let S = {sessions:[], active:null, weights:{}, notes:{}, photos:{}, injury:null,
          bw:[], bwGoal:null, deleted:[], activeT:0, prog:{}, meas:{}};
 let tab='home', playing=false, curEx=0, tInt=null, tEnd=0, tLen=0, wl=null, nagOff=false;
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v38';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v39';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -839,7 +839,10 @@ function plansView(){
       h+=`<div class="card"><div class="pad"><div class="row" style="align-items:baseline">
         <span class="cond grow" style="font-size:18px;font-weight:600">${esc(r.name)}</span>
         <span class="small dim">${r.ex.length} gyakorlat</span></div>
-        <button class="btn" style="margin-top:8px" onclick="openBuilder('${r.id}')">Szerkesztés</button></div></div>`;
+        <div class="row" style="gap:8px;margin-top:8px">
+          <button class="btn" style="flex:1;margin:0" onclick="openBuilder('${r.id}')">Szerkesztés</button>
+          <button class="btn ghost" style="flex:0 0 40%;margin:0;color:var(--red)" onclick="deleteRoutine('${r.id}')">Törlés</button>
+        </div></div></div>`;
     });
   }
   h+=`<button class="btn pri" style="margin-top:14px" onclick="openStarters()">Kész edzések és tervek ›</button>
@@ -985,7 +988,7 @@ async function deleteRoutine(id){
   if(!await uiConfirm('Törlöd ezt a saját edzést?\n(A már naplózott edzések megmaradnak.)', {ok:'Törlés', danger:true})) return;
   S.routines=S.routines.filter(x=>x.id!==id);
   (S.programs||[]).forEach(p=>{ p.days=p.days.filter(d=>d!==id); });
-  editing=false; draft=null; save(); tab='home'; render(); window.scrollTo(0,0);
+  editing=false; draft=null; save(); render(); window.scrollTo(0,0);   // a jelenlegi fülön marad
 }
 function builderView(){
   const canSave = draft.name.trim() && draft.ex.length>0;
