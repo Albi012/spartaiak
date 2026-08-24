@@ -199,6 +199,13 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--brass);out
 .seg{display:flex;gap:0;margin:12px 0 2px;border:1px solid var(--line);border-radius:11px;overflow:hidden}
 .seg button{flex:1;background:var(--card);color:var(--mut);border:0;padding:9px 0;font-size:14px;font-weight:600}
 .seg button.on{background:var(--brass);color:var(--on-brass)}
+.hmwrap{overflow-x:auto;margin-top:8px;padding-bottom:4px}
+.hm{display:flex;gap:3px;min-width:min-content}
+.hmcol{display:flex;flex-direction:column;gap:3px}
+.hmcell{width:13px;height:13px;border-radius:3px;background:var(--card2);flex:none}
+.plateres{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;justify-content:center;align-items:flex-end;min-height:60px}
+.plate{background:var(--brass);color:var(--on-brass);border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:15px;width:38px}
+.platesum{text-align:center;margin-top:12px;color:var(--mut)}
 .empty{text-align:center;padding:44px 20px 28px;color:var(--dim)}
 
 /* Alsó lap (szett-billentyűzet) */
@@ -995,10 +1002,11 @@ function playerView(){
       <span class="r">${v==null?'·':v}</span><span class="l">${i+1}. sz</span></button>`; });
 
   let wt='';
-  if(!e.time) wt=`<div class="wt">
+  if(!e.time){ const vc=!e.bw?` onclick="openPlateCalc(${L.w})" style="cursor:pointer" title="Tárcsák"`:'';
+    wt=`<div class="wt">
     <button onclick="bump('${e.id}',-1)" aria-label="kevesebb">−</button>
-    <div class="val">${wLabel(e,L.w)}${e.bw&&L.w<=0?'':'<span>kg</span>'}</div>
-    <button onclick="bump('${e.id}',1)" aria-label="több">+</button></div>`;
+    <div class="val"${vc}>${wLabel(e,L.w)}${e.bw&&L.w<=0?'':'<span>kg</span>'}</div>
+    <button onclick="bump('${e.id}',1)" aria-label="több">+</button></div>`; }
 
   let note='';
   if(last) note=`<div class="prev">Előző: ${wLabel(e,last.w)}${e.bw&&last.w<=0?'':' kg'} × ${last.sets.map(x=>x==null?'–':x).join(', ')}</div>`;
@@ -1290,6 +1298,38 @@ function progStats(){
 // Össztömeg emberi alakja: 1 t felett tonnában, egyébként kg-ban.
 function fmtTon(kg){ return kg>=1000 ? (kg/1000).toFixed(kg>=10000?0:1)+' t' : Math.round(kg)+' kg'; }
 
+// Becsült 1RM egy szettből (Epley: w·(1+r/30)). 1 ismétlés = maga a mérés.
+// 12 ismétlés felett nem becslünk – ott a képletek szétnyílnak, a szám
+// fantázia lenne. (Standard, közkincs képlet – nem az openGym kódja.)
+function est1RM(w,r){ w=+w; r=Math.round(+r);
+  if(!(w>0)||!(r>=1)||r>12) return null;
+  if(r===1) return Math.round(w*10)/10;   // 1 ismétlés = maga a mérés, nem becslés
+  return Math.round(w*(1+r/30)*10)/10; }
+// Egy gyakorlat valaha volt legjobb becsült 1RM-je. A szetten belül a súly
+// azonos, így a legtöbb ismétlésű (de max 12) szett adja a legjobb becslést.
+function best1RM(id){
+  let best=null;
+  S.sessions.forEach(s=>{ const L=s.log[id]; if(!L||!(L.w>0)) return;
+    const reps=(L.sets||[]).filter(x=>x!=null&&x<=12); if(!reps.length) return;
+    const r=Math.max(...reps), e=est1RM(L.w,r);
+    if(e!=null&&(!best||e>best.est)) best={est:e,w:L.w,r,t:s.t}; });
+  return best;
+}
+// Edzésnaptár-hőtérkép: az utolsó N hét napjai, naponta a rögzített
+// szettek számával (0 = pihenőnap). Hétfővel kezdődő oszlopok.
+function trainingHeatmap(weeks){
+  const perDay={};
+  S.sessions.forEach(s=>{ const d=new Date(s.t); d.setHours(0,0,0,0);
+    let n=0; Object.values(s.log||{}).forEach(L=>{ n+=(L.sets||[]).filter(x=>x!=null).length; });
+    perDay[d.getTime()]=(perDay[d.getTime()]||0)+n; });
+  const start=weekStart(Date.now())-(weeks-1)*7*864e5, cols=[], today=Date.now();
+  for(let w=0;w<weeks;w++){ const col=[];
+    for(let dI=0;dI<7;dI++){ const t=start+w*7*864e5+dI*864e5;
+      col.push({t,sets:perDay[t]||0,future:t>today}); }
+    cols.push(col); }
+  return cols;
+}
+
 // Az aktuális hét (hétfőtől) munkaszettjei izomcsoportonként. Egy
 // "munkaszett" = egy rögzített (nem null) szett; a gyakorlat `mg` mezője
 // dönti el, melyik izomcsoporthoz számít. Ez az edzésminőség jó proxyja
@@ -1332,6 +1372,15 @@ function progView(){
       <div class="stat"><span class="num">${st.streak}</span><span class="statlbl">hetes sorozat</span></div>
       <div class="stat"><span class="num">${fmtTon(st.tonnage)}</span><span class="statlbl">össztömeg</span></div>
     </div></div></div>`;
+  const WEEKS=16, cols=trainingHeatmap(WEEKS);
+  h+=`<div class="card"><div class="pad">
+    <span class="eyebrow">Edzésnaptár · utolsó ${WEEKS} hét</span>
+    <div class="hmwrap"><div class="hm">`;
+  cols.forEach(col=>{ h+=`<div class="hmcol">`;
+    col.forEach(c=>{ const lvl=c.sets===0?0:c.sets<5?1:c.sets<10?2:3, op=[0,.4,.7,1][lvl];
+      h+=`<span class="hmcell" style="${lvl?`background:var(--brass);opacity:${op}`:''}${c.future?';visibility:hidden':''}"></span>`; });
+    h+=`</div>`; });
+  h+=`</div></div></div></div>`;
   const wv=weekVolume();
   if(wv.length){
     const mx=Math.max(...wv.map(v=>v.sets));
@@ -1383,7 +1432,7 @@ function openProgDetail(id, metric){
   let h=`<div class="grabber"></div>
     <div class="row"><div class="grow"><span class="eyebrow">Haladás</span>
       <h2 style="font-size:22px">${esc(e.n)}</h2>
-      <span class="small dim">Csúcs ${wLabel(e,pr)}${e.bw&&pr<=0?'':' kg'} · ${rows.length} alkalom</span></div>
+      <span class="small dim">Csúcs ${wLabel(e,pr)}${e.bw&&pr<=0?'':' kg'} · ${rows.length} alkalom</span>${(()=>{const b=best1RM(id);return b?`<br><span class="small" style="color:var(--brass)">Becsült 1RM ~${b.est} kg <span class="dim">(${b.w}×${b.r})</span></span>`:'';})()}</div>
       <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
     <div class="seg">
       <button class="${metric==='w'?'on':''}" onclick="openProgDetail('${id}','w')">Súly</button>
@@ -1412,6 +1461,41 @@ function openProgDetail(id, metric){
   h+=`</div>`;
   document.getElementById('sheetIn').innerHTML=h;
   document.getElementById('sheet').classList.add('on');
+}
+
+/* ---- Tárcsa-kalkulátor -------------------------------------------- */
+// Egy rúdra oldalanként kirakandó tárcsák egy cél-súlyhoz. Standard
+// kg-os tárcsakészlet, mohó algoritmus. (Saját, egyszerű implementáció.)
+let plateBar=20;
+function openPlateCalc(preW){
+  const w=preW>0?preW:60;
+  let h=`<div class="grabber"></div>
+    <div class="row"><div class="grow"><span class="eyebrow">Tárcsa-kalkulátor</span>
+      <h2 style="font-size:22px">Mennyi tárcsa oldalanként?</h2></div>
+      <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
+    <label class="small dim">Cél súly (kg)</label>
+    <input id="plW" type="number" inputmode="decimal" step="1.25" value="${w}" oninput="renderPlateRes()" style="width:100%;margin:6px 0 12px;font-size:24px">
+    <div class="seg" id="plBar">${[20,15,10].map(b=>`<button class="${plateBar===b?'on':''}" onclick="setPlateBar(${b})">${b} kg rúd</button>`).join('')}</div>
+    <div id="plRes"></div>`;
+  document.getElementById('sheetIn').innerHTML=h;
+  document.getElementById('sheet').classList.add('on');
+  renderPlateRes();
+}
+function setPlateBar(b){ plateBar=b;
+  document.querySelectorAll('#plBar button').forEach(btn=>btn.classList.toggle('on',btn.textContent.indexOf(b+' ')===0));
+  renderPlateRes(); }
+function renderPlateRes(){
+  const el=document.getElementById('plRes'); if(!el) return;
+  const target=parseFloat(document.getElementById('plW').value)||0;
+  const perSide=Math.round((target-plateBar)/2*100)/100;
+  if(perSide<0){ el.innerHTML=`<div class="platesum">A cél kisebb a rúdnál (${plateBar} kg).</div>`; return; }
+  if(perSide===0){ el.innerHTML=`<div class="platesum">Csak a rúd – nincs tárcsa.</div>`; return; }
+  const PLATES=[25,20,15,10,5,2.5,1.25]; let rem=perSide; const used=[];
+  PLATES.forEach(p=>{ while(rem>=p-1e-9){ used.push(p); rem=Math.round((rem-p)*100)/100; } });
+  const bars=used.map(p=>`<span class="plate" style="height:${Math.round(28+p)}px">${p}</span>`).join('');
+  let sum=`Oldalanként ${perSide%1===0?perSide:perSide.toFixed(2)} kg · ${used.length} tárcsa`;
+  if(rem>0.01) sum+=` · ${rem} kg így nem rakható ki`;
+  el.innerHTML=`<div class="plateres">${bars||'<span class="dim">–</span>'}</div><div class="platesum">${sum}</div>`;
 }
 
 /* ---- Jegyzetek (állandó + aznapi) és fotó -------------------------- */
