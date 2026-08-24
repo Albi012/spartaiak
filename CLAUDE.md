@@ -34,7 +34,10 @@ beolvassa és átalakítja.
 
   "customEx": { "cx_abc123": { "id":"cx_abc123","n":"Bolgár kitörés","mg":"láb","s":3,"r":"10","w":20,"inc":2.5,"rest":90 } },
   "routines": [ { "id":"r_abc123","name":"Láb nap","sub":"4 gyakorlat","ex":["legcurl","cx_abc123"] } ],
-  "programs": [ { "id":"p_abc123","name":"Heti terv","days":["pa","r_abc123"] } ]
+  "programs": [ { "id":"p_abc123","name":"Heti terv","days":["pa","r_abc123"] } ],
+
+  "bw": [ { "t":1753804800000, "kg":78.2 } ],
+  "bwGoal": 75
 }
 ```
 
@@ -58,6 +61,10 @@ alapértéket kapnak; a `save()`/`backup()`/`restore()` viszi őket):
   súlya −15%. `null` = kikapcsolva.
 - `lastBackup` – az utolsó biztonsági mentés ideje; ebből jön a havi
   mentés-emlékeztető.
+- `bw` – testsúly-napló, `{t, kg}` bejegyzésekkel (napi egy mérés, ugyanaznap
+  felülír). A Haladás fülön idővonalként, `bwGoal` célvonallal jelenik meg;
+  a cél felé mozgás zöld, attól elfelé piros. A szinkron-merge nap szerint
+  egyesíti (ütközésnél az újabb állapoté nyer), a `bwGoal` skalár prefer.
 - Session-szinten: `note` (aznapi jegyzet), `deload` (kihagyás utáni
   visszaépítés jelző). Log-szinten: `why` (`busy`|`heavy`|`time` – miért
   tért el a tervtől).

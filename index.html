@@ -203,6 +203,7 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--brass);out
 .hm{display:flex;gap:3px;min-width:min-content}
 .hmcol{display:flex;flex-direction:column;gap:3px}
 .hmcell{width:13px;height:13px;border-radius:3px;background:var(--card2);flex:none}
+.bwchart{width:100%;height:64px;display:block;margin-top:10px}
 .plateres{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;justify-content:center;align-items:flex-end;min-height:60px}
 .plate{background:var(--brass);color:var(--on-brass);border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:15px;width:38px}
 .platesum{text-align:center;margin-top:12px;color:var(--mut)}
@@ -352,7 +353,8 @@ const ICON={
 };
 
 let S = {sessions:[], active:null, weights:{}, notes:{}, photos:{}, injury:null, lastBackup:0,
-         customEx:{}, routines:[], programs:[], hidePlan:false, activeProgram:null};
+         customEx:{}, routines:[], programs:[], hidePlan:false, activeProgram:null,
+         bw:[], bwGoal:null};
 let tab='home', playing=false, curEx=0, tInt=null, tEnd=0, tLen=0, wl=null, nagOff=false;
 let editing=false, draft=null;   // edzés-összeállító
 
@@ -384,7 +386,8 @@ async function load(){
 async function save(){
   const v=JSON.stringify({sessions:S.sessions,active:S.active,weights:S.weights,
     notes:S.notes,photos:S.photos,injury:S.injury,lastBackup:S.lastBackup,
-    customEx:S.customEx,routines:S.routines,programs:S.programs,hidePlan:S.hidePlan,activeProgram:S.activeProgram});
+    customEx:S.customEx,routines:S.routines,programs:S.programs,hidePlan:S.hidePlan,activeProgram:S.activeProgram,
+    bw:S.bw,bwGoal:S.bwGoal});
   const ok=await writeKey(KEY,v);
   if(!ok&&storeMode!=='none'){ storeMode='none'; render(); }
 }
@@ -1363,7 +1366,7 @@ function progView(){
     if(seen.has(id)||ids.includes(id))return;
     if(s.log[id].sets.some(x=>x!=null)) ids.push(id); }));
   if(!ids.length) return `<div class="wrap"><div class="top"><h1 style="font-size:34px">Haladás</h1></div>
-    <div class="empty">Két-három edzés után lesz mit mutatni.</div></div>`;
+    ${bwCard()}<div class="empty">Két-három edzés után lesz mit mutatni.</div></div>`;
   const st=progStats();
   let h=`<div class="wrap"><div class="top"><h1 style="font-size:34px">Haladás</h1></div>
     <div class="card"><div class="pad"><div class="statgrid">
@@ -1371,7 +1374,8 @@ function progView(){
       <div class="stat"><span class="num">${st.month}</span><span class="statlbl">e hónap</span></div>
       <div class="stat"><span class="num">${st.streak}</span><span class="statlbl">hetes sorozat</span></div>
       <div class="stat"><span class="num">${fmtTon(st.tonnage)}</span><span class="statlbl">össztömeg</span></div>
-    </div></div></div>`;
+    </div></div></div>
+    ${bwCard()}`;
   const WEEKS=16, cols=trainingHeatmap(WEEKS);
   h+=`<div class="card"><div class="pad">
     <span class="eyebrow">Edzésnaptár · utolsó ${WEEKS} hét</span>
@@ -1462,6 +1466,76 @@ function openProgDetail(id, metric){
   document.getElementById('sheetIn').innerHTML=h;
   document.getElementById('sheet').classList.add('on');
 }
+
+/* ---- Testsúlykövetés célvonallal ---------------------------------- */
+// A Haladás fül testsúly-kártyája: aktuális súly, cél-eltérés (a cél felé
+// mozgás zöld, attól elfelé piros), idővonal célvonallal.
+function bwCard(){
+  const log=(S.bw||[]).slice().sort((a,b)=>a.t-b.t), goal=S.bwGoal;
+  if(!log.length) return `<div class="card"><div class="pad">
+    <span class="eyebrow">Testsúly</span>
+    <p class="mut small" style="margin:4px 0 10px">Kövesd a testsúlyod egy állítható célvonallal.</p>
+    <button class="btn" onclick="openBwLog()">Testsúly rögzítése</button></div></div>`;
+  const cur=log[log.length-1].kg;
+  let trend='';
+  if(log.length>1){ const prev=log[log.length-2].kg, ch=Math.round((cur-prev)*10)/10;
+    let col='var(--dim)';
+    if(goal!=null&&ch!==0) col = Math.abs(cur-goal)<Math.abs(prev-goal) ? 'var(--sage)' : 'var(--red)';
+    trend=`<span class="small" style="color:${col}">${ch>0?'+':''}${ch} kg</span>`; }
+  const goalTxt = goal!=null
+    ? `Cél ${goal} kg · még ${Math.abs(Math.round((cur-goal)*10)/10)} kg`
+    : 'Nincs cél beállítva';
+  // Görbe célvonallal
+  const pts=log.map(e=>e.kg); let lo=Math.min(...pts), hi=Math.max(...pts);
+  if(goal!=null){ lo=Math.min(lo,goal); hi=Math.max(hi,goal); }
+  const rng=(hi-lo)||1, H=64,W=100,pad=8, y=v=>(H-pad)-((v-lo)/rng)*(H-2*pad);
+  const d=pts.map((p,i)=>{ const x=pts.length>1?i/(pts.length-1)*W:W/2; return (i?'L':'M')+x.toFixed(1)+' '+y(p).toFixed(1); }).join(' ');
+  const gl = goal!=null?`<line x1="0" y1="${y(goal).toFixed(1)}" x2="100" y2="${y(goal).toFixed(1)}" stroke="var(--sage)" stroke-width="1" stroke-dasharray="3 2" vector-effect="non-scaling-stroke"/>`:'';
+  const chart = pts.length>1?`<svg class="bwchart" viewBox="0 0 100 64" preserveAspectRatio="none">${gl}
+    <path d="${d}" fill="none" stroke="var(--brass)" stroke-width="1.8" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
+    <circle cx="${(pts.length>1?100:50)}" cy="${y(cur).toFixed(1)}" r="2.4" fill="var(--brass)" vector-effect="non-scaling-stroke"/></svg>`:'';
+  return `<div class="card"><div class="pad">
+    <div class="row" style="align-items:baseline"><span class="eyebrow grow">Testsúly</span>
+      <span class="num" style="font-size:28px;font-weight:700">${cur}<span class="small dim" style="font-weight:400"> kg</span></span></div>
+    <div class="small mut" style="margin-top:2px">${goalTxt}${trend?' · '+trend:''}</div>
+    ${chart}
+    <div class="row" style="gap:8px;margin-top:12px">
+      <button class="btn" style="flex:1;margin:0" onclick="openBwLog()">Súly rögzítése</button>
+      <button class="btn ghost" style="flex:0 0 40%;margin:0" onclick="openBwGoal()">Cél</button>
+    </div></div></div>`;
+}
+function openBwLog(){
+  const last=(S.bw||[]).slice(-1)[0], def=last?last.kg:'';
+  document.getElementById('sheetIn').innerHTML=`<div class="grabber"></div>
+    <div class="row"><div class="grow"><span class="eyebrow">Testsúly</span>
+      <h2 style="font-size:22px">Mai testsúly</h2><span class="small dim">Napi egy mérés – ugyanaznap felülírja</span></div>
+      <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
+    <input id="bwIn" type="number" inputmode="decimal" step="0.1" value="${def}" placeholder="kg" style="width:100%;margin:12px 0;font-size:26px">
+    <button class="btn pri" onclick="saveBw()">Mentés</button>`;
+  document.getElementById('sheet').classList.add('on');
+  setTimeout(()=>{ const i=document.getElementById('bwIn'); if(i) i.focus(); },50);
+}
+function saveBw(){
+  const v=parseFloat(document.getElementById('bwIn').value);
+  if(!(v>0)){ closeSheet(); return; }
+  const d=new Date(); d.setHours(0,0,0,0); const day=d.getTime();
+  S.bw=(S.bw||[]).filter(e=>{ const ed=new Date(e.t); ed.setHours(0,0,0,0); return ed.getTime()!==day; });
+  S.bw.push({t:Date.now(), kg:Math.round(v*10)/10}); S.bw.sort((a,b)=>a.t-b.t);
+  save(); closeSheet(); render();
+}
+function openBwGoal(){
+  document.getElementById('sheetIn').innerHTML=`<div class="grabber"></div>
+    <div class="row"><div class="grow"><span class="eyebrow">Testsúly</span>
+      <h2 style="font-size:22px">Cél-testsúly</h2></div>
+      <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
+    <input id="bwGoalIn" type="number" inputmode="decimal" step="0.1" value="${S.bwGoal!=null?S.bwGoal:''}" placeholder="kg" style="width:100%;margin:12px 0;font-size:26px">
+    <button class="btn pri" onclick="saveBwGoal()">Mentés</button>
+    ${S.bwGoal!=null?`<button class="btn ghost" style="margin-top:8px;color:var(--red)" onclick="clearBwGoal()">Cél törlése</button>`:''}`;
+  document.getElementById('sheet').classList.add('on');
+}
+function saveBwGoal(){ const v=parseFloat(document.getElementById('bwGoalIn').value);
+  S.bwGoal = v>0? Math.round(v*10)/10 : null; save(); closeSheet(); render(); }
+function clearBwGoal(){ S.bwGoal=null; save(); closeSheet(); render(); }
 
 /* ---- Tárcsa-kalkulátor -------------------------------------------- */
 // Egy rúdra oldalanként kirakandó tárcsák egy cél-súlyhoz. Standard

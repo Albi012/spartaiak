@@ -121,6 +121,14 @@
       (older[f]||[]).concat(newer[f]||[]).forEach(it=>{ if(it&&it.id) m.set(it.id, it); });
       if(a[f]||b[f]) out[f] = [...m.values()];
     });
+    // Testsúly-napló: unió nap szerint (napi egy mérés, ütközésnél az újabb
+    // állapoté nyer), időrendben. A cél skalár – az újabb állapotból.
+    if(a.bw||b.bw){
+      const bm=new Map(), dayOf=e=>{ const d=new Date(e.t||0); d.setHours(0,0,0,0); return d.getTime(); };
+      (older.bw||[]).concat(newer.bw||[]).forEach(e=>{ if(e&&e.kg!=null) bm.set(dayOf(e), e); });
+      out.bw=[...bm.values()].sort((x,y)=>(x.t||0)-(y.t||0));
+    }
+    out.bwGoal = (newer.bwGoal!=null) ? newer.bwGoal : (older.bwGoal!=null ? older.bwGoal : null);
     out.lastBackup = Math.max(a.lastBackup||0, b.lastBackup||0) || null;
     // Folyamatban lévő edzés: ne törölje egy másik eszköz null-ja.
     out.active = (newer.active!=null) ? newer.active : (older.active!=null ? older.active : null);
