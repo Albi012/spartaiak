@@ -357,7 +357,7 @@ let S = {sessions:[], active:null, weights:{}, notes:{}, photos:{}, injury:null,
          bw:[], bwGoal:null, deleted:[], activeT:0, prog:{}};
 let tab='home', playing=false, curEx=0, tInt=null, tEnd=0, tLen=0, wl=null, nagOff=false;
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v34';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v35';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -794,7 +794,8 @@ function homeView(){
     loose.forEach(r=>{ const last=[...S.sessions].reverse().find(s=>s.day===r.id);
       h+=dayCard(r.id, r.name, r.sub||(r.ex.length+' gyakorlat'), last, true); });
   }
-  h+=`<button class="btn" style="margin-top:8px" onclick="openBuilder()">+ Új edzés</button>
+  h+=`<button class="btn" style="margin-top:8px" onclick="openStarters()">Kész edzések és tervek ›</button>
+      <button class="btn" style="margin-top:8px" onclick="openBuilder()">+ Új edzés</button>
       <button class="btn" style="margin-top:8px" onclick="openProgram()">+ Új edzésterv</button>
       ${S.hidePlan?`<button class="btn ghost" style="margin-top:8px;color:var(--mut)" onclick="restorePlan()">Beépített alapterv visszaállítása</button>`:''}
       <button class="btn ghost" style="margin-top:8px;margin-bottom:4px;color:var(--mut)" onclick="openManageEx()">Saját gyakorlatok kezelése${(S.customEx&&Object.keys(S.customEx).length)?' ('+Object.keys(S.customEx).length+')':''}</button>`;
@@ -837,6 +838,80 @@ function pausePlayer(){ playing=false; tab='home'; stopTimer(); render(); window
 async function discardActive(){ if(await uiConfirm('Biztos eldobod ezt az edzést?', {ok:'Eldobás', danger:true})){ S.active=null; S.activeT=Date.now(); playing=false; stopTimer(); tab='home'; save(); render(); window.scrollTo(0,0); } }
 function exNav(i){ const d=dayDef(S.active.day)||{ex:[]}; const n=d.ex.filter(x=>S.active.log[x.id]).length;
   curEx=Math.max(0,Math.min(n-1,i)); render(); window.scrollTo(0,0); }
+
+/* ================= Kész edzések és tervek (sablonok) ================ *
+ * Beépített edzés- és terv-sablonok, kizárólag beépített gyakorlat-ID-kra
+ * (PLAN + LIB) hivatkozva. A "Hozzáadás" a felhasználó SAJÁT edzései/tervei
+ * közé MÁSOLJA őket (friss r_/p_ ID-vel), így szerkeszthetők és szinkronizálnak.
+ */
+const STARTER_ROUTINES = {
+  fbA:{name:'Teljes test A', ex:['x_squat','bench','x_seatedrow','x_dbpress','plank']},
+  fbB:{name:'Teljes test B', ex:['x_rdl','ohp','x_closepd','x_legpress','x_bbcurl']},
+  fbC:{name:'Teljes test C', ex:['x_goblet','incdb','row','face','x_pushbar']},
+  upA:{name:'Felső A',       ex:['bench','row','ohpdb','pull','curl','push']},
+  loA:{name:'Alsó A',        ex:['x_squat','x_rdl','x_legpress','legcurl','x_calfstand']},
+  upB:{name:'Felső B',       ex:['ohp','x_seatedrow','incdb','x_cablelat','hammer','french']},
+  loB:{name:'Alsó B',        ex:['x_deadlift','x_frontsquat','x_legext','x_hipthrust','x_calfseated']},
+  puP:{name:'Tolás nap',     ex:['bench','ohpdb','incdb','lat','push','x_skull']},
+  puL:{name:'Húzás nap',     ex:['x_deadlift','pull','row','face','curl','hammer']},
+  puLeg:{name:'Láb nap',     ex:['x_squat','x_rdl','x_legpress','legcurl','x_calfstand','plank']},
+  s5A:{name:'5×5 A',         ex:['x_squat','bench','row']},
+  s5B:{name:'5×5 B',         ex:['x_squat','ohp','x_deadlift']}
+};
+const STARTER_PROGRAMS = [
+  {name:'Kezdő teljes test', sub:'3 nap · A / B / C', days:['fbA','fbB','fbC']},
+  {name:'Felső / Alsó',      sub:'4 nap · felső+alsó', days:['upA','loA','upB','loB']},
+  {name:'Push / Pull / Láb', sub:'3 nap · PPL', days:['puP','puL','puLeg']},
+  {name:'5×5 erő',           sub:'2 nap · A / B', days:['s5A','s5B']}
+];
+// Egy sablon-routine gyakorlatneveinek listája (előnézethez).
+function starterExNames(ex){ return ex.map(id=>exDef(id).n).join(' · '); }
+
+function openStarters(){
+  let h=`<div class="grabber"></div>
+    <div class="row"><div class="grow"><span class="eyebrow">Sablonok</span>
+      <h2 style="font-size:22px">Kész edzések és tervek</h2>
+      <span class="small dim">Hozzáadva a saját edzéseid/terveid közé kerülnek – szerkeszthetők.</span></div>
+      <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>`;
+  h+=`<div class="eyebrow" style="margin-top:16px">Edzéstervek</div>`;
+  STARTER_PROGRAMS.forEach((p,i)=>{
+    const days=p.days.map(d=>STARTER_ROUTINES[d].name).join(' · ');
+    h+=`<div class="card"><div class="pad">
+      <div class="row" style="align-items:baseline"><span class="cond grow" style="font-size:19px;font-weight:600">${esc(p.name)}</span>
+        <span class="small dim">${esc(p.sub)}</span></div>
+      <div class="small mut" style="margin:4px 0 10px">${esc(days)}</div>
+      <button class="btn pri" onclick="addStarterProgram(${i})">Hozzáadás a terveimhez</button>
+    </div></div>`;
+  });
+  h+=`<div class="eyebrow" style="margin-top:16px">Egyedi edzések</div>`;
+  Object.keys(STARTER_ROUTINES).forEach(k=>{
+    const r=STARTER_ROUTINES[k];
+    h+=`<div class="card"><div class="pad">
+      <div class="row" style="align-items:baseline"><span class="cond grow" style="font-size:18px;font-weight:600">${esc(r.name)}</span>
+        <span class="small dim">${r.ex.length} gyakorlat</span></div>
+      <div class="small mut" style="margin:4px 0 10px">${esc(starterExNames(r.ex))}</div>
+      <button class="btn" onclick="addStarterRoutine('${k}')">Hozzáadás az edzéseimhez</button>
+    </div></div>`;
+  });
+  document.getElementById('sheetIn').innerHTML=h;
+  document.getElementById('sheet').classList.add('on');
+}
+// Egy sablon-routine másolása a felhasználó saját edzései közé; visszaadja az új ID-t.
+function addStarterRoutine(key, silent){
+  const r=STARTER_ROUTINES[key]; if(!r) return null;
+  const id=uid('r_'); if(!S.routines) S.routines=[];
+  S.routines.push({ id, name:r.name, sub:r.ex.length+' gyakorlat', ex:r.ex.slice() });
+  if(!silent){ save(); closeSheet(); tab='home'; render(); window.scrollTo(0,0); uiAlert('„'+r.name+'" hozzáadva az edzéseidhez.'); }
+  return id;
+}
+async function addStarterProgram(i){
+  const p=STARTER_PROGRAMS[i]; if(!p) return;
+  const dayIds=p.days.map(k=>addStarterRoutine(k, true));   // a routine-ok másolása (némán)
+  if(!S.programs) S.programs=[];
+  S.programs.push({ id:uid('p_'), name:p.name, days:dayIds });
+  save(); closeSheet(); tab='home'; render(); window.scrollTo(0,0);
+  await uiAlert('„'+p.name+'" terv hozzáadva ('+dayIds.length+' edzéssel).');
+}
 
 /* ================= Edzés-összeállító (saját edzések) ================ */
 function openBuilder(id){

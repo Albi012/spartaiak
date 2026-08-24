@@ -110,6 +110,14 @@ azonosítóként jelenik meg a felületen.
 
 ## Edzés-összeállító (saját gyakorlatok / edzések / tervek)
 
+**Kész sablonok:** a `STARTER_ROUTINES` (edzés-sablonok) és
+`STARTER_PROGRAMS` (terv-sablonok) beépített, csak beépített gyakorlat-ID-kra
+(PLAN + LIB) hivatkozó minták. A főoldali „Kész edzések és tervek" (`openStarters`)
+katalógusból a „Hozzáadás" a felhasználó SAJÁT `routines`/`programs` közé
+MÁSOLJA őket friss `r_`/`p_` ID-vel (`addStarterRoutine`/`addStarterProgram`) –
+így szerkeszthetők és szinkronizálnak. A sablonok maguk nem tárolódnak a
+`gymlog_v1`-ben, csak a másolatuk.
+
 - **Saját gyakorlat** (`customEx`): a felhasználó által létrehozott
   gyakorlat, `cx_…` előtagú, ütközésmentes ID-vel. Az `exDef(id)` a
   PLAN → customEx → ARCHIVE sorrendben old fel.
