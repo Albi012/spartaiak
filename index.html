@@ -359,7 +359,7 @@ let S = {sessions:[], active:null, weights:{}, notes:{}, photos:{}, injury:null,
          bw:[], bwGoal:null, deleted:[], activeT:0, prog:{}, meas:{}};
 let tab='home', playing=false, curEx=0, tInt=null, tEnd=0, tLen=0, wl=null, nagOff=false;
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v40';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v41';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -1355,8 +1355,52 @@ document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==
 function finish(){
   const any=Object.values(S.active.log).some(l=>l.sets.some(x=>x!=null));
   if(!any){ uiAlert('Egyetlen szettet sem rögzítettél.'); return; }
-  S.sessions.push(S.active); S.active=null; S.activeT=Date.now(); playing=false; stopTimer(); save(); syncStats(); tab='log'; render(); window.scrollTo(0,0);
+  const done=S.active;
+  S.sessions.push(done); S.active=null; S.activeT=Date.now(); playing=false; stopTimer(); save(); syncStats();
+  tab='log'; render(); openFinishSummary(done); window.scrollTo(0,0);
 }
+// A befejezett edzés új csúcsai: ha egy gyakorlat súlya meghaladja az összes
+// korábbi edzését (súly-PR), vagy — ha nem — a becsült 1RM-je (1RM-PR).
+function sessionPRs(sess){
+  const prs=[], others=S.sessions.filter(s=>s!==sess);
+  Object.keys(sess.log||{}).forEach(id=>{
+    const L=sess.log[id]; if(!L||!L.sets.some(x=>x!=null)) return;
+    const e=exDef(id); if(e.bw||!(L.w>0)) return;
+    const prevW=Math.max(0,...others.filter(s=>s.log[id]).map(s=>s.log[id].w||0));
+    if(L.w>prevW){ prs.push({name:e.n, kind:'súly-csúcs', val:L.w+' kg'}); return; }
+    const c=sess1RM(L); if(c==null) return;
+    const prev1=Math.max(0,...others.filter(s=>s.log[id]).map(s=>sess1RM(s.log[id])||0));
+    if(c>prev1) prs.push({name:e.n, kind:'becsült 1RM', val:'~'+c+' kg'});
+  });
+  return prs;
+}
+function openFinishSummary(sess){
+  const load=sessionLoad(sess); let setsDone=0, exCount=0;
+  Object.values(sess.log).forEach(L=>{ const n=L.sets.filter(x=>x!=null).length; if(n){ exCount++; setsDone+=n; } });
+  const prs=sessionPRs(sess);
+  let h=`<div class="grabber"></div>
+    <div class="row"><div class="grow"><span class="eyebrow" style="color:var(--sage)">${ICON.check} Kész</span>
+      <h2 style="font-size:24px">Edzés befejezve</h2>
+      <span class="small dim">${esc(sess.dayName||(dayDef(sess.day)||{}).name||'')}</span></div>
+      <button onclick="closeFinish()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
+    <div class="statgrid" style="margin-top:14px">
+      <div class="stat"><span class="num">${exCount}</span><span class="statlbl">gyakorlat</span></div>
+      <div class="stat"><span class="num">${setsDone}</span><span class="statlbl">szett</span></div>
+      <div class="stat" style="grid-column:span 2"><span class="num">${load}<span class="small dim" style="font-weight:400"> kg</span></span><span class="statlbl">összterhelés</span></div>
+    </div>`;
+  if(prs.length){
+    h+=`<div class="card" style="margin-top:14px;border-color:var(--brass)"><div class="pad">
+      <span class="eyebrow" style="color:var(--brass)">Új csúcs${prs.length>1?'ok':''}</span>`;
+    prs.forEach(p=>{ h+=`<div class="row" style="margin-top:8px;align-items:baseline">
+      <span class="cond grow" style="font-size:18px;font-weight:600">${esc(p.name)}<br><span class="small dim" style="font-weight:400">${p.kind}</span></span>
+      <span class="num" style="font-size:22px;font-weight:700;color:var(--brass)">${p.val}</span></div>`; });
+    h+=`</div></div>`;
+  }
+  h+=`<button class="btn pri" style="margin-top:14px" onclick="closeFinish()">Naplóhoz ›</button>`;
+  document.getElementById('sheetIn').innerHTML=h;
+  document.getElementById('sheet').classList.add('on');
+}
+function closeFinish(){ closeSheet(); }
 
 function logView(){
   if(!S.sessions.length) return `<div class="wrap"><div class="top"><h1 style="font-size:34px">Napló</h1></div>
