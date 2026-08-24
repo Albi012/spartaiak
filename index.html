@@ -359,7 +359,7 @@ let S = {sessions:[], active:null, weights:{}, notes:{}, photos:{}, injury:null,
          bw:[], bwGoal:null, deleted:[], activeT:0, prog:{}, meas:{}};
 let tab='home', playing=false, curEx=0, tInt=null, tEnd=0, tLen=0, wl=null, nagOff=false;
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v39';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v40';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -830,7 +830,9 @@ function plansView(){
             ? `<button class="btn ghost" style="flex:1;margin:0;color:var(--red)" onclick="deletePlan()">Elrejtés</button>`
             : `<button class="btn" style="flex:1;margin:0" onclick="openProgram('${p.id}')">Szerkesztés</button>`}
           <button class="btn" style="flex:0 0 40%;margin:0" onclick="openSharePlan('${p.id}')">Megosztás</button>
-        </div></div></div>`;
+        </div>
+        ${p.builtin?'':`<button class="btn ghost" style="margin-top:8px;color:var(--red)" onclick="deleteProgram('${p.id}')">Terv törlése</button>`}
+        </div></div>`;
     });
   }
   if((S.routines||[]).length){
@@ -1147,7 +1149,7 @@ function saveProgram(){
   editing=false; prog=null; save(); tab='home'; render(); window.scrollTo(0,0);
 }
 async function deleteProgram(id){ if(!await uiConfirm('Törlöd ezt az edzéstervet?\n(A benne lévő edzések megmaradnak.)', {ok:'Törlés', danger:true})) return;
-  S.programs=S.programs.filter(x=>x.id!==id); editing=false; prog=null; save(); tab='home'; render(); window.scrollTo(0,0); }
+  S.programs=S.programs.filter(x=>x.id!==id); editing=false; prog=null; save(); render(); window.scrollTo(0,0); }  // a jelenlegi fülön marad
 function programView(){
   const canSave = prog.name.trim() && prog.days.length>0;
   let items='';
