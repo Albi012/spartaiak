@@ -278,7 +278,12 @@ textarea:focus{outline:2px solid var(--brass);outline-offset:2px}
       </svg>
       <div class="ring-val num" id="restVal">0:00</div>
     </div>
-    <button class="btn" id="restSkip" style="max-width:220px">Kihagyás</button>
+    <div class="row" style="gap:10px;justify-content:center;margin-top:2px">
+      <button class="btn" style="width:auto;margin:0;padding:12px 22px" onclick="adjustRest(-15)">−15</button>
+      <button class="btn" style="width:auto;margin:0;padding:12px 22px" onclick="adjustRest(15)">+15</button>
+    </div>
+    <button class="btn" id="restSkip" style="max-width:220px;margin-top:10px">Kihagyás</button>
+    <button id="muteBtn" onclick="toggleMute()" class="small dim" style="margin-top:8px;padding:6px 10px">Hang be</button>
   </div>
 </div>
 
@@ -359,7 +364,7 @@ let S = {sessions:[], active:null, weights:{}, notes:{}, photos:{}, injury:null,
          bw:[], bwGoal:null, deleted:[], activeT:0, prog:{}, meas:{}};
 let tab='home', playing=false, curEx=0, tInt=null, tEnd=0, tLen=0, wl=null, nagOff=false;
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v42';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v43';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -1330,10 +1335,30 @@ function setRep(v){
 
 async function acquireWake(){ try{ if('wakeLock' in navigator && !wl){ wl=await navigator.wakeLock.request('screen'); wl.addEventListener('release',()=>{ wl=null; }); } }catch(e){ wl=null; } }
 function releaseWake(){ try{ if(wl){ wl.release(); wl=null; } }catch(e){ wl=null; } }
+// Hangjelzés a pihenő végén (WebAudio). Az AudioContext-et felhasználói
+// koppintáskor (startTimer, szett-rögzítés után) oldjuk fel, hogy a végi
+// biccentés megszólalhasson. Némítható (gymlog_mute kulcs, független a naplótól).
+let audioCtx=null;
+function restMuted(){ try{ return localStorage.getItem('gymlog_mute')==='1'; }catch(e){ return false; } }
+function updateMuteLabel(){ const b=document.getElementById('muteBtn'); if(b) b.textContent = restMuted()?'Hang ki':'Hang be'; }
+function toggleMute(){ try{ localStorage.setItem('gymlog_mute', restMuted()?'0':'1'); }catch(e){} updateMuteLabel(); if(!restMuted()){ ensureAudio(); beep(); } }
+function ensureAudio(){ try{ if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)(); if(audioCtx.state==='suspended') audioCtx.resume(); }catch(e){} }
+function beep(){ if(restMuted()) return; try{ if(!audioCtx) return;
+  const o=audioCtx.createOscillator(), g=audioCtx.createGain(), t=audioCtx.currentTime;
+  o.type='sine'; o.frequency.setValueAtTime(880,t);
+  g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.3,t+0.02); g.gain.exponentialRampToValueAtTime(0.0001,t+0.35);
+  o.connect(g); g.connect(audioCtx.destination); o.start(t); o.stop(t+0.37); }catch(e){} }
+// Pihenő menet közbeni állítása (+/-). Ha a maradék meghaladja a kezdő
+// hosszt, a gyűrű teljességéhez igazítjuk; alul 0-ra vágjuk.
+function adjustRest(d){ if(!document.getElementById('rest').classList.contains('on')) return;
+  tEnd += d*1000; if(tEnd < Date.now()) tEnd = Date.now();
+  const leftSec = Math.ceil((tEnd-Date.now())/1000); if(leftSec>tLen) tLen=leftSec;
+  tick(); }
 function startTimer(sec){
   tLen=sec; tEnd=Date.now()+sec*1000;
   document.getElementById('rest').classList.add('on');
   acquireWake();                                   // ne aludjon el a képernyő pihenő közben
+  ensureAudio();                                   // hang feloldása (a szett-rögzítés koppintásán belül)
   clearInterval(tInt); tInt=setInterval(tick,200); tick();
 }
 function stopTimer(){ clearInterval(tInt); const r=document.getElementById('rest'); if(r) r.classList.remove('on'); releaseWake(); }
@@ -1344,10 +1369,11 @@ function tick(){
   const R=52, C=2*Math.PI*R, frac=tLen? left/(tLen*1000) : 0;
   const ring=document.getElementById('restRing');
   ring.style.strokeDasharray=C.toFixed(1); ring.style.strokeDashoffset=(C*(1-frac)).toFixed(1);
-  if(left<=0){ clearInterval(tInt); if(navigator.vibrate) navigator.vibrate([200,100,200]);
+  if(left<=0){ clearInterval(tInt); if(navigator.vibrate) navigator.vibrate([200,100,200]); beep();
     releaseWake(); setTimeout(()=>document.getElementById('rest').classList.remove('on'),1500); }
 }
 document.getElementById('restSkip').onclick=stopTimer;
+updateMuteLabel();
 // A képernyőzár feloldódhat háttérbe váltáskor – ha még megy a pihenő, kérjük vissza.
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'
   && document.getElementById('rest').classList.contains('on') && Date.now()<tEnd) acquireWake(); });
