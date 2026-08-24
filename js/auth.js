@@ -137,6 +137,15 @@
       (older.bw||[]).concat(newer.bw||[]).forEach(e=>{ if(e&&e.kg!=null) bm.set(dayOf(e), e); });
       out.bw=[...bm.values()].sort((x,y)=>(x.t||0)-(y.t||0));
     }
+    // Testméretek: testtájanként unió nap szerint (mint a testsúly).
+    if(a.meas||b.meas){
+      const om={}, dayOf=e=>{ const d=new Date(e.t||0); d.setHours(0,0,0,0); return d.getTime(); };
+      const parts=new Set([...Object.keys(a.meas||{}),...Object.keys(b.meas||{})]);
+      parts.forEach(p=>{ const m=new Map();
+        (((older.meas||{})[p])||[]).concat(((newer.meas||{})[p])||[]).forEach(e=>{ if(e&&e.cm!=null) m.set(dayOf(e), e); });
+        om[p]=[...m.values()].sort((x,y)=>(x.t||0)-(y.t||0)); });
+      out.meas=om;
+    }
     out.bwGoal = (newer.bwGoal!=null) ? newer.bwGoal : (older.bwGoal!=null ? older.bwGoal : null);
     out.lastBackup = Math.max(a.lastBackup||0, b.lastBackup||0) || null;
     // Folyamatban lévő edzés: az utolsó módosítás (activeT) dönt – így egy
