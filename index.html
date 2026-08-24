@@ -284,6 +284,7 @@ textarea:focus{outline:2px solid var(--brass);outline-offset:2px}
 
 <div class="nav">
   <button data-tab="home" class="on"><span class="ic">▣</span>Edzés</button>
+  <button data-tab="plans"><span class="ic">▤</span>Tervek</button>
   <button data-tab="log"><span class="ic">≡</span>Napló</button>
   <button data-tab="prog"><span class="ic">↗</span>Haladás</button>
   <button data-tab="friends"><span class="ndot" id="friendsDot"></span><span class="ic">☺</span>Barátok</button>
@@ -349,7 +350,8 @@ const ICON={
   list:_s+'<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>',
   chart:_s+'<path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>',
   friends:_s+'<circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16 6.2a3 3 0 0 1 0 5.6"/><path d="M17.5 20a5.3 5.3 0 0 0-2.3-3.6"/></svg>',
-  share:_s+'<circle cx="18" cy="5" r="2.6"/><circle cx="6" cy="12" r="2.6"/><circle cx="18" cy="19" r="2.6"/><path d="M8.3 10.8l7.4-4.3M8.3 13.2l7.4 4.3"/></svg>'
+  share:_s+'<circle cx="18" cy="5" r="2.6"/><circle cx="6" cy="12" r="2.6"/><circle cx="18" cy="19" r="2.6"/><path d="M8.3 10.8l7.4-4.3M8.3 13.2l7.4 4.3"/></svg>',
+  plans:_s+'<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>'
 };
 
 let S = {sessions:[], active:null, weights:{}, notes:{}, photos:{}, injury:null, lastBackup:0,
@@ -357,7 +359,7 @@ let S = {sessions:[], active:null, weights:{}, notes:{}, photos:{}, injury:null,
          bw:[], bwGoal:null, deleted:[], activeT:0, prog:{}, meas:{}};
 let tab='home', playing=false, curEx=0, tInt=null, tEnd=0, tLen=0, wl=null, nagOff=false;
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v37';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v38';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -721,6 +723,7 @@ function render(){
   else if(editing==='routine') a.innerHTML = builderView();
   else if(playing && S.active) a.innerHTML = playerView();
   else if(tab==='home') a.innerHTML = homeView();
+  else if(tab==='plans') a.innerHTML = plansView();
   else if(tab==='log') a.innerHTML = logView();
   else if(tab==='friends') a.innerHTML = friendsView();
   else a.innerHTML = progView();
@@ -794,7 +797,52 @@ function homeView(){
     loose.forEach(r=>{ const last=[...S.sessions].reverse().find(s=>s.day===r.id);
       h+=dayCard(r.id, r.name, r.sub||(r.ex.length+' gyakorlat'), last, true); });
   }
-  h+=`<button class="btn" style="margin-top:8px" onclick="openStarters()">Kész edzések és tervek ›</button>
+  // Összeállítás/kezelés a külön „Tervek" fülön. Itt csak akkor mutatunk
+  // belépőt, ha nincs mit startolni (különben a főoldal a startolható
+  // aktív edzésekre/tervekre fókuszál).
+  if(!act && !loose.length && !S.active){
+    h+=`<div class="card"><div class="pad">
+      <span class="cond" style="font-size:18px;font-weight:600">Nincs még edzésterved</span>
+      <div class="small mut" style="margin:4px 0 10px">Állíts össze egyet, vagy válassz kész sablont a Tervek fülön.</div>
+      <button class="btn pri" onclick="tab='plans';render();window.scrollTo(0,0)">Tervek fül ›</button></div></div>`;
+  } else {
+    h+=`<button class="btn ghost" style="margin-top:14px;margin-bottom:4px;color:var(--mut)" onclick="tab='plans';render();window.scrollTo(0,0)">Tervek és edzések kezelése ›</button>`;
+  }
+  return h+'</div>';
+}
+// „Tervek" fül: az edzések és edzéstervek KEZELÉSE (létrehozás, szerkesztés,
+// sablonok, saját gyakorlatok). A főoldal csak a startolható aktívokat mutatja.
+function plansView(){
+  let h=`<div class="wrap"><div class="top"><span class="eyebrow">Összeállítás</span>
+    <h1 style="font-size:34px;margin-top:4px">Tervek és edzések</h1>
+    <p class="mut small" style="margin:6px 0 0">Hozz létre, szerkessz, vagy válassz kész sablont.</p></div>`;
+  const plist=programsList();
+  if(plist.length){
+    h+=`<div class="top" style="padding:16px 0 6px"><span class="eyebrow">Edzéstervek</span></div>`;
+    plist.forEach(p=>{
+      const days=p.days.map(d=>{const dd=dayDef(d);return dd?esc(dd.name):null;}).filter(Boolean).join(' · ');
+      h+=`<div class="card"><div class="pad"><div class="row" style="align-items:baseline">
+        <span class="cond grow" style="font-size:19px;font-weight:600">${esc(p.builtin?'Alapterv':p.name)}</span>
+        <span class="small dim">${p.days.length} nap</span></div>
+        <div class="small mut" style="margin:4px 0 10px">${days}</div>
+        <div class="row" style="gap:8px">
+          ${p.builtin
+            ? `<button class="btn ghost" style="flex:1;margin:0;color:var(--red)" onclick="deletePlan()">Elrejtés</button>`
+            : `<button class="btn" style="flex:1;margin:0" onclick="openProgram('${p.id}')">Szerkesztés</button>`}
+          <button class="btn" style="flex:0 0 40%;margin:0" onclick="openSharePlan('${p.id}')">Megosztás</button>
+        </div></div></div>`;
+    });
+  }
+  if((S.routines||[]).length){
+    h+=`<div class="top" style="padding:16px 0 6px"><span class="eyebrow">Saját edzések</span></div>`;
+    S.routines.forEach(r=>{
+      h+=`<div class="card"><div class="pad"><div class="row" style="align-items:baseline">
+        <span class="cond grow" style="font-size:18px;font-weight:600">${esc(r.name)}</span>
+        <span class="small dim">${r.ex.length} gyakorlat</span></div>
+        <button class="btn" style="margin-top:8px" onclick="openBuilder('${r.id}')">Szerkesztés</button></div></div>`;
+    });
+  }
+  h+=`<button class="btn pri" style="margin-top:14px" onclick="openStarters()">Kész edzések és tervek ›</button>
       <button class="btn" style="margin-top:8px" onclick="openBuilder()">+ Új edzés</button>
       <button class="btn" style="margin-top:8px" onclick="openProgram()">+ Új edzésterv</button>
       ${S.hidePlan?`<button class="btn ghost" style="margin-top:8px;color:var(--mut)" onclick="restorePlan()">Beépített alapterv visszaállítása</button>`:''}
@@ -2134,7 +2182,7 @@ function paintIcons(){
   const set=(sel,svg)=>{ const el=document.querySelector(sel); if(el) el.innerHTML=svg; };
   set('#accountBtn', ICON.account);
   set('#injuryBtn', ICON.injury);
-  const navIcon={home:ICON.dumbbell, log:ICON.list, prog:ICON.chart, friends:ICON.friends};
+  const navIcon={home:ICON.dumbbell, plans:ICON.plans, log:ICON.list, prog:ICON.chart, friends:ICON.friends};
   document.querySelectorAll('.nav button').forEach(btn=>{ const ic=btn.querySelector('.ic'); if(ic)
     ic.innerHTML = navIcon[btn.dataset.tab] || ICON.chart; });
 }
