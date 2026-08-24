@@ -359,7 +359,7 @@ let S = {sessions:[], active:null, weights:{}, notes:{}, photos:{}, injury:null,
          bw:[], bwGoal:null, deleted:[], activeT:0, prog:{}, meas:{}};
 let tab='home', playing=false, curEx=0, tInt=null, tEnd=0, tLen=0, wl=null, nagOff=false;
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v41';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v42';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -2026,7 +2026,8 @@ function openAuthSheet(){
       <button class="btn pri" style="margin-top:12px" onclick="doAuth('in')">Belépés</button>
       <button class="btn" style="margin-top:8px" onclick="doAuth('up')">Regisztráció</button>`;
   }
-  h+=`<div class="small dim" style="text-align:center;margin-top:18px">Verzió ${APP_VERSION}</div>`;
+  h+=`<button class="btn ghost" style="margin-top:14px;color:var(--mut)" onclick="openWelcome()">Bemutató megtekintése</button>`;
+  h+=`<div class="small dim" style="text-align:center;margin-top:14px">Verzió ${APP_VERSION}</div>`;
   document.getElementById('sheetIn').innerHTML=h;
   document.getElementById('sheet').classList.add('on');
   if(loggedIn && !myProfile){ loadProfile().then(()=>{ const s=document.getElementById('sheet');
@@ -2215,6 +2216,32 @@ async function doImportPlan(shareId){
 }
 async function doDiscardPlan(shareId){ try{ await Auth.deleteSharedPlan(shareId); }catch(e){} refreshFriends(); }
 
+/* ---- Onboarding (első indítás bemutató) --------------------------- *
+ * Külön kulcs (gymlog_onboarded), FÜGGETLEN a gymlog_v1 edzésadattól –
+ * mint a téma-preferencia. Csak új (üres naplójú) felhasználónál, egyszer.
+ */
+function openWelcome(){
+  const row=(icon,title,desc)=>`<div class="row" style="gap:12px;align-items:flex-start;margin-top:14px">
+    <span style="flex:0 0 24px;color:var(--brass)">${icon}</span>
+    <div class="grow"><div class="cond" style="font-size:17px;font-weight:600">${title}</div>
+      <div class="small mut" style="margin-top:2px">${desc}</div></div></div>`;
+  let h=`<div class="grabber"></div>
+    <div class="top" style="padding:6px 0 0"><span class="eyebrow" style="color:var(--brass)">Üdv</span>
+      <h2 style="font-size:26px;margin-top:2px">Edzésnapló</h2>
+      <p class="small mut" style="margin:6px 0 0">Egykezes edzésnapló teremhez. A számok a főszereplők – a szett-rögzítés két koppintás.</p></div>`;
+  h+=row(ICON.dumbbell,'Edzés','Koppints egy napra (Push/Pull) a főoldalon – indul a vezetett edzés pihenőórával, súlyállítóval. Végén összegzőt kapsz.');
+  h+=row(ICON.plans,'Tervek','Állíts össze saját edzést vagy tervet, vagy válassz kész sablont a katalógusból.');
+  h+=row(ICON.chart,'Haladás','Statok, grafikonok, becsült 1RM, testsúly- és testméret-követés.');
+  h+=row(ICON.list,'Napló','Minden edzés visszanézhető; heti összefoglaló küldhető egy AI-edzőnek.');
+  h+=row(ICON.account,'Fiók / szinkron','Opcionális felhő-fiók: több eszköz közt biztonságosan összefésül. Nélküle minden a böngésződben marad.');
+  h+=`<button class="btn pri" style="margin-top:18px" onclick="dismissWelcome()">Kezdjük</button>`;
+  document.getElementById('sheetIn').innerHTML=h;
+  document.getElementById('sheet').classList.add('on');
+}
+function dismissWelcome(){ try{ localStorage.setItem('gymlog_onboarded','1'); }catch(e){} closeSheet(); }
+function maybeOnboard(){ try{ if(localStorage.getItem('gymlog_onboarded')) return; }catch(e){ return; }
+  if((S.sessions||[]).length===0) openWelcome(); }
+
 /* ---- Téma (világos / sötét) ---------------------------------------- */
 function currentTheme(){ try{ return localStorage.getItem('gymlog_theme')||'auto'; }catch(e){ return 'auto'; } }
 function effectiveDark(){ const t=currentTheme();
@@ -2248,7 +2275,7 @@ document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>{tab=b.dataset
 document.getElementById('sheet').onclick=e=>{ if(e.target.id==='sheet') closeSheet(); };
 document.getElementById('modal').onclick=e=>{ if(e.target.id==='modal') _closeModal(false); };
 paintIcons();
-load().then(updateInjuryBtn);
+load().then(()=>{ updateInjuryBtn(); maybeOnboard(); });
 
 // Felhő-szinkron indítása (inert, ha nincs supabase-config.js).
 if(window.Auth){

@@ -151,6 +151,11 @@ tartsd meg – a hívási helyek arra épülnek.
 hiánya = rendszerkövetés). Ez FÜGGETLEN a `gymlog_v1` edzésadattól –
 a témaváltás soha nem érinti a naplót.
 
+**Onboarding-jelző:** külön `gymlog_onboarded` kulcs (`'1'` = látta a
+bemutatót). Szintén FÜGGETLEN a `gymlog_v1`-től. Az `openWelcome` első
+indításkor jön (üres napló + nincs jelző); a fiók-lapról bármikor
+újranyitható.
+
 **Felhő-szinkron – veszteségmentes összefésülés:** belépve a felhő nem
 felülír, hanem UNIÓT képez a helyi naplóval (`Auth.mergeGym` az
 `js/auth.js`-ben; a `cloudRead`/`cloudWrite` is ezen megy át). Az
