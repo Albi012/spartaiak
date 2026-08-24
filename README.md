@@ -55,7 +55,9 @@ több eszköz közt szinkronizál.
   amit el lehet küldeni egy (AI-)edzőnek.
 
 **Fiók, szinkron és barátok** *(opcionális)*
-- E-mail + jelszó belépés. Fiók nélkül is minden működik, csak lokálisan.
+- E-mail + jelszavas **regisztráció és belépés** – pár másodperc, a fiók
+  ott helyben, az appban létrehozható. Fiók nélkül is minden működik, csak
+  lokálisan.
 - Belépve a felhő nem felülír, hanem **összefésül** a helyi naplóval, így
   két eszköz közt egyetlen rögzített edzés sem vész el.
 - Barát-kóddal barátjelölés, megosztott statok és edzéstervek.
