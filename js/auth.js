@@ -139,8 +139,12 @@
     }
     out.bwGoal = (newer.bwGoal!=null) ? newer.bwGoal : (older.bwGoal!=null ? older.bwGoal : null);
     out.lastBackup = Math.max(a.lastBackup||0, b.lastBackup||0) || null;
-    // Folyamatban lévő edzés: ne törölje egy másik eszköz null-ja.
-    out.active = (newer.active!=null) ? newer.active : (older.active!=null ? older.active : null);
+    // Folyamatban lévő edzés: az utolsó módosítás (activeT) dönt – így egy
+    // frissen indított/haladó edzést nem töröl egy másik eszköz elavult
+    // null-ja, DE az eldobás (null, friss activeT) megmarad, nem tér vissza.
+    const aT=a.activeT||0, bT=b.activeT||0;
+    if(aT||bT){ const src = aT>=bT ? a : b; out.active = src.active!=null ? src.active : null; out.activeT = Math.max(aT,bT); }
+    else { out.active = (newer.active!=null) ? newer.active : (older.active!=null ? older.active : null); }
     return JSON.stringify(out);
   }
 

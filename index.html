@@ -354,10 +354,10 @@ const ICON={
 
 let S = {sessions:[], active:null, weights:{}, notes:{}, photos:{}, injury:null, lastBackup:0,
          customEx:{}, routines:[], programs:[], hidePlan:false, activeProgram:null,
-         bw:[], bwGoal:null, deleted:[]};
+         bw:[], bwGoal:null, deleted:[], activeT:0};
 let tab='home', playing=false, curEx=0, tInt=null, tEnd=0, tLen=0, wl=null, nagOff=false;
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v30';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v31';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -388,7 +388,7 @@ async function save(){
   const v=JSON.stringify({sessions:S.sessions,active:S.active,weights:S.weights,
     notes:S.notes,photos:S.photos,injury:S.injury,lastBackup:S.lastBackup,
     customEx:S.customEx,routines:S.routines,programs:S.programs,hidePlan:S.hidePlan,activeProgram:S.activeProgram,
-    bw:S.bw,bwGoal:S.bwGoal,deleted:S.deleted});
+    bw:S.bw,bwGoal:S.bwGoal,deleted:S.deleted,activeT:S.activeT});
   const ok=await writeKey(KEY,v);
   if(!ok&&storeMode!=='none'){ storeMode='none'; render(); }
 }
@@ -744,7 +744,7 @@ async function startDay(id){
   let deload=false;
   if(gap>10) deload = await uiConfirm(Math.round(gap)+' nap kihagyás.\n\nKérsz visszalépést? (kb. -15% súly és több ismétlés a célhoz, hogy fokozatosan épülj vissza.)', {ok:'Igen, visszalépés', cancel:'Nem'});
   const d=dayDef(id); if(!d){ return; }
-  S.active={day:id,t:Date.now(),log:{},deload:deload,dayName:d.name};
+  S.active={day:id,t:Date.now(),log:{},deload:deload,dayName:d.name}; S.activeT=Date.now();
   d.ex.forEach(e=>{
     if(exAffected(e)) return;                 // sérülés-mód: érintett gyakorlat kihagyva
     let w=startW(e.id);
@@ -755,7 +755,7 @@ async function startDay(id){
 }
 function resumePlayer(){ if(S.active){ playing=true; render(); window.scrollTo(0,0); } }
 function pausePlayer(){ playing=false; tab='home'; stopTimer(); render(); window.scrollTo(0,0); }
-async function discardActive(){ if(await uiConfirm('Biztos eldobod ezt az edzést?', {ok:'Eldobás', danger:true})){ S.active=null; playing=false; stopTimer(); tab='home'; save(); render(); window.scrollTo(0,0); } }
+async function discardActive(){ if(await uiConfirm('Biztos eldobod ezt az edzést?', {ok:'Eldobás', danger:true})){ S.active=null; S.activeT=Date.now(); playing=false; stopTimer(); tab='home'; save(); render(); window.scrollTo(0,0); } }
 function exNav(i){ const d=dayDef(S.active.day)||{ex:[]}; const n=d.ex.filter(x=>S.active.log[x.id]).length;
   curEx=Math.max(0,Math.min(n-1,i)); render(); window.scrollTo(0,0); }
 
@@ -1110,7 +1110,7 @@ function uiAlert(msg, opts){ opts=opts||{};
     document.getElementById('modal').classList.add('on'); });
 }
 function setRep(v){
-  const e=exDef(cur.id); S.active.log[cur.id].sets[cur.i]=v;
+  const e=exDef(cur.id); S.active.log[cur.id].sets[cur.i]=v; S.activeT=Date.now();
   closeSheet(); save(); render();
   if(v!=null) startTimer(e.rest);
 }
@@ -1142,7 +1142,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==
 function finish(){
   const any=Object.values(S.active.log).some(l=>l.sets.some(x=>x!=null));
   if(!any){ uiAlert('Egyetlen szettet sem rögzítettél.'); return; }
-  S.sessions.push(S.active); S.active=null; playing=false; stopTimer(); save(); syncStats(); tab='log'; render(); window.scrollTo(0,0);
+  S.sessions.push(S.active); S.active=null; S.activeT=Date.now(); playing=false; stopTimer(); save(); syncStats(); tab='log'; render(); window.scrollTo(0,0);
 }
 
 function logView(){

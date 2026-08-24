@@ -141,8 +141,12 @@ edzéseket azonosító (`t`+`day`) szerint egyesíti; ütközésnél a logot
 gyakorlatonként a gazdagabb (több rögzített szett) verzió nyeri. A
 kulcsolt mezők (`weights`/`notes`/`photos`/`customEx`) per-kulcs unióban,
 a `routines`/`programs` id szerint unióban, a skalár preferenciák
-(`injury`/`activeProgram`/`hidePlan`/`active`) az újabb állapotból (a
-legutóbbi edzés időbélyege a frisseség-proxy). Így két eszköz közt egyetlen
+(`injury`/`activeProgram`/`hidePlan`) az újabb állapotból (a
+legutóbbi edzés időbélyege a frisseség-proxy). A **folyamatban lévő
+edzés** (`active`) külön `activeT` időbélyeg szerint dől el (indítás /
+szett-rögzítés / eldobás / befejezés frissíti) – így az eldobás (null,
+friss `activeT`) megmarad, de egy frissen indított edzést nem töröl egy
+másik eszköz elavult null-ja. Így két eszköz közt egyetlen
 rögzített edzés sem veszik el. **Ha a szinkron-logikát bővíted, tartsd meg
 ezt a garanciát** – vak felülírás (`upsert` merge nélkül) tilos.
 
