@@ -357,7 +357,7 @@ let S = {sessions:[], active:null, weights:{}, notes:{}, photos:{}, injury:null,
          bw:[], bwGoal:null, deleted:[], activeT:0, prog:{}};
 let tab='home', playing=false, curEx=0, tInt=null, tEnd=0, tLen=0, wl=null, nagOff=false;
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v33';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v34';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -1506,44 +1506,57 @@ function progView(){
 
 // Egy edzés–gyakorlat metrikája a részletlap görbéjéhez. 'w' = munkasúly;
 // 'vol' = térfogat (súly×ismétlés; testsúlyosnál az összes ismétlés).
+// Egy edzés legjobb becsült 1RM-je (a szetten belül a súly azonos, így a
+// legtöbb ismétlésű, de max 12-es szett adja). null, ha nem becsülhető.
+function sess1RM(L){ if(!L||!(L.w>0)) return null;
+  const reps=(L.sets||[]).filter(x=>x!=null&&x<=12); if(!reps.length) return null;
+  return est1RM(L.w, Math.max(...reps)); }
 function progMetric(L, metric){
   if(metric==='vol') return L.w>0 ? L.w*repSum(L.sets) : repSum(L.sets);
+  if(metric==='1rm') return sess1RM(L);
   return L.w;
 }
 // Részletes lap egy gyakorlathoz: nagy grafikon (súly/térfogat) + előzmény.
 function openProgDetail(id, metric){
-  metric = metric==='vol' ? 'vol' : 'w';
+  metric = (metric==='vol'||metric==='1rm') ? metric : 'w';
   const e=exDef(id);
+  if(metric==='1rm' && e.bw) metric='w';                  // testsúlyosnál nincs 1RM
   const rows=S.sessions.filter(s=>s.log[id]&&s.log[id].sets.some(x=>x!=null))
     .map(s=>({ t:s.t, L:s.log[id] })).sort((a,b)=>a.t-b.t);
-  const pts=rows.map(r=>progMetric(r.L, metric));
-  const volUnit = e.bw ? ' ism' : ' kg';                 // térfogat egysége
-  const pr=Math.max(...rows.map(r=>r.L.w));               // a csúcs mindig a súly-PR
-  const d=sparkPath(pts,100,120,10);
-  const mn=Math.min(...pts), rng=(Math.max(...pts)-mn)||1;
-  const area=pts.length>1 ? `M0 120 `+pts.map((p,i)=>{ const x=i/(pts.length-1)*100; const y=(120-10)-((p-mn)/rng)*(120-20); return 'L'+x.toFixed(1)+' '+y.toFixed(1); }).join(' ')+` L100 120 Z` : '';
+  // A grafikonhoz csak azok az edzések, amelyekhez van érték az adott
+  // metrikában (1RM: nem minden edzés becsülhető).
+  const chartRows=rows.filter(r=>progMetric(r.L,metric)!=null);
+  const pts=chartRows.map(r=>progMetric(r.L,metric));
+  const volUnit = e.bw ? ' ism' : ' kg';
+  const pr=Math.max(...rows.map(r=>r.L.w));               // a súly-csúcs
+  const mn=pts.length?Math.min(...pts):0, rng=(pts.length?Math.max(...pts):0)-mn||1;
+  const yOf=p=>(120-10)-((p-mn)/rng)*(120-20);
+  const d=chartRows.map((r,i)=>{ const x=chartRows.length>1?i/(chartRows.length-1)*100:50; return (i?'L':'M')+x.toFixed(1)+' '+yOf(pts[i]).toFixed(1); }).join(' ');
+  const area=pts.length>1 ? `M0 120 `+chartRows.map((r,i)=>'L'+(i/(chartRows.length-1)*100).toFixed(1)+' '+yOf(pts[i]).toFixed(1)).join(' ')+` L100 120 Z` : '';
+  const seg=(k,lbl)=>`<button class="${metric===k?'on':''}" onclick="openProgDetail('${id}','${k}')">${lbl}</button>`;
   let h=`<div class="grabber"></div>
     <div class="row"><div class="grow"><span class="eyebrow">Haladás</span>
       <h2 style="font-size:22px">${esc(e.n)}</h2>
       <span class="small dim">Csúcs ${wLabel(e,pr)}${e.bw&&pr<=0?'':' kg'} · ${rows.length} alkalom</span>${(()=>{const b=best1RM(id);return b?`<br><span class="small" style="color:var(--brass)">Becsült 1RM ~${b.est} kg <span class="dim">(${b.w}×${b.r})</span></span>`:'';})()}</div>
       <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
-    <div class="seg">
-      <button class="${metric==='w'?'on':''}" onclick="openProgDetail('${id}','w')">Súly</button>
-      <button class="${metric==='vol'?'on':''}" onclick="openProgDetail('${id}','vol')">Térfogat</button>
-    </div>`;
+    <div class="seg">${seg('w','Súly')}${seg('vol','Térfogat')}${e.bw?'':seg('1rm','1RM')}</div>`;
   if(pts.length>1){
     h+=`<svg class="chartbig" viewBox="0 0 100 120" preserveAspectRatio="none">
       <path d="${area}" fill="var(--brass-d)" opacity=".55"/>
       <path d="${d}" fill="none" stroke="var(--brass)" stroke-width="1.8" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
-      ${rows.map((r,i)=>{ const x=i/(rows.length-1)*100; const y=(120-10)-((progMetric(r.L,metric)-mn)/rng)*(120-20); return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="1.9" fill="var(--brass)" vector-effect="non-scaling-stroke"/>`; }).join('')}
+      ${chartRows.map((r,i)=>`<circle cx="${(chartRows.length>1?i/(chartRows.length-1)*100:50).toFixed(1)}" cy="${yOf(pts[i]).toFixed(1)}" r="1.9" fill="var(--brass)" vector-effect="non-scaling-stroke"/>`).join('')}
     </svg>`;
+  } else if(metric==='1rm'){
+    h+=`<div class="empty" style="padding:20px 0">Nincs elég becsülhető edzés (12 ismétlésig).</div>`;
   }
   const volMax=Math.max(...rows.map(r=>progMetric(r.L,'vol')));
+  const rmMax=Math.max(...rows.map(r=>sess1RM(r.L)||0));
   h+=`<div style="margin-top:6px">`;
   rows.slice().reverse().forEach(r=>{
     const reps=(r.L.sets||[]).filter(x=>x!=null);
-    let main, isPr;
+    let main, isPr=false;
     if(metric==='vol'){ const v=progMetric(r.L,'vol'); main=v+volUnit; isPr=v===volMax && v>0; }
+    else if(metric==='1rm'){ const v=sess1RM(r.L); main=v!=null?('~'+v+' kg'):'<span class="dim">—</span>'; isPr=v!=null && v===rmMax && v>0; }
     else { main=wLabel(e,r.L.w)+(e.bw&&r.L.w<=0?'':' kg'); isPr=r.L.w===pr && pr>0; }
     h+=`<div class="histrow">
       <span class="d">${fmtDate(r.t)}</span>
