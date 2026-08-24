@@ -146,6 +146,13 @@ legutóbbi edzés időbélyege a frisseség-proxy). Így két eszköz közt egye
 rögzített edzés sem veszik el. **Ha a szinkron-logikát bővíted, tartsd meg
 ezt a garanciát** – vak felülírás (`upsert` merge nélkül) tilos.
 
+**Törlés = tombstone (síremlék):** mivel az unió visszahozná az egyik
+oldalon törölt edzést (a törlés „adat hiánya"), a törlést explicit jelölni
+kell. A `del()` a törölt edzés azonosítóját (`t+day`) beteszi a `deleted`
+tömbbe (`{k, at}`); a `mergeGym` a tombstone-listákat is egyesíti, és a
+jelölt edzéseket kizárja az összefésült listából – így a törlés átmegy a
+másik eszközre is. Új edzés törlésekor mindig kerüljön be a tombstone.
+
 ## Téma (világos / sötét)
 
 Az app követi a rendszer beállítását, és a felső sávban lévő gombbal

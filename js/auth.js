@@ -104,10 +104,19 @@
     const aNew = latest(a) >= latest(b);
     const newer = aNew ? a : b, older = aNew ? b : a;
     const out = Object.assign({}, older, newer);   // skalárok: újabb nyer
+    // Törlés-síremlékek (tombstone): a két oldal uniója. A törlés így nem
+    // "adat hiánya" (amit az unió visszahozna), hanem explicit jelölés, ami
+    // átmegy a másik eszközre. A kulcs a törölt edzés azonosítója (t+day).
+    const tomb = new Map();
+    (a.deleted||[]).concat(b.deleted||[]).forEach(d=>{ if(d&&d.k){
+      const ex=tomb.get(d.k); if(!ex||(d.at||0)>(ex.at||0)) tomb.set(d.k, d); }});
+    out.deleted = [...tomb.values()];
     // Edzések: unió azonosító szerint, ütközésnél log-szintű összefésülés.
+    // A síremlékkel jelölt edzések kimaradnak.
     const map = new Map(), key = s => (s.t||0)+'|'+(s.day||'');
     (a.sessions||[]).concat(b.sessions||[]).forEach(s=>{
-      const k = key(s), ex = map.get(k);
+      const k = key(s); if(tomb.has(k)) return;
+      const ex = map.get(k);
       map.set(k, ex ? _mergeSession(ex, s) : s);
     });
     out.sessions = [...map.values()].sort((x,y)=>(x.t||0)-(y.t||0));
