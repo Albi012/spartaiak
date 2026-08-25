@@ -173,11 +173,20 @@ rögzített edzés sem veszik el. **Ha a szinkron-logikát bővíted, tartsd meg
 ezt a garanciát** – vak felülírás (`upsert` merge nélkül) tilos.
 
 **Törlés = tombstone (síremlék):** mivel az unió visszahozná az egyik
-oldalon törölt edzést (a törlés „adat hiánya"), a törlést explicit jelölni
-kell. A `del()` a törölt edzés azonosítóját (`t+day`) beteszi a `deleted`
-tömbbe (`{k, at}`); a `mergeGym` a tombstone-listákat is egyesíti, és a
-jelölt edzéseket kizárja az összefésült listából – így a törlés átmegy a
-másik eszközre is. Új edzés törlésekor mindig kerüljön be a tombstone.
+oldalon törölt elemet (a törlés „adat hiánya"), a törlést explicit jelölni
+kell. A `tombstone(k)` a törölt elem kulcsát beteszi a `deleted` tömbbe
+(`{k, at}`); a `mergeGym` a tombstone-listákat egyesíti, és a jelölt
+elemeket kizárja az összefésült állapotból – így a törlés átmegy a másik
+eszközre is. **A síremlék minden törölhető entitásra vonatkozik**, nem csak
+az edzésekre:
+- **edzés** (`del`): kulcs = `t+'|'+day`; a `sessions` unióból kizárva.
+- **saját edzés / edzésterv** (`deleteRoutine`/`deleteProgram`): kulcs =
+  `r_…`/`p_…` id; a `routines`/`programs` id-unióból kizárva.
+- **saját gyakorlat** (`deleteCustomEx`): kulcs = `cx_…` id; a `customEx`
+  és a hozzá tartozó kulcsolt mezők (súly/jegyzet/fotó/prog) is kimaradnak.
+Minden törlés a mentés után `flushCloud()`-dal AZONNAL a felhőbe írja a
+síremléket (nem várja a debounce-t). Új törlésnél mindig hívd a
+`tombstone()`-t.
 
 ## Téma (világos / sötét)
 

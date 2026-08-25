@@ -365,7 +365,7 @@ let S = {sessions:[], active:null, weights:{}, notes:{}, photos:{}, injury:null,
 let tab='home', playing=false, curEx=0, tInt=null, tEnd=0, tLen=0, wl=null, nagOff=false;
 let logFilter=null;   // Napló szűrő edzéstípusra (day id) – null = mind
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v46';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v47';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -1013,7 +1013,8 @@ async function deleteRoutine(id){
   if(!await uiConfirm('Törlöd ezt a saját edzést?\n(A már naplózott edzések megmaradnak.)', {ok:'Törlés', danger:true})) return;
   S.routines=S.routines.filter(x=>x.id!==id);
   (S.programs||[]).forEach(p=>{ p.days=p.days.filter(d=>d!==id); });
-  editing=false; draft=null; save(); render(); window.scrollTo(0,0);   // a jelenlegi fülön marad
+  tombstone(id);   // síremlék: a felhő-merge se hozza vissza
+  editing=false; draft=null; await save(); flushCloud(); render(); window.scrollTo(0,0);   // a jelenlegi fülön marad
 }
 function builderView(){
   const canSave = draft.name.trim() && draft.ex.length>0;
@@ -1103,7 +1104,7 @@ async function deleteCustomEx(id){
   if(!await uiConfirm('Törlöd ezt a saját gyakorlatot?'+(used?'\nA saját edzésekből is kikerül.':'')+'\n(A már naplózott edzésekben az adat megmarad.)', {ok:'Törlés', danger:true})) return;
   delete S.customEx[id];
   (S.routines||[]).forEach(r=>{ r.ex=r.ex.filter(x=>x!==id); });
-  save(); openManageEx();
+  tombstone(id); await save(); flushCloud(); openManageEx();   // síremlék + azonnali felhő
 }
 
 let cxMg='', cxEditId=null, cxReturn='picker';
@@ -1172,7 +1173,7 @@ function saveProgram(){
   editing=false; prog=null; save(); tab='home'; render(); window.scrollTo(0,0);
 }
 async function deleteProgram(id){ if(!await uiConfirm('Törlöd ezt az edzéstervet?\n(A benne lévő edzések megmaradnak.)', {ok:'Törlés', danger:true})) return;
-  S.programs=S.programs.filter(x=>x.id!==id); editing=false; prog=null; save(); render(); window.scrollTo(0,0); }  // a jelenlegi fülön marad
+  S.programs=S.programs.filter(x=>x.id!==id); tombstone(id); editing=false; prog=null; await save(); flushCloud(); render(); window.scrollTo(0,0); }  // síremlék + azonnali felhő
 function programView(){
   const canSave = prog.name.trim() && prog.days.length>0;
   let items='';
@@ -1538,9 +1539,13 @@ async function loadBundled(){
     S.sessions=d.sessions; S.weights=d.weights||{}; save(); render();
   }catch(e){ uiAlert('A tesztadat betöltése nem sikerült.'); }
 }
+// Síremlék (tombstone) rögzítése: törölt entitás kulcsa (edzés t+day, vagy
+// saját edzés/terv/gyakorlat id). A mergeGym ezeket kizárja, így a felhő sem
+// hozza vissza a törölt elemet.
+function tombstone(k){ if(!S.deleted) S.deleted=[]; S.deleted.push({k, at:Date.now()}); }
 async function del(i){ if(await uiConfirm('Törlöd ezt az edzést?', {ok:'Törlés', danger:true})){
   const s=S.sessions[i];
-  if(s){ if(!S.deleted) S.deleted=[]; S.deleted.push({k:(s.t||0)+'|'+(s.day||''), at:Date.now()}); }
+  if(s) tombstone((s.t||0)+'|'+(s.day||''));
   S.sessions.splice(i,1); await save(); flushCloud(); render(); } }   // a tombstone azonnal a felhőbe
 function copyAll(){
   let t='Edzésnapló\n\n';

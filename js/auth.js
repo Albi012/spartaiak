@@ -121,13 +121,18 @@
     });
     out.sessions = [...map.values()].sort((x,y)=>(x.t||0)-(y.t||0));
     // Kulcsolt mezők: unió (per-kulcs az újabb nyer, a régi kulcsok maradnak).
+    // A síremlékkel jelölt kulcsokat (pl. törölt saját gyakorlat cx_… és a
+    // hozzá tartozó súly/jegyzet/fotó/progr.) kizárjuk.
     ['weights','notes','photos','customEx','prog'].forEach(f=>{
-      if(a[f]||b[f]) out[f] = Object.assign({}, older[f]||{}, newer[f]||{});
+      if(a[f]||b[f]){ const merged = Object.assign({}, older[f]||{}, newer[f]||{});
+        Object.keys(merged).forEach(k=>{ if(tomb.has(k)) delete merged[k]; });
+        out[f] = merged; }
     });
-    // Id-kulcsolt tömbök: unió id szerint.
+    // Id-kulcsolt tömbök: unió id szerint; a síremlékes id-ket (törölt saját
+    // edzés r_… / edzésterv p_…) kizárjuk – így törlés után nem térnek vissza.
     ['routines','programs'].forEach(f=>{
       const m = new Map();
-      (older[f]||[]).concat(newer[f]||[]).forEach(it=>{ if(it&&it.id) m.set(it.id, it); });
+      (older[f]||[]).concat(newer[f]||[]).forEach(it=>{ if(it&&it.id && !tomb.has(it.id)) m.set(it.id, it); });
       if(a[f]||b[f]) out[f] = [...m.values()];
     });
     // Testsúly-napló: unió nap szerint (napi egy mérés, ütközésnél az újabb
