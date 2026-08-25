@@ -365,7 +365,7 @@ let S = {sessions:[], active:null, weights:{}, notes:{}, photos:{}, injury:null,
 let tab='home', playing=false, curEx=0, tInt=null, tEnd=0, tLen=0, wl=null, nagOff=false;
 let logFilter=null;   // Napló szűrő edzéstípusra (day id) – null = mind
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v45';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v46';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -389,6 +389,15 @@ function cloudPush(v){
   if(_cloudTimer) return;
   _cloudTimer=setTimeout(()=>{ _cloudTimer=null; const val=_cloudPending; _cloudPending=null;
     if(val!=null && window.Auth && Auth.isLoggedIn()){ try{ Auth.cloudWrite(val); }catch(e){} } }, 1200);
+}
+// Függőben lévő felhő-írás AZONNALI kiküldése (a debounce megkerülése).
+// Törlésnél hívjuk, hogy a tombstone azonnal a felhőbe kerüljön – így egy
+// másik eszköz sem hozza vissza a törölt edzést, és nem függ attól, hogy a
+// felhasználó vár-e a debounce lejártáig.
+function flushCloud(){
+  if(_cloudTimer){ clearTimeout(_cloudTimer); _cloudTimer=null; }
+  const v=_cloudPending; _cloudPending=null;
+  if(v!=null && window.Auth && Auth.isLoggedIn()){ try{ Auth.cloudWrite(v); }catch(e){} }
 }
 async function writeKey(k,v){
   try{ if(window.storage&&window.storage.set){ await window.storage.set(k,v); return true; } }catch(e){}
@@ -1532,7 +1541,7 @@ async function loadBundled(){
 async function del(i){ if(await uiConfirm('Törlöd ezt az edzést?', {ok:'Törlés', danger:true})){
   const s=S.sessions[i];
   if(s){ if(!S.deleted) S.deleted=[]; S.deleted.push({k:(s.t||0)+'|'+(s.day||''), at:Date.now()}); }
-  S.sessions.splice(i,1); save(); render(); } }
+  S.sessions.splice(i,1); await save(); flushCloud(); render(); } }   // a tombstone azonnal a felhőbe
 function copyAll(){
   let t='Edzésnapló\n\n';
   S.sessions.forEach(s=>{ const d=dayDef(s.day)||{ex:[]};
