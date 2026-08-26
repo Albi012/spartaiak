@@ -369,7 +369,7 @@ let S = {sessions:[], active:null, weights:{}, notes:{}, photos:{}, injury:null,
 let tab='home', playing=false, curEx=0, tInt=null, tEnd=0, tLen=0, wl=null, nagOff=false;
 let logFilter=null;   // Napló szűrő edzéstípusra (day id) – null = mind
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v48';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v49';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -1454,6 +1454,15 @@ function openFinishSummary(sess){
       <span class="num" style="font-size:22px;font-weight:700;color:var(--brass)">${p.val}</span></div>`; });
     h+=`</div></div>`;
   }
+  // Szint + szintlépés (a mostani edzés már a naplóban van; a nélküle számolt
+  // szinthez hasonlítva derül ki, léptél-e).
+  const after=levelInfo(), before=levelInfo(S.sessions.filter(s=>s!==sess));
+  const up=after.level>before.level;
+  h+=`<div class="row" style="align-items:center;margin-top:14px;gap:12px">
+    <div class="grow"><span class="small dim">Szint</span><br>
+      <b style="font-size:18px${up?';color:var(--brass)':''}">${levelTitle(after.level)} · ${after.level}${up?' — Új szint!':''}</b></div>
+    <span class="num" style="font-size:15px;color:var(--dim)">${after.into}/${after.need} XP</span></div>
+  <div class="mgtrack" style="margin-top:8px"><span class="mgfill" style="width:${after.pct}%;background:var(--brass)"></span></div>`;
   h+=`<button class="btn pri" style="margin-top:14px" onclick="closeFinish()">Naplóhoz ›</button>`;
   document.getElementById('sheetIn').innerHTML=h;
   document.getElementById('sheet').classList.add('on');
@@ -1648,6 +1657,39 @@ function progStats(){
 }
 // Össztömeg emberi alakja: 1 t felett tonnában, egyébként kg-ban.
 function fmtTon(kg){ return kg>=1000 ? (kg/1000).toFixed(kg>=10000?0:1)+' t' : Math.round(kg)+' kg'; }
+
+// -- Szint / XP (streak-fókusz) ---------------------------------------
+// Az XP-t a naplóból származtatjuk (nincs elmentett számláló). A fő hajtóerő
+// a rendszeresség: hány aktív hét volt összesen, a valaha volt leghosszabb és
+// a jelenlegi hetes sorozat; kis alap edzésenként. A szintgörbe egyre lassul.
+function levelInfo(sessions){
+  sessions = sessions || S.sessions || [];
+  const weeks = [...new Set(sessions.map(s=>weekStart(s.t)))].sort((a,b)=>a-b);
+  let best=0, run=0, prev=null;
+  weeks.forEach(w=>{ run = (prev!=null && w-prev===7*864e5) ? run+1 : 1; prev=w; if(run>best) best=run; });
+  const desc=[...weeks].sort((a,b)=>b-a); let cur=0;
+  if(desc.length){ cur=1; for(let i=1;i<desc.length;i++){ if(desc[i-1]-desc[i]===7*864e5) cur++; else break; } }
+  const xp = weeks.length*30 + best*60 + cur*60 + sessions.length*5;
+  let level=1, need=100, into=xp;
+  while(into>=need){ into-=need; level++; need=Math.round(need*1.25); }
+  return { level, xp, into, need, pct:Math.round(into/need*100), cur, best, weeksActive:weeks.length };
+}
+// Rang-cím szint szerint (íz, streak-témában).
+function levelTitle(lvl){
+  const T=['Újonc','Rendszeres','Kitartó','Elszánt','Acélos','Veterán','Legenda'];
+  return T[Math.min(T.length-1, Math.floor((lvl-1)/3))];
+}
+function levelCard(){
+  const L=levelInfo();
+  return `<div class="card" style="border-color:var(--brass)"><div class="pad">
+    <div class="row" style="align-items:center">
+      <div class="grow"><span class="eyebrow" style="color:var(--brass)">Szint · ${esc(levelTitle(L.level))}</span>
+        <div class="small mut" style="margin-top:2px">Jelenlegi sorozat: ${L.cur} hét · csúcs ${L.best} · ${L.weeksActive} aktív hét</div></div>
+      <span class="num" style="font-size:40px;font-weight:700;color:var(--brass);line-height:1">${L.level}</span></div>
+    <div class="mgtrack" style="margin-top:12px"><span class="mgfill" style="width:${L.pct}%;background:var(--brass)"></span></div>
+    <div class="small dim" style="margin-top:6px;text-align:right">${L.into} / ${L.need} XP a következő szintig</div>
+  </div></div>`;
+}
 
 // Becsült 1RM egy szettből (Epley: w·(1+r/30)). 1 ismétlés = maga a mérés.
 // 12 ismétlés felett nem becslünk – ott a képletek szétnyílnak, a szám
@@ -2085,9 +2127,11 @@ function openAuthSheet(){
   const configured = window.Auth && Auth.configured();
   const loggedIn = window.Auth && Auth.isLoggedIn();
   let h=`<div class="grabber"></div>
-    <div class="row"><div class="grow"><span class="eyebrow">Fiók · felhő-szinkron</span>
-    <h2 style="font-size:22px">${loggedIn?'Bejelentkezve':'Belépés'}</h2></div>
+    <div class="row"><div class="grow"><span class="eyebrow">Profil</span>
+    <h2 style="font-size:22px">${loggedIn?'Bejelentkezve':'Profil'}</h2></div>
     <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>`;
+  h+=`<div style="margin-top:14px">${levelCard()}</div>`;   // szint / XP (streak-fókusz)
+  h+=`<div class="eyebrow" style="margin-top:14px">Fiók · felhő-szinkron</div>`;
   if(!configured){
     h+=`<p class="small mut" style="margin-top:12px">A felhő-szinkron még nincs beállítva ezen a példányon.
       Másold a <code>supabase-config.example.js</code>-t <code>supabase-config.js</code> néven, és töltsd ki a
