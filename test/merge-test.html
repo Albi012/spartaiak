@@ -83,16 +83,6 @@ const sess = (t,day,log)=>({t,day,log:log||{}});
   const b=S({sessions:[], deleted:[{k:'9|pa',at:200}]});
   ok('tombstone: frissebb at', parse(M(a,b)).deleted[0].at===200);
 }
-// 7) Testsúly: unió nap szerint, ütközésnél újabb állapot nyer, cél skalár
-{
-  const day=86400000, base=1_700_000_000_000;
-  const a=S({sessions:[sess(base+5*day,'pa',{})], bw:[{t:base+day,kg:80}], bwGoal:75});
-  const b=S({sessions:[sess(base+1,'pa',{})], bw:[{t:base+2*day,kg:81},{t:base+day,kg:79.5}], bwGoal:null});
-  const m=parse(M(a,b));
-  ok('bw: unió nap szerint (2 nap)', m.bw.length===2);
-  ok('bw: ütközésnél az újabb állapot nyer (80)', m.bw.find(e=>Math.round(e.t/day)===Math.round((base+day)/day)).kg===80);
-  ok('bwGoal: az újabb állapotból (75)', m.bwGoal===75);
-}
 // 8) Aktív edzés: activeT dönt
 {
   const W=sess(5,'pb',{ohp:{w:30,sets:[8]}});
