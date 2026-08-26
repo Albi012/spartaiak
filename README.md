@@ -39,8 +39,6 @@ több eszköz közt szinkronizál.
 - Gyakorlatonkénti trend nagy grafikonnal, teljes előzménnyel és a
   csúccsal (PR); váltható munkasúly és térfogat (súly×ismétlés) között.
 - Becsült 1RM gyakorlatonként.
-- Testsúly-napló állítható célvonallal (a cél felé mozgás zöld, attól
-  elfelé piros).
 
 **Edző-funkciók**
 - Okos súlyjavaslat: a túlteljesítés arányában nagyobbat lép; hosszabb
