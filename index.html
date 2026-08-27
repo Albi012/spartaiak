@@ -368,7 +368,7 @@ let S = {sessions:[], active:null, weights:{}, notes:{}, photos:{}, injury:null,
 let tab='home', playing=false, curEx=0, tInt=null, tEnd=0, tLen=0, wl=null, nagOff=false;
 let logFilter=null;   // Napló szűrő edzéstípusra (day id) – null = mind
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v50';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v51';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -1740,6 +1740,39 @@ function weekVolume(){
   return Object.keys(acc).map(mg=>({mg,sets:acc[mg]})).sort((a,b)=>b.sets-a.sets);
 }
 
+// Havi edzésszám az utolsó n hónapra (időrendben, a jelenlegi hónap az utolsó).
+const HU_MON=['jan','feb','márc','ápr','máj','jún','júl','aug','szep','okt','nov','dec'];
+function monthlyCounts(n){
+  const now=new Date(), out=[], idx={};
+  for(let i=n-1;i>=0;i--){ const d=new Date(now.getFullYear(), now.getMonth()-i, 1);
+    idx[d.getFullYear()+'-'+d.getMonth()]=out.length;
+    out.push({label:HU_MON[d.getMonth()], count:0}); }
+  S.sessions.forEach(s=>{ const d=new Date(s.t), k=d.getFullYear()+'-'+d.getMonth();
+    if(idx[k]!=null) out[idx[k]].count++; });
+  return out;
+}
+// Legtöbbet fejlődő gyakorlatok: az első és a legutóbbi rögzített munkasúly
+// különbsége (csak súlyos gyakorlat, legalább 2 alkalom, pozitív növekmény).
+function mostImproved(k){
+  const map={};
+  S.sessions.slice().sort((a,b)=>a.t-b.t).forEach(s=>{
+    Object.keys(s.log||{}).forEach(id=>{ const L=s.log[id];
+      if(!L||!(L.w>0)||!(L.sets||[]).some(x=>x!=null)) return;
+      if(exDef(id).bw) return;
+      if(!map[id]) map[id]={first:L.w, last:L.w, n:1};
+      else { map[id].last=L.w; map[id].n++; } });
+  });
+  return Object.keys(map).map(id=>({n:exDef(id).n,
+      gain:Math.round((map[id].last-map[id].first)*10)/10, times:map[id].n}))
+    .filter(x=>x.gain>0 && x.times>=2).sort((a,b)=>b.gain-a.gain).slice(0,k);
+}
+// Terv-kontra-valóság eltérés-okok összesítése a teljes naplóból.
+function whyBreakdown(){
+  const c={busy:0,heavy:0,time:0};
+  S.sessions.forEach(s=>Object.values(s.log||{}).forEach(L=>{ if(L&&L.why&&c[L.why]!=null) c[L.why]++; }));
+  c.total=c.busy+c.heavy+c.time; return c;
+}
+
 // A grafikonhoz: pontsor → SVG útvonal (viewBox szélesség×magasság, felső/alsó margó).
 function sparkPath(pts,W,H,pad){
   const mn=Math.min(...pts), mx=Math.max(...pts), rng=(mx-mn)||1;
@@ -1784,6 +1817,38 @@ function progView(){
         <span class="mgtrack"><span class="mgfill" style="width:${pct}%;background:${good?'var(--sage)':'var(--brass)'}"></span></span>
         <span class="mgval num">${v.sets}</span></div>`; });
     h+=`</div></div>`;
+  }
+  // Havi aktivitás – utolsó 6 hónap edzésszáma
+  const mc=monthlyCounts(6), mcMax=Math.max(1,...mc.map(m=>m.count));
+  h+=`<div class="card"><div class="pad">
+    <span class="eyebrow">Havi aktivitás · utolsó 6 hónap</span>
+    <div style="margin-top:8px">`;
+  mc.forEach(m=>{ const pct=m.count?Math.max(6,Math.round(m.count/mcMax*100)):0;
+    h+=`<div class="mgrow"><span class="mglbl">${m.label}</span>
+      <span class="mgtrack"><span class="mgfill" style="width:${pct}%;background:var(--brass)"></span></span>
+      <span class="mgval num">${m.count}</span></div>`; });
+  h+=`</div></div></div>`;
+  // Legtöbbet fejlődő gyakorlatok
+  const imp=mostImproved(3);
+  if(imp.length){
+    h+=`<div class="card"><div class="pad">
+      <span class="eyebrow">Legtöbbet fejlődő gyakorlatok</span>
+      <p class="mut small" style="margin:4px 0 8px">Az első és a legutóbbi munkasúly különbsége</p>`;
+    imp.forEach(x=>{ h+=`<div class="row" style="padding:8px 0;border-bottom:1px solid var(--line)">
+      <span class="grow cond" style="font-weight:600">${esc(x.n)}</span>
+      <span class="small num" style="color:var(--sage);font-weight:700">+${x.gain} kg</span></div>`; });
+    h+=`</div></div>`;
+  }
+  // Terv-kontra-valóság: miért tért el
+  const wb=whyBreakdown();
+  if(wb.total){
+    const seg=(nn,lbl)=> nn? `<span class="grow"><div class="num" style="font-size:24px;font-weight:700">${nn}</div><div class="small dim">${lbl}</div></span>`:'';
+    h+=`<div class="card"><div class="pad">
+      <span class="eyebrow">Miért tért el a tervtől</span>
+      <p class="mut small" style="margin:4px 0 10px">A naplózott eltérés-okok összesítve</p>
+      <div class="row" style="text-align:center;gap:8px">
+        ${seg(wb.time,'kevés idő')}${seg(wb.busy,'gép foglalt')}${seg(wb.heavy,'túl nehéz')}
+      </div></div></div>`;
   }
   h+=`<p class="mut small" style="margin:0 2px 8px">Munkasúly gyakorlatonként · koppints a részletekért ›</p>`;
   ids.forEach(id=>{
