@@ -175,6 +175,10 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--brass);out
 .exname{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:600;line-height:1.15}
 .tgt{font-size:14px;color:var(--dim);white-space:nowrap}
 .done-badge{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--sage);font-weight:700}
+.ssbadge{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--brass);font-weight:700;border:1px solid var(--brass);border-radius:999px;padding:2px 8px}
+.ssrow{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:13px;color:var(--mut);background:var(--brass-d);border-radius:12px;padding:10px 12px}
+.ssrow .cur{color:var(--brass);font-weight:700}
+.ssrow .arr{color:var(--dim)}
 
 /* Napló sorok */
 .hrow{display:flex;justify-content:space-between;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line)}
@@ -233,6 +237,8 @@ textarea:focus{outline:2px solid var(--brass);outline-offset:2px}
 .whyrow{display:flex;flex-wrap:wrap;gap:8px}
 .whyc{padding:9px 13px;border-radius:999px;border:1px solid var(--line);background:var(--card2);color:var(--mut);font-size:13px;font-weight:600}
 .whyc.on{border-color:var(--brass);color:var(--brass);background:var(--brass-d)}
+.sslink{display:block;margin:-4px auto 6px;padding:5px 12px;border-radius:999px;border:1px dashed var(--line);background:transparent;color:var(--mut);font-size:12px;font-weight:600}
+.sslink.on{border-style:solid;border-color:var(--brass);color:var(--brass);background:var(--brass-d)}
 
 /* Figyelmeztető szalag */
 .banner{background:var(--brass-d);border:1px solid var(--brass);color:var(--brass);border-radius:12px;padding:10px 12px;font-size:13px;font-weight:500}
@@ -368,7 +374,7 @@ let S = {sessions:[], active:null, weights:{}, notes:{}, photos:{}, injury:null,
 let tab='home', playing=false, curEx=0, tInt=null, tEnd=0, tLen=0, wl=null, nagOff=false;
 let logFilter=null;   // Napló szűrő edzéstípusra (day id) – null = mind
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v51';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v52';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -599,8 +605,16 @@ function exDef(id){ for(const d of PLAN) for(const e of d.ex) if(e.id===id) retu
 function dayDef(id){
   const p=PLAN.find(d=>d.id===id); if(p) return p;
   const r=(S.routines||[]).find(x=>x.id===id);
-  if(r) return {id:r.id, name:r.name, sub:r.sub||'', custom:true, ex:r.ex.map(exDef)};
+  if(r) return {id:r.id, name:r.name, sub:r.sub||'', custom:true, ex:r.ex.map(exDef), ssLinks:(r.ssLinks||[]).slice()};
   return null;
+}
+// Superset-csoportok származtatása: az `ssLinks`-ben szereplő gyakorlat-ID
+// a fölötte lévőhöz kapcsolódik. Egymást követő kapcsolt elemekből egy kör
+// (superset) lesz. Csak a 2+ elemű csoportokat adjuk vissza.
+function deriveGroups(exIds, links){
+  const ls=new Set(links||[]), groups=[]; let cur=null;
+  exIds.forEach((id,i)=>{ if(i>0 && ls.has(id) && cur) cur.push(id); else { cur=[id]; groups.push(cur); } });
+  return groups.filter(g=>g.length>1);
 }
 function dayName(s){ const d=dayDef(s.day); return (d&&d.name) || s.dayName || 'Edzés'; }
 // Edzéstervek egységes listája: a beépített Alapterv (ha nincs elrejtve) +
@@ -905,11 +919,16 @@ async function startDay(id){
   const d=dayDef(id); if(!d){ return; }
   S.active={day:id,t:Date.now(),log:{},deload:deload,dayName:d.name}; S.activeT=Date.now();
   d.ex.forEach(e=>{
-    if(exAffected(e)) return;                 // sérülés-mód: érintett gyakorlat kihagyva
+    if(exAffected(e)) return;                 // sérülés-mód: érintett gyakorlat kimarad
     let w=startW(e.id);
     if(deload && !e.bw) w=roundTo(w*0.85, e.inc);
     S.active.log[e.id]={w:w,sets:new Array(e.s).fill(null)};
   });
+  // Superset-körök: a routine ssLinks-éből, csak a ténylegesen felvett
+  // (sérülés miatt ki nem hagyott) gyakorlatokra szűrve. 2+ elemtől él.
+  const groups=deriveGroups(d.ex.map(e=>e.id), d.ssLinks)
+    .map(g=>g.filter(id=>S.active.log[id])).filter(g=>g.length>1);
+  if(groups.length) S.active.ss=groups;
   curEx=0; playing=true; save(); render(); window.scrollTo(0,0);
 }
 function resumePlayer(){ if(S.active){ playing=true; render(); window.scrollTo(0,0); } }
@@ -995,8 +1014,8 @@ async function addStarterProgram(i){
 /* ================= Edzés-összeállító (saját edzések) ================ */
 function openBuilder(id){
   if(id){ const r=S.routines.find(x=>x.id===id);
-    draft = r ? {id:r.id,name:r.name,ex:r.ex.slice(),isNew:false} : null; if(!draft) return; }
-  else draft = {id:uid('r_'),name:'',ex:[],isNew:true};
+    draft = r ? {id:r.id,name:r.name,ex:r.ex.slice(),ssLinks:(r.ssLinks||[]).slice(),isNew:false} : null; if(!draft) return; }
+  else draft = {id:uid('r_'),name:'',ex:[],ssLinks:[],isNew:true};
   editing='routine'; render(); window.scrollTo(0,0);
 }
 function closeBuilder(){ editing=false; draft=null; render(); window.scrollTo(0,0); }
@@ -1007,10 +1026,20 @@ function draftMove(i,dir){ const j=i+dir; if(j<0||j>=draft.ex.length) return;
 function draftRemove(i){ draft.ex.splice(i,1); render(); }
 function saveDraft(){
   if(!draft.name.trim()||!draft.ex.length){ uiAlert('Adj nevet és legalább egy gyakorlatot.'); return; }
+  // Csak érvényes (a listában lévő, nem az első pozíción árva) linkeket tartunk meg.
+  const links=(draft.ssLinks||[]).filter(id=>{ const i=draft.ex.indexOf(id); return i>0; });
   const r={id:draft.id,name:draft.name.trim(),sub:draft.ex.length+' gyakorlat',ex:draft.ex.slice()};
+  if(links.length) r.ssLinks=links;
   const idx=S.routines.findIndex(x=>x.id===draft.id);
   if(idx>=0) S.routines[idx]=r; else S.routines.push(r);
   editing=false; draft=null; save(); tab='home'; render(); window.scrollTo(0,0);
+}
+// Superset-kapcsoló: az i. gyakorlat (i>0) össze/szét a fölöttivel.
+function draftToggleLink(exId){
+  if(!draft.ssLinks) draft.ssLinks=[];
+  const i=draft.ssLinks.indexOf(exId);
+  if(i>=0) draft.ssLinks.splice(i,1); else draft.ssLinks.push(exId);
+  render();
 }
 async function deleteRoutine(id){
   if(!await uiConfirm('Törlöd ezt a saját edzést?\n(A már naplózott edzések megmaradnak.)', {ok:'Törlés', danger:true})) return;
@@ -1023,7 +1052,9 @@ function builderView(){
   const canSave = draft.name.trim() && draft.ex.length>0;
   let items='';
   draft.ex.forEach((exId,i)=>{ const e=exDef(exId);
-    items+=`<div class="card"><div class="pad row">
+    const linked = i>0 && (draft.ssLinks||[]).includes(exId);
+    if(i>0) items+=`<button class="sslink ${linked?'on':''}" onclick="draftToggleLink('${exId}')">${linked?'⛓ Superset az előzővel · bontás':'+ Superset az előzővel'}</button>`;
+    items+=`<div class="card"${linked?' style="border-color:var(--brass)"':''}><div class="pad row">
       <span class="grow"><span class="cond" style="font-size:18px;font-weight:600;display:block">${esc(e.n)}</span>
       <span class="small dim">${e.s}×${e.r}${e.mg?' · '+e.mg:''}</span></span>
       <button class="iconbtn" onclick="draftMove(${i},-1)" ${i===0?'disabled':''} aria-label="fel">↑</button>
@@ -1221,6 +1252,20 @@ function openDayPicker(){
 }
 function addToProg(dId){ prog.days.push(dId); closeSheet(); render(); }
 
+// -- Superset a lejátszóban -------------------------------------------
+const SS_SWAP=20;   // rövid váltás-pihenő két superset-gyakorlat között (mp)
+function ssGroups(){ return (S.active && S.active.ss) || []; }
+function ssGroupOf(id){ return ssGroups().find(g=>g.indexOf(id)>=0) || null; }
+// Kör-címke: A1, A2, B1… a csoport sorrendje + a pozíció szerint.
+function ssLabel(id){ const gs=ssGroups(), g=ssGroupOf(id); if(!g) return '';
+  return String.fromCharCode(65+gs.indexOf(g))+(g.indexOf(id)+1); }
+// A csoport aktív (naplózott) tagjai, a routine sorrendjében.
+function ssActiveMembers(id){ const g=ssGroupOf(id); if(!g) return [];
+  const order=(dayDef(S.active.day)||{ex:[]}).ex.map(x=>x.id).filter(x=>S.active.log[x]);
+  return g.filter(x=>order.indexOf(x)>=0).sort((a,b)=>order.indexOf(a)-order.indexOf(b)); }
+function gotoExId(id){ const exs=(dayDef(S.active.day)||{ex:[]}).ex.filter(x=>S.active.log[x.id]);
+  const i=exs.findIndex(x=>x.id===id); if(i>=0) curEx=i; }
+
 function playerView(){
   const d=dayDef(S.active.day) || {name:S.active.dayName||'Edzés', ex:[]};
   const exs=d.ex.filter(x=>S.active.log[x.id]);   // sérülés miatt kihagyottak nélkül
@@ -1284,6 +1329,15 @@ function playerView(){
 
   const deloadBanner = S.active.deload ? `<div class="banner">Kihagyás utáni visszaépítés: kisebb súly, a célnál pár ismétléssel több.</div>` : '';
 
+  // Superset-kör: címke + a kör tagjainak felsorolása, jelezve, hogy a
+  // pihenő a kör VÉGÉN jön (a tagok közt csak rövid váltás).
+  const ssMembers=ssActiveMembers(e.id);
+  const ssBadge = ssMembers.length ? `<span class="ssbadge">Superset ${ssLabel(e.id)}</span>` : '';
+  const ssHint = ssMembers.length
+    ? `<div class="ssrow">${ssMembers.map(id=>`<span class="${id===e.id?'cur':''}">${esc(ssLabel(id))} ${esc(exDef(id).n)}</span>`).join('<span class="arr">→</span>')}
+        <div class="small dim" style="width:100%;margin-top:4px">Egymás után, pihenő a kör végén</div></div>`
+    : '';
+
   return `<div class="player">
     <div class="ptop">
       <button class="iconbtn" onclick="pausePlayer()" aria-label="Szünet" title="Szünet">${ICON.back}</button>
@@ -1296,11 +1350,12 @@ function playerView(){
       <div>
         <div class="row" style="align-items:flex-start">
           <div class="grow"><div class="pname">${esc(e.n)}</div>
-          <div class="pmeta">${complete?'<span class="done-badge">kész</span>':`<span class="tgt">cél: ${e.s} × ${e.r}${e.time?'':' ism.'}</span>`}</div></div>
+          <div class="pmeta">${complete?'<span class="done-badge">kész</span>':`<span class="tgt">cél: ${e.s} × ${e.r}${e.time?'':' ism.'}</span>`}${ssBadge}</div></div>
           <button class="iconbtn" onclick="openNoteSheet('ex','${e.id}')" aria-label="Jegyzet és fotó" title="Jegyzet és fotó">${ICON.edit}</button>
         </div>
       </div>
       ${noteBlock}
+      ${ssHint}
       ${wt}
       ${tools}
       <div class="pchips">${chips}</div>
@@ -1360,8 +1415,20 @@ function uiAlert(msg, opts){ opts=opts||{};
 }
 function setRep(v){
   const e=exDef(cur.id); S.active.log[cur.id].sets[cur.i]=v; S.activeT=Date.now();
-  closeSheet(); save(); render();
-  if(v!=null) startTimer(e.rest);
+  closeSheet(); save();
+  if(v==null){ render(); return; }
+  // Superset: a kör tagjai közt csak rövid váltás + ugrás a következő tagra;
+  // a teljes pihenő a kör VÉGÉN indul, és visszalépünk az első befejezetlen
+  // tagra a következő körhöz.
+  const mem=ssActiveMembers(cur.id);
+  if(mem.length){
+    const pos=mem.indexOf(cur.id);
+    if(pos>=0 && pos<mem.length-1){ gotoExId(mem[pos+1]); render(); startTimer(Math.min(e.rest, SS_SWAP)); return; }
+    const back=mem.find(id=>S.active.log[id].sets.some(x=>x==null));
+    if(back) gotoExId(back);
+    render(); startTimer(e.rest); return;
+  }
+  render(); startTimer(e.rest);
 }
 
 async function acquireWake(){ try{ if('wakeLock' in navigator && !wl){ wl=await navigator.wakeLock.request('screen'); wl.addEventListener('release',()=>{ wl=null; }); } }catch(e){ wl=null; } }

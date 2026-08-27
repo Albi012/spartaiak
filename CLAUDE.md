@@ -118,6 +118,16 @@ MÁSOLJA őket friss `r_`/`p_` ID-vel (`addStarterRoutine`/`addStarterProgram`) 
   az `ex` beépített VAGY saját gyakorlat-ID-kat hivatkoz. A `dayDef(id)`
   egységes `{id,name,sub,ex:[def,…]}` alakot ad vissza PLAN-ra és
   routine-ra is; a hívók ezt használják (nem `PLAN.find`-ot).
+  - **Superset/kör** (additív): opcionális `ssLinks:[exId,…]` a routine-on –
+    a benne szereplő ID a listában a FÖLÖTTE lévő gyakorlathoz kapcsolódik.
+    A `deriveGroups(exIds, ssLinks)` egymást követő kapcsolt elemekből 2+
+    elemű köröket származtat. Induláskor a `startDay` a ténylegesen felvett
+    (sérülés miatt ki nem hagyott) tagokra szűrve elmenti az aktív edzésre
+    (`active.ss = [[exId,…],…]`). A lejátszó a kör tagjai közt csak rövid
+    váltás-pihenőt (`SS_SWAP`) indít és a következő tagra ugrik; a teljes
+    pihenő a kör VÉGÉN jön, majd visszalép az első befejezetlen tagra. Az
+    `ssLinks` a routine-nal együtt szinkronizál (id-unió), külön kezelés
+    nélkül. **NE nevezd át** – kulcsként hivatkozott ID-kra épül.
 - **Edzésterv** (`programs`): `{id:'p_…', name, days:[dayId,…]}` – több
   edzést (beépített napot vagy saját routine-t) fog össze. A főoldalon
   szekcióként jelenik meg.
