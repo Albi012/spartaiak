@@ -59,8 +59,13 @@ alapértéket kapnak; a `save()`/`backup()`/`restore()` viszi őket):
 - `lastBackup` – az utolsó biztonsági mentés ideje; ebből jön a havi
   mentés-emlékeztető.
 - Session-szinten: `note` (aznapi jegyzet), `deload` (kihagyás utáni
-  visszaépítés jelző). Log-szinten: `why` (`busy`|`heavy`|`time` – miért
-  tért el a tervtől).
+  visszaépítés jelző), `end` (befejezés időbélyege – az időtartamhoz;
+  additív, régi edzésen hiányzik, olyankor nincs időtartam). Log-szinten:
+  `why` (`busy`|`heavy`|`time` – miért tért el a tervtől).
+- Az **edzés-összegzés** és a **napló** kártya egy stilizált, elöl+hátul
+  **izomtérképet** (`muscleMap`) mutat: a `sessionMgSets` szettszáma szerint
+  színezi a terhelt izomcsoportokat (`mg`), a nem-célzottak halvány
+  sziluettek (`currentColor`, téma-követő). A `mgChips` a szám-összesítő.
 - A PLAN gyakorlatok `mg` mezője (izomcsoport: mell, hát, váll, tricepsz,
   bicepsz, láb, törzs) a sérülés-módot és a szűrést hajtja. Ez NEM
   azonosító – szabadon hangolható.

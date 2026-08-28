@@ -179,6 +179,11 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--brass);out
 .ssrow{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:13px;color:var(--mut);background:var(--brass-d);border-radius:12px;padding:10px 12px}
 .ssrow .cur{color:var(--brass);font-weight:700}
 .ssrow .arr{color:var(--dim)}
+.muscmap{width:100%;max-width:300px;height:auto;display:block;margin:12px auto 4px;color:var(--mut)}
+.muscmap.sm{max-width:150px;margin:4px auto 0}
+.mgchips{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:6px}
+.mgchip{font-size:12px;color:var(--mut);background:var(--card2);border-radius:999px;padding:4px 10px;text-transform:capitalize}
+.mgchip b{color:var(--brass);font-variant-numeric:tabular-nums}
 
 /* Napló sorok */
 .hrow{display:flex;justify-content:space-between;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line)}
@@ -374,7 +379,7 @@ let S = {sessions:[], active:null, weights:{}, notes:{}, photos:{}, injury:null,
 let tab='home', playing=false, curEx=0, tInt=null, tEnd=0, tLen=0, wl=null, nagOff=false;
 let logFilter=null;   // Napló szűrő edzéstípusra (day id) – null = mind
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v52';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v53';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -1479,7 +1484,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==
 function finish(){
   const any=Object.values(S.active.log).some(l=>l.sets.some(x=>x!=null));
   if(!any){ uiAlert('Egyetlen szettet sem rögzítettél.'); return; }
-  const done=S.active;
+  const done=S.active; done.end=Date.now();   // időtartamhoz (additív; régi edzésen hiányzik)
   S.sessions.push(done); S.active=null; S.activeT=Date.now(); playing=false; stopTimer(); save(); syncStats();
   tab='log'; render(); openFinishSummary(done); window.scrollTo(0,0);
 }
@@ -1498,20 +1503,92 @@ function sessionPRs(sess){
   });
   return prs;
 }
+// -- Edzés-összegzés: időtartam, izomcsoport-terhelés, izomtérkép ------
+function sessionMgSets(sess){
+  const acc={};
+  Object.keys(sess.log||{}).forEach(id=>{
+    const n=(sess.log[id].sets||[]).filter(x=>x!=null).length; if(!n) return;
+    const mg=exDef(id).mg||'egyéb'; acc[mg]=(acc[mg]||0)+n;
+  });
+  return acc;
+}
+function sessionDur(sess){ return (sess.end && sess.end>sess.t) ? sess.end-sess.t : null; }
+function fmtDur(ms){ const m=Math.round(ms/60000); return m<60 ? m+' perc' : Math.floor(m/60)+' ó '+(m%60)+' p'; }
+// Izomtérkép: elöl+hátul stilizált alak, a terhelt izomcsoportok a szettszám
+// szerint színezve (kevés → sárgaréz halványan, sok → telítettebb, 10+ → piros).
+// A nem-célzott testrészek halvány sziluettek (currentColor). Téma-követő.
+function mmAttr(mg, mgSets){
+  const n=mgSets[mg]||0;
+  if(!n) return 'fill="currentColor" opacity="0.15"';
+  const op = n<3?0.4 : n<6?0.62 : n<10?0.82 : 0.95;
+  return `fill="${n>=10?'var(--red)':'var(--brass)'}" opacity="${op}"`;
+}
+function muscleMap(mgSets, sm){
+  const B='fill="currentColor" opacity="0.15"';
+  const F=mg=>mmAttr(mg,mgSets);
+  return `<svg class="muscmap${sm?' sm':''}" viewBox="0 0 190 200" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+    <!-- ELÖL -->
+    <circle cx="45" cy="18" r="10" ${B}/>
+    <rect x="40" y="26" width="10" height="9" rx="3" ${B}/>
+    <ellipse cx="27" cy="43" rx="11" ry="8" ${F('váll')}/>
+    <ellipse cx="63" cy="43" rx="11" ry="8" ${F('váll')}/>
+    <path d="M31,40 Q45,36 59,40 L58,61 Q45,67 32,61 Z" ${F('mell')}/>
+    <rect x="14" y="47" width="11" height="28" rx="5" ${F('bicepsz')}/>
+    <rect x="65" y="47" width="11" height="28" rx="5" ${F('bicepsz')}/>
+    <rect x="12" y="75" width="10" height="26" rx="5" ${B}/>
+    <rect x="68" y="75" width="10" height="26" rx="5" ${B}/>
+    <rect x="33" y="62" width="24" height="32" rx="6" ${F('törzs')}/>
+    <rect x="30" y="96" width="13" height="46" rx="6" ${F('láb')}/>
+    <rect x="47" y="96" width="13" height="46" rx="6" ${F('láb')}/>
+    <rect x="31" y="143" width="11" height="42" rx="5" ${B}/>
+    <rect x="48" y="143" width="11" height="42" rx="5" ${B}/>
+    <text x="45" y="197" text-anchor="middle" font-size="9" fill="currentColor" opacity="0.55">Elöl</text>
+    <!-- HÁTUL -->
+    <circle cx="145" cy="18" r="10" ${B}/>
+    <rect x="140" y="26" width="10" height="9" rx="3" ${B}/>
+    <ellipse cx="127" cy="43" rx="11" ry="8" ${F('váll')}/>
+    <ellipse cx="163" cy="43" rx="11" ry="8" ${F('váll')}/>
+    <rect x="131" y="40" width="28" height="35" rx="7" ${F('hát')}/>
+    <rect x="114" y="47" width="11" height="28" rx="5" ${F('tricepsz')}/>
+    <rect x="165" y="47" width="11" height="28" rx="5" ${F('tricepsz')}/>
+    <rect x="112" y="75" width="10" height="26" rx="5" ${B}/>
+    <rect x="168" y="75" width="10" height="26" rx="5" ${B}/>
+    <rect x="133" y="76" width="24" height="15" rx="5" ${F('törzs')}/>
+    <rect x="130" y="92" width="13" height="50" rx="6" ${F('láb')}/>
+    <rect x="147" y="92" width="13" height="50" rx="6" ${F('láb')}/>
+    <rect x="131" y="143" width="11" height="42" rx="5" ${B}/>
+    <rect x="148" y="143" width="11" height="42" rx="5" ${B}/>
+    <text x="145" y="197" text-anchor="middle" font-size="9" fill="currentColor" opacity="0.55">Hátul</text>
+  </svg>`;
+}
+// Terhelt izomcsoportok szám-chipjei (szettszám szerint csökkenő).
+function mgChips(mgSets){
+  const arr=Object.keys(mgSets).sort((a,b)=>mgSets[b]-mgSets[a]);
+  if(!arr.length) return '';
+  return `<div class="mgchips">${arr.map(mg=>`<span class="mgchip"><b>${mgSets[mg]}</b> ${esc(mg)}</span>`).join('')}</div>`;
+}
+
 function openFinishSummary(sess){
   const load=sessionLoad(sess); let setsDone=0, exCount=0;
   Object.values(sess.log).forEach(L=>{ const n=L.sets.filter(x=>x!=null).length; if(n){ exCount++; setsDone+=n; } });
   const prs=sessionPRs(sess);
+  const dur=sessionDur(sess), mgSets=sessionMgSets(sess);
   let h=`<div class="grabber"></div>
     <div class="row"><div class="grow"><span class="eyebrow" style="color:var(--sage)">${ICON.check} Kész</span>
       <h2 style="font-size:24px">Edzés befejezve</h2>
       <span class="small dim">${esc(sess.dayName||(dayDef(sess.day)||{}).name||'')}</span></div>
       <button onclick="closeFinish()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
     <div class="statgrid" style="margin-top:14px">
+      ${dur?`<div class="stat"><span class="num">${fmtDur(dur)}</span><span class="statlbl">időtartam</span></div>`:''}
       <div class="stat"><span class="num">${exCount}</span><span class="statlbl">gyakorlat</span></div>
       <div class="stat"><span class="num">${setsDone}</span><span class="statlbl">szett</span></div>
-      <div class="stat" style="grid-column:span 2"><span class="num">${load}<span class="small dim" style="font-weight:400"> kg</span></span><span class="statlbl">összterhelés</span></div>
-    </div>`;
+      <div class="stat"${dur?'':' style="grid-column:span 2"'}><span class="num">${load}<span class="small dim" style="font-weight:400"> kg</span></span><span class="statlbl">összterhelés</span></div>
+    </div>
+    <div class="card" style="margin-top:14px"><div class="pad">
+      <span class="eyebrow">Terhelt izmok</span>
+      ${muscleMap(mgSets)}
+      ${mgChips(mgSets)}
+    </div></div>`;
   if(prs.length){
     h+=`<div class="card" style="margin-top:14px;border-color:var(--brass)"><div class="pad">
       <span class="eyebrow" style="color:var(--brass)">Új csúcs${prs.length>1?'ok':''}</span>`;
@@ -1573,10 +1650,10 @@ function logView(){
       h+=`<div class="top" style="padding:14px 0 6px"><span class="eyebrow">${mk}</span></div>`; }
     const d=dayDef(s.day)||{ex:[]}; const dn=dayName(s); const idx=S.sessions.indexOf(s);
     const tot=Object.values(s.log).reduce((a,l)=>a+l.sets.filter(x=>x!=null).length,0);
-    const load=loads[idx], hi=avg>0 && load>avg*1.3;
+    const load=loads[idx], hi=avg>0 && load>avg*1.3; const dur=sessionDur(s);
     h+=`<div class="card"><div class="pad" style="border-bottom:1px solid var(--line)">
       <div class="row"><div class="grow"><span class="cond" style="font-size:20px;font-weight:600">${esc(dn)}</span>
-      <div class="small dim">${fmtDate(s.t)} · ${tot} szett · <span class="num">${load.toLocaleString('hu')}</span> kg terhelés${hi?' <span style="color:var(--red);font-weight:600">· kiugró</span>':''}</div></div>
+      <div class="small dim">${fmtDate(s.t)}${dur?' · '+fmtDur(dur):''} · ${tot} szett · <span class="num">${load.toLocaleString('hu')}</span> kg${hi?' <span style="color:var(--red);font-weight:600">· kiugró</span>':''}</div></div>
       <button onclick="del(${idx})" class="small dim" style="padding:8px">Törlés</button></div>
       ${s.note?`<div class="small mut" style="padding:0 16px 10px">Jegyzet: ${esc(s.note)}</div>`:''}</div>`;
     const seen=new Set();
@@ -1587,6 +1664,8 @@ function logView(){
       if(!l||!l.sets.some(x=>x!=null))return; const e=exDef(id);
       h+=`<div class="hrow"><span class="small grow">${esc(e.n)} <span class="dim" style="font-size:11px">· kivéve</span></span>
         <span class="small num mut">${wLabel(e,l.w)}${e.bw&&l.w<=0?'':' kg'} × ${l.sets.map(x=>x==null?'–':x).join(', ')}</span></div>`; });
+    const mgSets=sessionMgSets(s);
+    h+=`<div class="pad" style="border-top:1px solid var(--line)">${muscleMap(mgSets,true)}${mgChips(mgSets)}</div>`;
     h+='</div>';
   });
   h+=`<button class="btn pri" onclick="openWeeklyExport()" style="margin-bottom:8px">Heti összefoglaló edzőnek</button>
