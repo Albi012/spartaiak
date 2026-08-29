@@ -65,7 +65,8 @@ alapértéket kapnak; a `save()`/`backup()`/`restore()` viszi őket):
 - Az **edzés-összegzés** és a **napló** kártya egy stilizált, elöl+hátul
   **izomtérképet** (`muscleMap`) mutat: a `sessionMgSets` szettszáma szerint
   színezi a terhelt izomcsoportokat (`mg`), a nem-célzottak halvány
-  sziluettek (`currentColor`, téma-követő). A szín **folytonos hőskála**
+  sziluettek (`currentColor`, téma-követő). A naplóban a térkép
+  lenyitható (`<details class="mmfold">`, alapból zárva). A szín **folytonos hőskála**
   (`mmAttr`): `color-mix()`-szel keveri a `--brass`→`--red` tokeneket a
   szettszám arányában (`MM_CAP`=12 fölött csupa piros), a telítettséget az
   opacitás adja – így téma-követő marad. A `mgChips` a szám-összesítő,

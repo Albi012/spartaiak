@@ -186,6 +186,10 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--brass);out
 .mgchip b{color:var(--brass);font-variant-numeric:tabular-nums}
 .mmleg{display:flex;align-items:center;gap:8px;justify-content:center;margin-top:2px;font-size:11px;color:var(--dim)}
 .mmleg i{flex:0 0 84px;height:8px;border-radius:5px;background:linear-gradient(90deg,var(--brass),var(--red))}
+.mmfold>summary{list-style:none;cursor:pointer;padding:12px 16px;border-top:1px solid var(--line);color:var(--mut);font-size:13px;font-weight:600;display:flex;align-items:center;min-height:44px;box-sizing:border-box}
+.mmfold>summary::-webkit-details-marker{display:none}
+.mmfold>summary::after{content:'';margin-left:auto;width:8px;height:8px;border-right:2px solid var(--dim);border-bottom:2px solid var(--dim);transform:rotate(45deg);transition:transform .18s}
+.mmfold[open]>summary::after{transform:rotate(-135deg)}
 
 /* Napló sorok */
 .hrow{display:flex;justify-content:space-between;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line)}
@@ -381,7 +385,7 @@ let S = {sessions:[], active:null, weights:{}, notes:{}, photos:{}, injury:null,
 let tab='home', playing=false, curEx=0, tInt=null, tEnd=0, tLen=0, wl=null, nagOff=false;
 let logFilter=null;   // Napló szűrő edzéstípusra (day id) – null = mind
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v54';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v55';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -1682,7 +1686,8 @@ function logView(){
       h+=`<div class="hrow"><span class="small grow">${esc(e.n)} <span class="dim" style="font-size:11px">· kivéve</span></span>
         <span class="small num mut">${wLabel(e,l.w)}${e.bw&&l.w<=0?'':' kg'} × ${l.sets.map(x=>x==null?'–':x).join(', ')}</span></div>`; });
     const mgSets=sessionMgSets(s);
-    h+=`<div class="pad" style="border-top:1px solid var(--line)">${muscleMap(mgSets,true)}${mgChips(mgSets)}</div>`;
+    h+=`<details class="mmfold"><summary>Terhelt izmok</summary>
+      <div class="pad" style="padding-top:0">${muscleMap(mgSets,true)}${mmLegend()}${mgChips(mgSets)}</div></details>`;
     h+='</div>';
   });
   h+=`<button class="btn pri" onclick="openWeeklyExport()" style="margin-bottom:8px">Heti összefoglaló edzőnek</button>
