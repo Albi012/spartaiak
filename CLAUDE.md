@@ -252,7 +252,11 @@ eltérés-ok egy koppintással, összterhelés/kiugró-terhelés a naplóban,
 sérülés-mód (érintett gyakorlatok kihagyása + súlycsökkentés), kétszintű
 jegyzet (állandó + aznapi) és gépbeállítás-fotó gyakorlatonként,
 bemelegítő-szett javaslat (`warmupSets`, a munkasúlyból származtatott
-lépcsők + oldalankénti tárcsakiosztás a `platesPerSide`-dal), valamint a
+lépcsők + oldalankénti tárcsakiosztás a `platesPerSide`-dal),
+idő-alapú gyakorlatnál (`time:1`, pl. plank) beépített visszaszámláló óra
+(`openTimerSet`: a célról számol, a végén beep+rezgés és automatikusan
+rögzíti a tartott mp-et; korai leállítás = a ténylegesen tartott idő; a
+„Kézi megadás" a szám-billentyűzetre – `repKbSheet` – vált vissza), valamint a
 főoldali „Mit edzek ma?" ajánló (`suggestDay`), ami a heti izomtérkép
 hiányait lefedő edzésnapot javasolja.
 

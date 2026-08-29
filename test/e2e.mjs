@@ -110,6 +110,12 @@ ok('5 warmupSets rúd alatt üres', await page.evaluate(()=>warmupSets(20,20).le
 await page.evaluate(()=>openWarmup('bench')); await wait(150);
 ok('5 bemelegítő lap renderel', (await page.$$('#sheet .wrow')).length>0);
 await page.evaluate(()=>closeSheet()); await wait(120);
+// idő-alapú gyakorlat (plank) → beépített óra
+ok('5 fmtSec formátum', await page.evaluate(()=>fmtSec(90)==='1:30' && fmtSec(45)==='45'));
+await page.evaluate(()=>{ S.active={day:'pb',t:Date.now(),log:{plank:{w:0,sets:[null,null,null]}}}; openSet('plank',0); }); await wait(150);
+ok('5 idő-gyakorlat órát nyit', await page.evaluate(()=>!!document.getElementById('stVal') && document.getElementById('stBtn').textContent==='Indítás'));
+ok('5 óra a tartott időt rögzíti', await page.evaluate(()=>{ cur={id:'plank',i:0}; finishTimerSet(30); return S.active.log.plank.sets[0]===30; }));
+await page.evaluate(()=>{ stopTimer(); S.active=null; playing=false; closeSheet(); render(); }); await wait(150);
 await page.$$eval('.pcard',els=>els[0] && els[0].click()); await wait(250);
 ok('5 gyakorlat-részletlap', (await page.$$('.seg button')).length>=2);
 await page.evaluate(()=>closeSheet());
