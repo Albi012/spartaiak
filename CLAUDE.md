@@ -103,7 +103,7 @@ Pull B: tbar, wide, onerow, legcurl, hyp, rear, knee
 Archív (már nincs a tervben, de van rá rögzített adat): rack, abs
 ```
 
-A `LIB` (beépített gyakorlat-könyvtár, `x_…` előtagú ID-k) ~80 további
+A `LIB` (beépített gyakorlat-könyvtár, `x_…` előtagú ID-k) ~160 további
 gyakorlatot ad a választóhoz, izomcsoportra szűrhetően. Ezek is
 kulcsként szerepelhetnek a naplóban – **NE nevezd át őket**. Az `exDef`
 a PLAN → customEx → LIB → ARCHIVE sorrendben old fel.

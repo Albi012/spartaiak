@@ -104,6 +104,13 @@ ok('5 muscleMap SVG-t ad', await page.evaluate(()=>muscleMap(sessionMgSets(S.ses
 ok('5 mmAttr color-mix a terheltre', await page.evaluate(()=>mmAttr('mell',{mell:8}).includes('color-mix')));
 ok('5 mmAttr sziluett a nem-terheltre', await page.evaluate(()=>mmAttr('mell',{}).includes('currentColor')));
 ok('5 weeklyMgSets map', await page.evaluate(()=>typeof weeklyMgSets()==='object'));
+ok('5 LIB bővült, nincs dup/ütközés', await page.evaluate(()=>{
+  const ids=LIB_ARR.map(e=>e.id), dup=ids.filter((x,i)=>ids.indexOf(x)!==i);
+  const planIds=[]; PLAN.forEach(d=>d.ex.forEach(e=>planIds.push(e.id)));
+  const clash=ids.filter(x=>planIds.includes(x)||ARCHIVE[x]);
+  const badMg=LIB_ARR.filter(e=>!MGS.includes(e.mg));
+  return dup.length===0 && clash.length===0 && badMg.length===0
+    && !!LIB['x_ropepush'] && !!LIB['x_trapbar'] && !!LIB['x_crunch'] && Object.keys(LIB).length>=160; }));
 ok('5 fmtDur formátum', await page.evaluate(()=>fmtDur(70*60000).includes('ó')));
 ok('5 warmupSets lépcsők', await page.evaluate(()=>{ const w=warmupSets(60,20); return w.length>=3 && w[0].w<60; }));
 ok('5 warmupSets rúd alatt üres', await page.evaluate(()=>warmupSets(20,20).length===0));

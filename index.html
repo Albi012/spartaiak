@@ -389,7 +389,7 @@ let S = {sessions:[], active:null, weights:{}, notes:{}, photos:{}, injury:null,
 let tab='home', playing=false, curEx=0, tInt=null, tEnd=0, tLen=0, wl=null, nagOff=false;
 let logFilter=null;   // Napló szűrő edzéstípusra (day id) – null = mind
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v63';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v64';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -608,7 +608,38 @@ const LIB_ARR=[
   _L('x_hangoblique','Függő oldalemelés','törzs',3,'10',0,60,2.5,{bw:1}),
   _L('x_backextw','Súlyozott hátnyújtás','törzs',3,'12',10,75,2.5),
   _L('x_suitcase','Bőrönd-tartás (carry)','törzs',3,'30 mp',24,60,4,{time:1}),
-  _L('x_pinch','Tárcsafogás (pinch grip)','bicepsz',3,'30 mp',10,45,2.5,{time:1})
+  _L('x_pinch','Tárcsafogás (pinch grip)','bicepsz',3,'30 mp',10,45,2.5,{time:1}),
+  // — 3. köteg: bővítés a bevett gyakorlat-katalógushoz (hiánypótlás) —
+  // MELL
+  _L('x_cablecross','Kábeles keresztezés (crossover)','mell',3,'15',10,60,2.5),
+  _L('x_floorpress','Padlóprés','mell',3,'8',40,120,2.5),
+  // HÁT
+  _L('x_rackpull','Rack húzás (részleges felhúzás)','hát',3,'6',70,150,5),
+  _L('x_singlepd','Egykezes lehúzás','hát',3,'12',25,60,5),
+  _L('x_renegade','Renegade evezés','hát',3,'10',16,75,2.5),
+  // VÁLL
+  _L('x_behindneck','Tarkónyomás','váll',3,'8',30,120,2.5),
+  _L('x_leaningcablelat','Dőlt kábeles oldalemelés','váll',3,'15',5,60,1.25),
+  _L('x_yraise','Y-emelés (hátsó váll)','váll',3,'15',6,60,2.5),
+  // TRICEPSZ
+  _L('x_ropepush','Köteles tricepsz lehúzás','tricepsz',3,'12',20,60,2.5),
+  // BICEPSZ
+  _L('x_crosshammer','Keresztirányú kalapács','bicepsz',3,'12',12.5,60,2.5),
+  _L('x_inclhammer','Ferdepados kalapács','bicepsz',3,'12',10,60,2.5),
+  _L('x_highcablecurl','Magas kábeles hajlítás','bicepsz',3,'15',10,60,2.5),
+  // LÁB
+  _L('x_trapbar','Trap-bar felhúzás','láb',4,'6',60,150,5),
+  _L('x_zercher','Zercher guggolás','láb',4,'8',40,150,5),
+  _L('x_cossack','Kozák guggolás','láb',3,'10',10,90,2.5),
+  _L('x_curtsy','Curtsy (keresztlépő) kitörés','láb',3,'12',12,75,2.5),
+  _L('x_glutekick','Farizom rúgás kábelen','láb',3,'15',15,45,2.5),
+  _L('x_standleg','Álló combhajlítás','láb',3,'12',15,60,2.5),
+  // TÖRZS
+  _L('x_crunch','Hasprés (crunch)','törzs',3,'20',0,45,2.5,{bw:1}),
+  _L('x_toetouch','Lábujj-érintő hasprés','törzs',3,'15',0,45,2.5,{bw:1}),
+  _L('x_birddog','Bird dog','törzs',3,'12',0,45,2.5,{bw:1}),
+  _L('x_mountainclimber','Hegymászó','törzs',3,'30 mp',0,45,5,{bw:1,time:1}),
+  _L('x_flutter','Ollózás (flutter kick)','törzs',3,'30 mp',0,45,5,{bw:1,time:1})
 ];
 const LIB={}; LIB_ARR.forEach(e=>LIB[e.id]=e);
 function exDef(id){ for(const d of PLAN) for(const e of d.ex) if(e.id===id) return e;
