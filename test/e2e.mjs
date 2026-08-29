@@ -77,7 +77,7 @@ await page.evaluate(()=>finish()); await wait(300);
 ok('3 edzés befejezve', await page.evaluate(()=>S.sessions.length)===sessBefore+1);
 ok('3 finish után active=null', await page.evaluate(()=>S.active===null));
 ok('3 end időbélyeg rögzült', await page.evaluate(()=>{ const s=S.sessions[S.sessions.length-1]; return s.end>s.t; }));
-ok('3 összegző izomtérkép', (await page.$$('#sheet .muscmap')).length>0);
+ok('3 összegző izomtérkép', (await page.$$('#sheet .mm3d')).length>0);
 await page.evaluate(()=>closeSheet());
 
 // ---- 4. Napló fül + lenyitható izomtérkép ----
@@ -100,7 +100,7 @@ ok('5 monthlyCounts 6 hónap', await page.evaluate(()=>monthlyCounts(6).length==
 ok('5 mostImproved tömb', await page.evaluate(()=>Array.isArray(mostImproved(3))));
 ok('5 whyBreakdown total szám', await page.evaluate(()=>typeof whyBreakdown().total==='number'));
 ok('5 sessionMgSets nem üres', await page.evaluate(()=>Object.keys(sessionMgSets(S.sessions[0])).length>0));
-ok('5 muscleMap SVG-t ad', await page.evaluate(()=>muscleMap(sessionMgSets(S.sessions[0])).startsWith('<svg')));
+ok('5 muscleMap 3D flip-kártya', await page.evaluate(()=>{ const m=muscleMap(sessionMgSets(S.sessions[0])); return m.includes('mm3d')&&m.includes('mm3d-back')&&(m.match(/<svg/g)||[]).length===2; }));
 ok('5 mmAttr color-mix a terheltre', await page.evaluate(()=>mmAttr('mell',{mell:8}).includes('color-mix')));
 ok('5 mmAttr sziluett a nem-terheltre', await page.evaluate(()=>mmAttr('mell',{}).includes('currentColor')));
 ok('5 weeklyMgSets map', await page.evaluate(()=>typeof weeklyMgSets()==='object'));
