@@ -62,10 +62,8 @@ alapértéket kapnak; a `save()`/`backup()`/`restore()` viszi őket):
   visszaépítés jelző), `end` (befejezés időbélyege – az időtartamhoz;
   additív, régi edzésen hiányzik, olyankor nincs időtartam). Log-szinten:
   `why` (`busy`|`heavy`|`time` – miért tért el a tervtől).
-- Az **edzés-összegzés** és a **napló** kártya egy stilizált **izomtérképet**
-  (`muscleMap`) mutat, ami **3D-ben átfordul** elöl ⇄ hátul (CSS `rotateY`
-  flip-kártya, könyvtár nélkül; koppintásra vált, `prefers-reduced-motion`
-  esetén nem animál). A `sessionMgSets` szettszáma szerint
+- Az **edzés-összegzés** és a **napló** kártya egy stilizált, elöl+hátul
+  **izomtérképet** (`muscleMap`) mutat: a `sessionMgSets` szettszáma szerint
   színezi a terhelt izomcsoportokat (`mg`), a nem-célzottak halvány
   sziluettek (`currentColor`, téma-követő). A naplóban a térkép
   lenyitható (`<details class="mmfold">`, alapból zárva). A szín **folytonos hőskála**
