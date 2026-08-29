@@ -227,6 +227,8 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--brass);out
 .plateres{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;justify-content:center;align-items:flex-end;min-height:60px}
 .plate{background:var(--brass);color:var(--on-brass);border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:15px;width:38px}
 .platesum{text-align:center;margin-top:12px;color:var(--mut)}
+.wrow{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+.wrow-n{flex:0 0 26px;height:26px;border-radius:50%;background:var(--card2);color:var(--mut);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700}
 .empty{text-align:center;padding:44px 20px 28px;color:var(--dim)}
 
 /* Alsó lap (szett-billentyűzet) */
@@ -387,7 +389,7 @@ let S = {sessions:[], active:null, weights:{}, notes:{}, photos:{}, injury:null,
 let tab='home', playing=false, curEx=0, tInt=null, tEnd=0, tLen=0, wl=null, nagOff=false;
 let logFilter=null;   // Napló szűrő edzéstípusra (day id) – null = mind
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v56';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v57';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -1308,6 +1310,7 @@ function playerView(){
   let tools='';
   if(!e.time){
     const t=[];
+    if(!e.bw) t.push(`<button class="tool" onclick="openWarmup('${e.id}')">Bemelegítés</button>`);
     if(!e.bw) t.push(`<button class="tool" onclick="openPlateCalc(${L.w})">${ICON.dumbbell} Tárcsák</button>`);
     t.push(`<button class="tool" onclick="openProgPolicy('${e.id}')">Progresszió: ${esc(POLICY_NAME[progPolicy(e.id)].split(' ')[0])}</button>`);
     tools=`<div class="toolrow">${t.join('')}</div>`;
@@ -2110,6 +2113,15 @@ function openProgDetail(id, metric){
 // Egy rúdra oldalanként kirakandó tárcsák egy cél-súlyhoz. Standard
 // kg-os tárcsakészlet, mohó algoritmus. (Saját, egyszerű implementáció.)
 let plateBar=20;
+// Oldalankénti tárcsakiosztás egy cél-súlyhoz. Visszaad: perSide (kg),
+// used (tárcsák listája), rem (ami nem rakható ki), belowBar (rúd alatt).
+function platesPerSide(target, bar){
+  const perSide=Math.round((target-bar)/2*100)/100;
+  if(perSide<0) return {perSide, used:[], rem:0, belowBar:true};
+  const PLATES=[25,20,15,10,5,2.5,1.25]; let rem=perSide; const used=[];
+  PLATES.forEach(p=>{ while(rem>=p-1e-9){ used.push(p); rem=Math.round((rem-p)*100)/100; } });
+  return {perSide, used, rem, belowBar:false};
+}
 function openPlateCalc(preW){
   const w=preW>0?preW:60;
   let h=`<div class="grabber"></div>
@@ -2130,15 +2142,59 @@ function setPlateBar(b){ plateBar=b;
 function renderPlateRes(){
   const el=document.getElementById('plRes'); if(!el) return;
   const target=parseFloat(document.getElementById('plW').value)||0;
-  const perSide=Math.round((target-plateBar)/2*100)/100;
-  if(perSide<0){ el.innerHTML=`<div class="platesum">A cél kisebb a rúdnál (${plateBar} kg).</div>`; return; }
-  if(perSide===0){ el.innerHTML=`<div class="platesum">Csak a rúd – nincs tárcsa.</div>`; return; }
-  const PLATES=[25,20,15,10,5,2.5,1.25]; let rem=perSide; const used=[];
-  PLATES.forEach(p=>{ while(rem>=p-1e-9){ used.push(p); rem=Math.round((rem-p)*100)/100; } });
-  const bars=used.map(p=>`<span class="plate" style="height:${Math.round(28+p)}px">${p}</span>`).join('');
-  let sum=`Oldalanként ${perSide%1===0?perSide:perSide.toFixed(2)} kg · ${used.length} tárcsa`;
-  if(rem>0.01) sum+=` · ${rem} kg így nem rakható ki`;
+  const r=platesPerSide(target, plateBar);
+  if(r.belowBar){ el.innerHTML=`<div class="platesum">A cél kisebb a rúdnál (${plateBar} kg).</div>`; return; }
+  if(r.perSide===0){ el.innerHTML=`<div class="platesum">Csak a rúd – nincs tárcsa.</div>`; return; }
+  const bars=r.used.map(p=>`<span class="plate" style="height:${Math.round(28+p)}px">${p}</span>`).join('');
+  let sum=`Oldalanként ${r.perSide%1===0?r.perSide:r.perSide.toFixed(2)} kg · ${r.used.length} tárcsa`;
+  if(r.rem>0.01) sum+=` · ${r.rem} kg így nem rakható ki`;
   el.innerHTML=`<div class="plateres">${bars||'<span class="dim">–</span>'}</div><div class="platesum">${sum}</div>`;
+}
+
+/* ---- Bemelegítő-szettek ------------------------------------------- */
+// A munkasúlyból származtatott bemelegítő lépcsők (a working set ELŐTT).
+// Százalékos ráépülés, 2,5 kg-ra kerekítve, a rúdnál (üres) nem kevesebb;
+// duplikátumok kiszűrve. Testsúlyos gyakorlatnál nincs értelme.
+function warmupSets(W, bar){
+  bar = bar>0 ? bar : 20;
+  if(!(W>bar)) return [];                       // a rúd körül nincs mit építeni
+  const R=w=>Math.round(w/2.5)*2.5;
+  const plan=[[0.4,10],[0.55,5],[0.7,3],[0.85,2]];
+  const out=[]; let prev=0;
+  plan.forEach(([p,reps])=>{ let w=Math.max(bar, R(W*p));
+    if(w>=W) return;                            // ne érje el a munkasúlyt
+    if(w===prev) return;                        // ne ismételjen
+    out.push({w, reps}); prev=w; });
+  return out;
+}
+function openWarmup(exId){
+  const e=exDef(exId), L=S.active&&S.active.log[exId];
+  const W=L?L.w:startW(exId);
+  const steps=warmupSets(W, plateBar);
+  let h=`<div class="grabber"></div>
+    <div class="row"><div class="grow"><span class="eyebrow">Bemelegítés</span>
+      <h2 style="font-size:22px">${esc(e.n)}</h2>
+      <span class="small dim">Munkasúly: ${W} kg · ${plateBar} kg rúd</span></div>
+      <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>`;
+  if(!steps.length){
+    h+=`<div class="empty" style="padding:18px 0">Ehhez a súlyhoz nincs szükség külön bemelegítő lépcsőre – pár lazább ismétlés a rúddal elég.</div>`;
+  } else {
+    h+=`<div style="margin-top:8px">`;
+    steps.forEach((s,i)=>{ const pr=platesPerSide(s.w, plateBar);
+      const side = pr.belowBar||pr.perSide===0 ? 'csak rúd'
+        : ('oldalanként: '+pr.used.map(p=>p%1===0?p:p.toFixed(2)).join(' + ')+(pr.rem>0.01?` (+${pr.rem} marad)`:''));
+      h+=`<div class="wrow">
+        <span class="wrow-n">${i+1}</span>
+        <span class="grow"><span class="num" style="font-size:22px;font-weight:700">${s.w}<span class="small dim" style="font-weight:400"> kg</span></span>
+          <span class="small dim"> × ${s.reps}</span><div class="small mut" style="margin-top:2px">${side}</div></span>
+      </div>`; });
+    h+=`<div class="wrow" style="border:0"><span class="wrow-n" style="background:var(--brass);color:var(--on-brass)">✓</span>
+      <span class="grow"><span class="num" style="font-size:22px;font-weight:700;color:var(--brass)">${W}<span class="small dim" style="font-weight:400"> kg</span></span>
+        <span class="small dim"> · munkasúly</span></span></div>`;
+    h+=`</div><p class="small dim" style="margin-top:8px">Tipp: a bemelegítő szetteket nem kell naplózni – csak a munkaszetteket rögzítsd.</p>`;
+  }
+  document.getElementById('sheetIn').innerHTML=h;
+  document.getElementById('sheet').classList.add('on');
 }
 
 /* ---- Jegyzetek (állandó + aznapi) és fotó -------------------------- */

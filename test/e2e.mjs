@@ -103,6 +103,11 @@ ok('5 mmAttr color-mix a terheltre', await page.evaluate(()=>mmAttr('mell',{mell
 ok('5 mmAttr sziluett a nem-terheltre', await page.evaluate(()=>mmAttr('mell',{}).includes('currentColor')));
 ok('5 weeklyMgSets map', await page.evaluate(()=>typeof weeklyMgSets()==='object'));
 ok('5 fmtDur formátum', await page.evaluate(()=>fmtDur(70*60000).includes('ó')));
+ok('5 warmupSets lépcsők', await page.evaluate(()=>{ const w=warmupSets(60,20); return w.length>=3 && w[0].w<60; }));
+ok('5 warmupSets rúd alatt üres', await page.evaluate(()=>warmupSets(20,20).length===0));
+await page.evaluate(()=>openWarmup('bench')); await wait(150);
+ok('5 bemelegítő lap renderel', (await page.$$('#sheet .wrow')).length>0);
+await page.evaluate(()=>closeSheet()); await wait(120);
 await page.$$eval('.pcard',els=>els[0] && els[0].click()); await wait(250);
 ok('5 gyakorlat-részletlap', (await page.$$('.seg button')).length>=2);
 await page.evaluate(()=>closeSheet());
