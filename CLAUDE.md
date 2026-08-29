@@ -65,7 +65,13 @@ alapértéket kapnak; a `save()`/`backup()`/`restore()` viszi őket):
 - Az **edzés-összegzés** és a **napló** kártya egy stilizált, elöl+hátul
   **izomtérképet** (`muscleMap`) mutat: a `sessionMgSets` szettszáma szerint
   színezi a terhelt izomcsoportokat (`mg`), a nem-célzottak halvány
-  sziluettek (`currentColor`, téma-követő). A `mgChips` a szám-összesítő.
+  sziluettek (`currentColor`, téma-követő). A szín **folytonos hőskála**
+  (`mmAttr`): `color-mix()`-szel keveri a `--brass`→`--red` tokeneket a
+  szettszám arányában (`MM_CAP`=12 fölött csupa piros), a telítettséget az
+  opacitás adja – így téma-követő marad. A `mgChips` a szám-összesítő,
+  az `mmLegend` a skála-jelmagyarázat. A **Haladás** fülön a `weeklyMgSets`
+  az aktuális hét terhelését mutatja ugyanezzel a térképpel, kiemelve az
+  ezen a héten kimaradt (`MGS`-ből hiányzó) izomcsoportokat.
 - A PLAN gyakorlatok `mg` mezője (izomcsoport: mell, hát, váll, tricepsz,
   bicepsz, láb, törzs) a sérülés-módot és a szűrést hajtja. Ez NEM
   azonosító – szabadon hangolható.
