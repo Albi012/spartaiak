@@ -250,7 +250,11 @@ media-blokkban definiálva – a `:root`-on legyen az alapérték.
 kihagyás-felismerés (>10 nap → visszaépítés), terv-kontra-valóság
 eltérés-ok egy koppintással, összterhelés/kiugró-terhelés a naplóban,
 sérülés-mód (érintett gyakorlatok kihagyása + súlycsökkentés), kétszintű
-jegyzet (állandó + aznapi) és gépbeállítás-fotó gyakorlatonként.
+jegyzet (állandó + aznapi) és gépbeállítás-fotó gyakorlatonként,
+bemelegítő-szett javaslat (`warmupSets`, a munkasúlyból származtatott
+lépcsők + oldalankénti tárcsakiosztás a `platesPerSide`-dal), valamint a
+főoldali „Mit edzek ma?" ajánló (`suggestDay`), ami a heti izomtérkép
+hiányait lefedő edzésnapot javasolja.
 
 **Amit ne csinálj elsőre:** ne írd át React/Vue keretrendszerre.
 A keretrendszer nulla új funkciót adna.

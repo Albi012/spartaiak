@@ -45,6 +45,8 @@ ok('1 standards mód (nincs quirks)', await page.evaluate(()=>document.compatMod
 ok('1 lang=hu', await page.evaluate(()=>document.documentElement.lang==='hu'));
 ok('1 főoldal címe', (await page.$eval('#app h1',e=>e.textContent)).includes('Melyik nap'));
 ok('1 nap-kártyák láthatók', (await page.$$('.daybtn')).length>=4);
+ok('1 suggestDay napot ajánl', await page.evaluate(()=>{ const s=suggestDay(); return !!(s&&s.dayId)&&Array.isArray(s.covers)&&s.covers.length>0; }));
+ok('1 „Mit edzek ma?" kártya', await page.$$eval('#app .eyebrow',es=>es.some(e=>/Mit edzek ma/.test(e.textContent))));
 
 // ---- 2. Téma váltás ----
 const t0=await page.evaluate(()=>document.documentElement.getAttribute('data-theme'));

@@ -389,7 +389,7 @@ let S = {sessions:[], active:null, weights:{}, notes:{}, photos:{}, injury:null,
 let tab='home', playing=false, curEx=0, tInt=null, tEnd=0, tLen=0, wl=null, nagOff=false;
 let logFilter=null;   // Napló szűrő edzéstípusra (day id) – null = mind
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v57';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v58';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -777,6 +777,24 @@ function render(){
   document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('on', b.dataset.tab===tab));
 }
 
+// „Mit edzek ma?" – az aktív terv azon napját ajánlja, amelyik a legtöbb,
+// ezen a héten elhanyagolt (kevés szettet kapott) izomcsoportot fedi le.
+function suggestDay(){
+  const act=activeProg(); if(!act||!act.days||!act.days.length) return null;
+  const wk=weeklyMgSets();
+  let needy=MGS.filter(mg=>!wk[mg]);                       // ezen a héten 0 szett
+  if(!needy.length) needy=[...MGS].sort((a,b)=>(wk[a]||0)-(wk[b]||0)).slice(0,2);
+  const needSet=new Set(needy);
+  let best=null;
+  act.days.forEach(dId=>{ const d=dayDef(dId); if(!d) return;
+    const covered=new Set(); d.ex.forEach(e=>{ if(needSet.has(e.mg)) covered.add(e.mg); });
+    const last=[...S.sessions].reverse().find(s=>s.day===dId), lastT=last?last.t:0;
+    if(!best || covered.size>best.score || (covered.size===best.score && lastT<best.lastT))
+      best={dayId:dId, name:d.name, score:covered.size, lastT, covers:[...covered]};
+  });
+  if(!best || best.score===0) return null;
+  return {...best, needy};
+}
 function homeView(){
   const done = S.sessions.length;
   const wk = S.sessions.filter(s=>Date.now()-s.t < 6048e5).length;
@@ -813,6 +831,23 @@ function homeView(){
       <span class="grow"><span class="cond" style="font-size:21px;font-weight:600;display:block">Folytatás – ${esc(d.name)}</span>
       <span class="small dim">${doneN}/${exN} gyakorlat kész</span></span>
       <span style="color:var(--brass);font-size:22px">›</span></button></div>`;
+  }
+  // „Mit edzek ma?" – a heti hiányokat lefedő nap ajánlása (ha nem edzett ma
+  // és nincs folyamatban lévő edzés).
+  if(!S.active && daysSince!==0){
+    const sug=suggestDay();
+    if(sug){
+      const freshWeek = sug.needy.length===MGS.length;   // ezen a héten még nincs edzés
+      const covers = `<b>${sug.covers.map(esc).join(', ')}</b>`;
+      const reason = freshWeek
+        ? `Kiegyensúlyozott kezdés a héthez – terheli: ${covers}.`
+        : `A héten kimaradt: ${covers} – ez a nap pótolja.`;
+      h+=`<div class="card" style="border-color:var(--brass)"><div class="pad">
+        <span class="eyebrow" style="color:var(--brass)">Mit edzek ma?</span>
+        <div class="cond" style="font-size:19px;font-weight:600;margin-top:4px">${esc(sug.name)}</div>
+        <div class="small mut" style="margin:2px 0 10px">${reason}</div>
+        <button class="btn pri" onclick="startDay('${sug.dayId}')">Kezdés ›</button></div></div>`;
+    }
   }
   // Edzéstervek: aktív választó + a kiválasztott terv napjai
   const plist=programsList(), act=activeProg();
