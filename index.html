@@ -389,7 +389,7 @@ let S = {sessions:[], active:null, weights:{}, notes:{}, photos:{}, injury:null,
 let tab='home', playing=false, curEx=0, tInt=null, tEnd=0, tLen=0, wl=null, nagOff=false;
 let logFilter=null;   // Napló szűrő edzéstípusra (day id) – null = mind
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v58';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v59';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -1573,42 +1573,49 @@ function mmAttr(mg, mgSets){
   const t=Math.min(1, n/MM_CAP), mix=Math.round(t*100), op=(0.4+0.55*t).toFixed(2);
   return `style="fill:color-mix(in srgb, var(--brass), var(--red) ${mix}%);opacity:${op}"`;
 }
+// Részletes, anatómiai izomtérkép: elöl+hátul stilizált alak, izomcsoportonként
+// külön kontúr. A jobb oldali végtagizmokat egyszer rajzoljuk és tükrözve
+// (matrix -1) használjuk újra – így szimmetrikus és fele annyi útvonal. Az
+// id-k hívásonként egyediek, hogy egy oldalon több térkép ne ütközzön.
+let _mmSeq=0;
 function muscleMap(mgSets, sm){
-  const B='fill="currentColor" opacity="0.15"';
+  const q='_'+(++_mmSeq);
+  const B='style="fill:currentColor;opacity:0.13"';
   const F=mg=>mmAttr(mg,mgSets);
-  return `<svg class="muscmap${sm?' sm':''}" viewBox="0 0 190 200" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-    <!-- ELÖL -->
-    <circle cx="45" cy="18" r="10" ${B}/>
-    <rect x="40" y="26" width="10" height="9" rx="3" ${B}/>
-    <ellipse cx="27" cy="43" rx="11" ry="8" ${F('váll')}/>
-    <ellipse cx="63" cy="43" rx="11" ry="8" ${F('váll')}/>
-    <path d="M31,40 Q45,36 59,40 L58,61 Q45,67 32,61 Z" ${F('mell')}/>
-    <rect x="14" y="47" width="11" height="28" rx="5" ${F('bicepsz')}/>
-    <rect x="65" y="47" width="11" height="28" rx="5" ${F('bicepsz')}/>
-    <rect x="12" y="75" width="10" height="26" rx="5" ${B}/>
-    <rect x="68" y="75" width="10" height="26" rx="5" ${B}/>
-    <rect x="33" y="62" width="24" height="32" rx="6" ${F('törzs')}/>
-    <rect x="30" y="96" width="13" height="46" rx="6" ${F('láb')}/>
-    <rect x="47" y="96" width="13" height="46" rx="6" ${F('láb')}/>
-    <rect x="31" y="143" width="11" height="42" rx="5" ${B}/>
-    <rect x="48" y="143" width="11" height="42" rx="5" ${B}/>
-    <text x="45" y="197" text-anchor="middle" font-size="9" fill="currentColor" opacity="0.55">Elöl</text>
+  return `<svg class="muscmap${sm?' sm':''}" viewBox="0 0 220 212" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+    <defs>
+      <g id="mmFR${q}">
+        <path d="M61,39 Q74,37 80,49 Q81,57 74,58 Q69,48 62,44 Z" ${F('váll')}/>
+        <path d="M56,42 Q67,41 72,49 Q73,58 66,62 Q58,62 56,56 Z" ${F('mell')}/>
+        <path d="M74,58 Q81,61 81,71 Q80,78 74,77 Q71,67 70,59 Z" ${F('bicepsz')}/>
+        <path d="M74,78 Q80,88 78,100 Q75,103 72,100 Q71,88 71,79 Z" ${B}/>
+        <path d="M56,95 Q68,98 69,122 Q69,143 62,152 Q57,146 56,122 Z" ${F('láb')}/>
+        <path d="M62,153 Q67,169 64,189 Q60,192 58,189 Q57,169 57,153 Z" ${B}/>
+      </g>
+      <g id="mmBR${q}">
+        <path d="M171,39 Q184,37 190,49 Q191,57 184,58 Q179,48 172,44 Z" ${F('váll')}/>
+        <path d="M170,44 Q181,49 181,66 Q180,78 172,86 L170,83 Z" ${F('hát')}/>
+        <path d="M184,58 Q191,61 191,71 Q190,78 184,77 Q181,67 180,59 Z" ${F('tricepsz')}/>
+        <path d="M184,78 Q190,88 188,100 Q185,103 182,100 Q181,88 181,79 Z" ${B}/>
+        <path d="M166,89 Q177,92 178,112 Q178,140 170,152 Q165,146 165,120 L165,89 Z" ${F('láb')}/>
+        <path d="M170,153 Q175,169 172,189 Q168,192 166,189 Q165,169 166,153 Z" ${B}/>
+      </g>
+    </defs>
+    <!-- ELÖL (középvonal + tükrözött végtagok) -->
+    <ellipse cx="55" cy="15" rx="8.5" ry="10.5" ${B}/>
+    <path d="M50,24 Q55,27 60,24 L59,31 Q55,33 51,31 Z" ${B}/>
+    <path d="M45,31 Q55,27 65,31 L61,40 Q55,37 49,40 Z" ${F('hát')}/>
+    <path d="M48,59 Q55,61 62,59 Q63,74 60,92 Q55,98 50,92 Q47,74 48,59 Z" ${F('törzs')}/>
+    <use href="#mmFR${q}"/>
+    <use href="#mmFR${q}" transform="matrix(-1,0,0,1,110,0)"/>
+    <text x="55" y="206" text-anchor="middle" font-size="9" fill="currentColor" opacity="0.55">Elöl</text>
     <!-- HÁTUL -->
-    <circle cx="145" cy="18" r="10" ${B}/>
-    <rect x="140" y="26" width="10" height="9" rx="3" ${B}/>
-    <ellipse cx="127" cy="43" rx="11" ry="8" ${F('váll')}/>
-    <ellipse cx="163" cy="43" rx="11" ry="8" ${F('váll')}/>
-    <rect x="131" y="40" width="28" height="35" rx="7" ${F('hát')}/>
-    <rect x="114" y="47" width="11" height="28" rx="5" ${F('tricepsz')}/>
-    <rect x="165" y="47" width="11" height="28" rx="5" ${F('tricepsz')}/>
-    <rect x="112" y="75" width="10" height="26" rx="5" ${B}/>
-    <rect x="168" y="75" width="10" height="26" rx="5" ${B}/>
-    <rect x="133" y="76" width="24" height="15" rx="5" ${F('törzs')}/>
-    <rect x="130" y="92" width="13" height="50" rx="6" ${F('láb')}/>
-    <rect x="147" y="92" width="13" height="50" rx="6" ${F('láb')}/>
-    <rect x="131" y="143" width="11" height="42" rx="5" ${B}/>
-    <rect x="148" y="143" width="11" height="42" rx="5" ${B}/>
-    <text x="145" y="197" text-anchor="middle" font-size="9" fill="currentColor" opacity="0.55">Hátul</text>
+    <ellipse cx="165" cy="15" rx="8.5" ry="10.5" ${B}/>
+    <path d="M160,24 Q165,27 170,24 L169,31 Q165,33 161,31 Z" ${B}/>
+    <path d="M155,31 Q165,27 175,31 L172,42 Q173,64 170,84 Q165,89 160,84 Q157,64 158,42 Z" ${F('hát')}/>
+    <use href="#mmBR${q}"/>
+    <use href="#mmBR${q}" transform="matrix(-1,0,0,1,330,0)"/>
+    <text x="165" y="206" text-anchor="middle" font-size="9" fill="currentColor" opacity="0.55">Hátul</text>
   </svg>`;
 }
 // Terhelt izomcsoportok szám-chipjei (szettszám szerint csökkenő).
