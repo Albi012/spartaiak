@@ -112,6 +112,9 @@ ok('5 LIB bővült, nincs dup/ütközés', await page.evaluate(()=>{
   return dup.length===0 && clash.length===0 && badMg.length===0
     && !!LIB['x_ropepush'] && !!LIB['x_trapbar'] && !!LIB['x_crunch'] && Object.keys(LIB).length>=160; }));
 ok('5 fmtDur formátum', await page.evaluate(()=>fmtDur(70*60000).includes('ó')));
+ok('5 videoUrl kereső-fallback + override', await page.evaluate(()=>{
+  const s=videoUrl(exDef('x_squat')); VIDEO['x_squat']='https://youtu.be/x'; const o=videoUrl(exDef('x_squat')); delete VIDEO['x_squat'];
+  return s.startsWith('https://www.youtube.com/results?search_query=') && o==='https://youtu.be/x'; }));
 ok('5 warmupSets lépcsők', await page.evaluate(()=>{ const w=warmupSets(60,20); return w.length>=3 && w[0].w<60; }));
 ok('5 warmupSets rúd alatt üres', await page.evaluate(()=>warmupSets(20,20).length===0));
 await page.evaluate(()=>openWarmup('bench')); await wait(150);

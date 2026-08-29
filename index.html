@@ -121,6 +121,7 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--brass);out
 
 /* Gombok */
 .btn{display:block;width:100%;text-align:center;padding:15px;border-radius:13px;background:var(--card);border:1px solid var(--line);font-weight:600;box-shadow:0 1px 2px var(--shadow)}
+a.btn{text-decoration:none;color:var(--ink)}
 .btn.pri{background:var(--brass);color:var(--on-brass);border-color:var(--brass)}
 .btn.ghost{background:transparent;box-shadow:none}
 .btn:active{transform:scale(.99);opacity:.9}
@@ -375,6 +376,7 @@ const ICON={
   check:'<svg class="svgic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
   back:'<svg class="svgic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>',
   play:'<svg class="svgic" viewBox="0 0 24 24" fill="currentColor"><path d="M7 5v14l11-7z"/></svg>',
+  video:_s+'<rect x="2.5" y="5.5" width="14" height="13" rx="2.5"/><path d="M16.5 9.5l5-3v11l-5-3z"/></svg>',
   dumbbell:'<svg class="svgic" viewBox="0 0 24 24" fill="currentColor"><rect x="1.5" y="9" width="2.5" height="6" rx="1"/><rect x="4" y="6.8" width="2.4" height="10.4" rx="1"/><rect x="6.4" y="10.6" width="11.2" height="2.8" rx="1.2"/><rect x="17.6" y="6.8" width="2.4" height="10.4" rx="1"/><rect x="20" y="9" width="2.5" height="6" rx="1"/></svg>',
   list:_s+'<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>',
   chart:_s+'<path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>',
@@ -389,7 +391,7 @@ let S = {sessions:[], active:null, weights:{}, notes:{}, photos:{}, injury:null,
 let tab='home', playing=false, curEx=0, tInt=null, tEnd=0, tLen=0, wl=null, nagOff=false;
 let logFilter=null;   // Napló szűrő edzéstípusra (day id) – null = mind
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v64';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v65';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -642,6 +644,16 @@ const LIB_ARR=[
   _L('x_flutter','Ollózás (flutter kick)','törzs',3,'30 mp',0,45,5,{bw:1,time:1})
 ];
 const LIB={}; LIB_ARR.forEach(e=>LIB[e.id]=e);
+// Technika-videó gyakorlatonként. A VIDEO térkép a PONTOS, bedrótozott
+// linkeké (exId → teljes URL); ha egy gyakorlathoz nincs itt bejegyzés, a
+// nevéből épített YouTube-keresés nyílik (mindig működik, nem rohad el).
+// Új pontos linket ide vegyél fel: VIDEO['bench']='https://youtu.be/…'.
+const VIDEO={};
+function videoUrl(e){
+  if(e && VIDEO[e.id]) return VIDEO[e.id];
+  const q=encodeURIComponent(((e&&e.n)||'')+' helyes technika gyakorlat');
+  return 'https://www.youtube.com/results?search_query='+q;
+}
 function exDef(id){ for(const d of PLAN) for(const e of d.ex) if(e.id===id) return e;
   if(S.customEx && S.customEx[id]) return S.customEx[id];
   if(LIB[id]) return LIB[id];
@@ -2196,7 +2208,8 @@ function openProgDetail(id, metric){
       <h2 style="font-size:22px">${esc(e.n)}</h2>
       <span class="small dim">Csúcs ${wLabel(e,pr)}${e.bw&&pr<=0?'':' kg'} · ${rows.length} alkalom</span>${(()=>{const b=best1RM(id);return b?`<br><span class="small" style="color:var(--brass)">Becsült 1RM ~${b.est} kg <span class="dim">(${b.w}×${b.r})</span></span>`:'';})()}</div>
       <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
-    <div class="seg">${seg('w','Súly')}${seg('vol','Térfogat')}${e.bw?'':seg('1rm','1RM')}</div>`;
+    <div class="seg">${seg('w','Súly')}${seg('vol','Térfogat')}${e.bw?'':seg('1rm','1RM')}</div>
+    <a class="small" href="${videoUrl(e)}" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:6px;color:var(--brass);text-decoration:none;margin:8px 2px 0">${ICON.video} Technika videó ›</a>`;
   if(pts.length>1){
     h+=`<svg class="chartbig" viewBox="0 0 100 120" preserveAspectRatio="none">
       <path d="${area}" fill="var(--brass-d)" opacity=".55"/>
@@ -2329,6 +2342,7 @@ function openNoteSheet(kind,id){
         ${ph?`<button class="btn" style="flex:0 0 42%;margin:0;color:var(--red)" onclick="removePhoto('${id}')">Fotó törlése</button>`:''}
       </div>
       <button class="btn pri" style="margin-top:12px" onclick="saveNote('ex','${id}')">Mentés</button>
+      <a class="btn" href="${videoUrl(e)}" target="_blank" rel="noopener noreferrer" style="margin-top:8px;display:flex;align-items:center;justify-content:center;gap:8px">${ICON.video} Technika videó</a>
       ${e.bw?'':`<button class="btn" style="margin-top:8px;text-align:left" onclick="openProgPolicy('${id}')">
         <span class="small dim">Progresszió</span><br><b>${POLICY_NAME[progPolicy(id)]}</b> <span class="dim">›</span></button>`}`;
     document.getElementById('sheetIn').innerHTML=h;

@@ -225,10 +225,15 @@ media-blokkban definiálva – a `:root`-on legyen az alapérték.
   és kevesebbet fogyaszt; a világos téma választható (rendszerkövetéssel).
 - **A szám a főszereplő.** A súly és az ismétlés nagy, tabuláris
   számokkal jelenik meg.
-- Nincs benne videólink, közösségi funkció. Ezeket szándékosan
-  vettük ki – ne javasold vissza. **Kivétel a fotó:** gyakorlatonként
-  egy gépbeállítás-emlékeztető kép megengedett (nem illusztráció, hanem
-  emlékeztető) – lásd `photos` mező.
+- Nincs benne közösségi funkció (ezt szándékosan kihagytuk). **Kivétel a
+  fotó:** gyakorlatonként egy gépbeállítás-emlékeztető kép megengedett (nem
+  illusztráció, hanem emlékeztető) – lásd `photos` mező.
+- **Technika-videó gyakorlatonként** (felhasználói kérésre bekerült): a
+  gyakorlat-jegyzet és a haladás-részletlap „Technika videó" linkje külső
+  fülön nyílik (NEM beágyazott videó). A `VIDEO[exId]` térkép a PONTOS,
+  bedrótozott URL-eké; ahol nincs bejegyzés, a `videoUrl(e)` a gyakorlat
+  magyar nevéből YouTube-keresést épít (mindig működik, nem rohad).
+  Konkrét linket ide vegyél fel: `VIDEO['bench']='https://youtu.be/…'`.
 
 ## Ismert hiányosságok / lehetséges irányok
 
