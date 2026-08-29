@@ -1,3 +1,5 @@
+<!DOCTYPE html>
+<html lang="hu">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Edzésnapló</title>
@@ -385,7 +387,7 @@ let S = {sessions:[], active:null, weights:{}, notes:{}, photos:{}, injury:null,
 let tab='home', playing=false, curEx=0, tInt=null, tEnd=0, tLen=0, wl=null, nagOff=false;
 let logFilter=null;   // Napló szűrő edzéstípusra (day id) – null = mind
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v55';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v56';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -2473,9 +2475,9 @@ function openWelcome(){
     <div class="top" style="padding:6px 0 0"><span class="eyebrow" style="color:var(--brass)">Üdv</span>
       <h2 style="font-size:26px;margin-top:2px">Edzésnapló</h2>
       <p class="small mut" style="margin:6px 0 0">Egykezes edzésnapló teremhez. A számok a főszereplők – a szett-rögzítés két koppintás.</p></div>`;
-  h+=row(ICON.dumbbell,'Edzés','Koppints egy napra (Push/Pull) a főoldalon – indul a vezetett edzés pihenőórával, súlyállítóval. Végén összegzőt kapsz.');
-  h+=row(ICON.plans,'Tervek','Állíts össze saját edzést vagy tervet, vagy válassz kész sablont a katalógusból.');
-  h+=row(ICON.chart,'Haladás','Statok, grafikonok, becsült 1RM, gyakorlatonkénti erő-fejlődés.');
+  h+=row(ICON.dumbbell,'Edzés','Koppints egy napra (Push/Pull) a főoldalon – indul a vezetett edzés pihenőórával, súlyállítóval. A végén összegzőt kapsz időtartammal és izomtérképpel.');
+  h+=row(ICON.plans,'Tervek','Állíts össze saját edzést vagy tervet, vagy válassz kész sablont. Két gyakorlatot superset-körré is köthetsz.');
+  h+=row(ICON.chart,'Haladás','Statok, grafikonok, becsült 1RM, és heti izomtérkép, ami jelzi a héten kimaradt izomcsoportokat.');
   h+=row(ICON.list,'Napló','Minden edzés visszanézhető; heti összefoglaló küldhető egy AI-edzőnek.');
   h+=row(ICON.account,'Fiók / szinkron','Opcionális felhő-fiók: több eszköz közt biztonságosan összefésül. Nélküle minden a böngésződben marad.');
   h+=`<button class="btn pri" style="margin-top:18px" onclick="dismissWelcome()">Kezdjük</button>`;
