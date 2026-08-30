@@ -96,11 +96,17 @@ Ezek kulcsként szerepelnek a mentett adatokban. Átnevezésük
 adatvesztéssel egyenértékű.
 
 ```
-Push A: bench, dip, incdb, ohpdb, lat, push
-Pull A: pull, row, cable, face, curl, hammer
+Push A: bench, dip, incdb, ohpdb, lat, push, hipabd
+Pull A: pull, row, cable, face, curl, hammer, hipabd
 Push B: ohp, dbbench, dipbw, machinc, french, plank
-Pull B: tbar, wide, onerow, legcurl, hyp, rear, knee
-Archív (már nincs a tervben, de van rá rögzített adat): rack, abs
+Pull B: tbar, wide, onerow, legcurl, rear, knee
+Archív (már nincs a tervben, de van rá rögzített adat): rack, abs, hyp
+
+Megjegyzés: a PLAN 2025-ös átírásakor néhány ID neve/mozgása változott a
+felhasználó terve szerint (pl. `row`/`tbar` = hasalva kézisúlyzós evezés,
+`machinc` = ferdepad Smith-gépben). Az ID-k a naplóadat kulcsai, ezért NEM
+lettek átnevezve – csak az `n`/paraméterek. A `hipabd` (oldalfekvő
+csípőtávolítás) új, a `hyp` az ARCHIVE-ba került.
 ```
 
 A `LIB` (beépített gyakorlat-könyvtár, `x_…` előtagú ID-k) ~160 további
