@@ -119,6 +119,19 @@ neve feloldható maradjon a naplóban. Ha kiveszel egy gyakorlatot a
 `PLAN`-ból, tedd át az `ARCHIVE`-ba – különben a régi adat
 azonosítóként jelenik meg a felületen.
 
+## Gyógytorna / mobilitás oldal
+
+Külön nézet (`physioView`, `tab==='physio'`, NEM a bottom-navban – a
+főoldali „Gyógytorna / mobilitás" gombról és a sérülés-mód kártyáról
+nyílik). A `REHAB` katalógus testtájankénti (`REGION_MG`: váll/hát/csípő/
+térd/boka/törzs) mobilitás-, nyújtó- és stabilizáló gyakorlatok
+gyűjteménye – **referencia, nem orvosi tanács** (a lapon kötelező
+figyelmeztetés). Minden tétel: rövid `cue` + cél + „Videó" link
+(`videoUrl`) + „Felvétel gyakorlatként" (`addRehabAsCustom` → `customEx`,
+így edzésbe tehető és naplózható). A `REHAB`/`rh_…` ID-k referencia-ID-k
+(nem naplókulcsok); a felvételkor friss `cx_…` ID keletkezik. **NE
+minősíts sérülést és NE írj elő kezelést** – csak általános mozgásanyag.
+
 ## Edzés-összeállító (saját gyakorlatok / edzések / tervek)
 
 **Kész sablonok:** a `STARTER_ROUTINES` (edzés-sablonok) és

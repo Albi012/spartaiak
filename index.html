@@ -391,8 +391,9 @@ let S = {sessions:[], active:null, weights:{}, notes:{}, photos:{}, injury:null,
          deleted:[], activeT:0, prog:{}};
 let tab='home', playing=false, curEx=0, tInt=null, tEnd=0, tLen=0, wl=null, nagOff=false;
 let logFilter=null;   // Napló szűrő edzéstípusra (day id) – null = mind
+let physioRegion='';  // Gyógytorna oldal aktív testtáj (üres = első)
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v66';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v67';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -453,6 +454,60 @@ const ARCHIVE = {
   ohpdb:{id:'ohpdb',n:'Vállból nyomás ülve',s:3,r:'8',w:12.5,rest:120,inc:2.5},
   hyp:{id:'hyp',n:'Hyperextension',s:3,r:'12',w:0,rest:90,inc:5,bw:1,mg:'hát'}
 };
+
+/* ---- Gyógytorna / mobilitás katalógus ----------------------------- *
+ * Testtájankénti mobilitás/prehab/nyújtó gyakorlatok – REFERENCIA, nem
+ * orvosi tanács. Nem naplózódik magától; a „Felvétel gyakorlatként" a
+ * customEx-be másolja, hogy edzésbe tehető és naplózható legyen.
+ * A `cue` rövid technikai emlékeztető, az `r` a cél (szett×ism./mp).
+ */
+const REGION_MG={shoulder:'váll',back:'hát',hip:'láb',knee:'láb',ankle:'láb',core:'törzs'};
+// Sérült izomcsoport → ajánlott gyógytorna-testtáj (közelítő).
+const REG_FOR_MG={mell:'shoulder','hát':'back','váll':'shoulder',tricepsz:'shoulder',bicepsz:'shoulder','láb':'hip','törzs':'core'};
+const REHAB=[
+ {id:'shoulder',name:'Váll / nyak',ex:[
+   {id:'rh_bandpull',n:'Gumiszalag szétnyitás',cue:'Lapockát hátra-le, könyök enyhén hajlítva, lassú vissza.',r:'2×15'},
+   {id:'rh_wallslide',n:'Falcsúsztatás (wall slide)',cue:'Alkar a falon, lapocka aktív, ne dőlj hátra.',r:'2×10'},
+   {id:'rh_sleeper',n:'Sleeper stretch',cue:'Oldalt fekve, felkar 90°, kézfejet lassan a talaj felé.',r:'2×30 mp / o'},
+   {id:'rh_ytw',n:'Y-T-W emelés hason fekve',cue:'Homlok le, hüvelykujj felfelé, lapockából emelj.',r:'2×8 / betű'},
+   {id:'rh_neckcar',n:'Nyak körkörös mozgás',cue:'Lassú, fájdalommentes körök, váll laza.',r:'2×5 / irány'}
+ ]},
+ {id:'back',name:'Hát / derék',ex:[
+   {id:'rh_catcow',n:'Macska–teve (cat-cow)',cue:'Gerincet szegmentekben görbítsd/nyújtsd, lélegezz.',r:'2×10'},
+   {id:'rh_child',n:'Gyermekpóz nyújtás',cue:'Csípő a sarok felé, kar előre, hát elengedve.',r:'2×40 mp'},
+   {id:'rh_birddog2',n:'Bird dog',cue:'Ellentétes kar-láb, medence stabil, ne csavarodj.',r:'2×10'},
+   {id:'rh_deadbug2',n:'Dead bug',cue:'Derék a talajon végig, ellentétes kar-láb lassan.',r:'2×10'},
+   {id:'rh_cobra',n:'Kobra nyújtás',cue:'Hason fekve felsőtest emel, váll le-hátra.',r:'2×20 mp'}
+ ]},
+ {id:'hip',name:'Csípő',ex:[
+   {id:'rh_hipflex',n:'Csípőhajlító nyújtás (kitörésben)',cue:'Hátsó csípő előre, farizom feszít, törzs egyenes.',r:'2×30 mp / o'},
+   {id:'rh_bridge',n:'Farizom híd',cue:'Sarokból nyomj, farizom szorít a tetőn, ne derékból.',r:'2×12'},
+   {id:'rh_clam',n:'Kagyló (clamshell)',cue:'Oldalt fekve térd nyílik, medence ne forduljon.',r:'2×15 / o'},
+   {id:'rh_9090',n:'90/90 csípőforgatás',cue:'Ülve két térd 90°, oldalról oldalra lassan.',r:'2×8 / o'},
+   {id:'rh_pigeon',n:'Galamb póz',cue:'Elülső síp vízszintes, törzs előre, ne erőltesd.',r:'2×40 mp / o'}
+ ]},
+ {id:'knee',name:'Térd',ex:[
+   {id:'rh_quadstr',n:'Combfeszítő nyújtás állva',cue:'Boka a farhoz, térdek egymás mellett, medence be.',r:'2×30 mp / o'},
+   {id:'rh_tke',n:'Terminal knee extension (gumi)',cue:'Térd teljes nyújtásig, comb feszít, lassú.',r:'2×15'},
+   {id:'rh_stepdown',n:'Kontrollált lelépés (step-down)',cue:'Térd a lábfej felett, lassan le, ne dőljön befelé.',r:'2×10 / o'},
+   {id:'rh_wallsit',n:'Falülés',cue:'Comb vízszintesig, térd 90°, sarok terhelt.',r:'2×30 mp'},
+   {id:'rh_calf2',n:'Vádliemelés (térd-stabil)',cue:'Lassú fel-le, boka stabil, teljes tartomány.',r:'2×15'}
+ ]},
+ {id:'ankle',name:'Boka / lábfej',ex:[
+   {id:'rh_anklecar',n:'Boka körzés',cue:'Nagy, lassú körök mindkét irányba.',r:'2×8 / irány'},
+   {id:'rh_calfstr',n:'Vádlinyújtás falnál',cue:'Hátsó sarok a talajon, térd nyújtva majd hajlítva.',r:'2×30 mp / o'},
+   {id:'rh_kneewall',n:'Térd-a-fal boka mobilizálás',cue:'Térd a fal felé a lábujjon túl, sarok marad.',r:'2×10 / o'},
+   {id:'rh_towel',n:'Törölköző-húzás lábujjal',cue:'Lábujjakkal húzd magad felé, boltozat aktív.',r:'2×15'},
+   {id:'rh_heelwalk',n:'Sarkon / lábujjhegyen járás',cue:'Rövid szakaszok, kontrollált, egyensúly.',r:'2×20 lépés'}
+ ]},
+ {id:'core',name:'Törzs / stabilizáció',ex:[
+   {id:'rh_plank2',n:'Alkartámasz (plank)',cue:'Farizom-has feszít, medence semleges, ne lógj.',r:'2×30 mp',time:1},
+   {id:'rh_sideplank2',n:'Oldaltámasz',cue:'Test egyenes vonalban, csípő fent, váll stabil.',r:'2×20 mp / o',time:1},
+   {id:'rh_pallof2',n:'Pallof prés (anti-rotáció)',cue:'Kar előre, törzs ne forduljon, lassú.',r:'2×10 / o'},
+   {id:'rh_hollow2',n:'Hollow hold',cue:'Derék a talajon, kar-láb enyhén emelve.',r:'2×20 mp',time:1},
+   {id:'rh_breath',n:'Rekeszizom-légzés',cue:'Hasba lélegezz, borda 360°, lassú kilégzés.',r:'2×8'}
+ ]}
+];
 // Beépített gyakorlat-könyvtár – a választóban jelenik meg (izomcsoportra
 // szűrhető). Stabil `x_…` ID-k (a naplóban is kulcsként szerepelhetnek –
 // NE nevezd át őket). A PLAN 4 napja marad az alapértelmezett terv.
@@ -818,6 +873,7 @@ function render(){
   else if(tab==='plans') a.innerHTML = plansView();
   else if(tab==='log') a.innerHTML = logView();
   else if(tab==='friends') a.innerHTML = friendsView();
+  else if(tab==='physio') a.innerHTML = physioView();
   else a.innerHTML = progView();
   document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('on', b.dataset.tab===tab));
 }
@@ -866,7 +922,10 @@ function homeView(){
   if(injuryOn()) h+=`<div class="card" style="border-color:var(--red)"><div class="pad">
     <span class="cond" style="font-size:17px;font-weight:600;color:var(--red)">Sérülés-mód aktív – ${S.injury.parts.join(', ')}</span>
     <div class="small mut" style="margin-top:2px">Új edzésnél az érintett gyakorlatok kimaradnak, a többi súlya csökken.</div>
-    <button class="btn" style="margin-top:10px" onclick="openInjury()">Módosítás / kikapcsolás</button></div></div>`;
+    <div class="row" style="gap:8px;margin-top:10px">
+      <button class="btn" style="flex:1;margin:0" onclick="openInjury()">Módosítás / kikapcsolás</button>
+      <button class="btn" style="flex:1;margin:0" onclick="openPhysio('${REG_FOR_MG[S.injury.parts[0]]||''}')">Gyógytorna ›</button>
+    </div></div></div>`;
   if(S.active){
     const d=dayDef(S.active.day) || {name:S.active.dayName||'Edzés', ex:[]};
     const exN=d.ex.filter(e=>S.active.log[e.id]).length;
@@ -943,6 +1002,44 @@ function homeView(){
   } else {
     h+=`<button class="btn ghost" style="margin-top:14px;margin-bottom:4px;color:var(--mut)" onclick="tab='plans';render();window.scrollTo(0,0)">Tervek és edzések kezelése ›</button>`;
   }
+  h+=`<button class="btn ghost" style="margin-top:8px;margin-bottom:4px;color:var(--mut)" onclick="openPhysio()">Gyógytorna / mobilitás ›</button>`;
+  return h+'</div>';
+}
+
+/* ---- Gyógytorna / mobilitás oldal --------------------------------- */
+function openPhysio(region){ physioRegion=region||physioRegion||''; tab='physio'; render(); window.scrollTo(0,0); }
+function setPhysioRegion(id){ physioRegion=id; render(); window.scrollTo(0,0); }
+// A referenciából saját gyakorlatot készít (customEx), hogy edzésbe tehető
+// és naplózható legyen. A testtáj → izomcsoport a REGION_MG-ből.
+function addRehabAsCustom(rid, exid){
+  const reg=REHAB.find(r=>r.id===rid), e=reg&&reg.ex.find(x=>x.id===exid); if(!e) return;
+  const parts=String(e.r).split('×'); const sets=parseInt(parts[0])||2; const reps=(parts[1]||'10').trim();
+  const id=uid('cx_');
+  S.customEx[id]={id, n:e.n, mg:REGION_MG[rid]||'törzs', s:sets, r:reps, w:0, inc:2.5, rest:45, bw:1, ...(e.time?{time:1}:{})};
+  save(); uiAlert('„'+e.n+'" felvéve a saját gyakorlataid közé – edzésbe teheted a Tervek fülön.');
+}
+function physioView(){
+  const reg=REHAB.find(r=>r.id===physioRegion)||REHAB[0]; physioRegion=reg.id;
+  let h=`<div class="wrap"><div class="top"><span class="eyebrow">Gyógytorna · mobilitás</span>
+    <h1 style="font-size:34px;margin-top:4px">Mozgás &amp; prehab</h1>
+    <p class="mut small" style="margin:6px 0 0">Testtájankénti mobilitás-, nyújtó- és stabilizáló gyakorlatok.</p></div>
+    <div class="card" style="border-color:var(--brass)"><div class="pad small mut">
+      <b style="color:var(--brass)">Fontos:</b> ez általános mozgásanyag, <b>nem orvosi tanács</b>.
+      Fájdalom, friss vagy tartós sérülés esetén fordulj gyógytornászhoz/orvoshoz. Fájdalmasan soha ne erőltesd.
+    </div></div>
+    <div class="whyrow" style="flex-wrap:wrap;margin:12px 0 8px">`+
+    REHAB.map(r=>`<button class="whyc ${r.id===reg.id?'on':''}" onclick="setPhysioRegion('${r.id}')">${esc(r.name)}</button>`).join('')
+    +`</div>`;
+  reg.ex.forEach(e=>{
+    h+=`<div class="card"><div class="pad">
+      <div class="row" style="align-items:baseline"><span class="cond grow" style="font-size:18px;font-weight:600">${esc(e.n)}</span>
+        <span class="small dim" style="white-space:nowrap">${esc(e.r)}</span></div>
+      <div class="small mut" style="margin:4px 0 10px">${esc(e.cue)}</div>
+      <div class="row" style="gap:8px">
+        <a class="btn" href="${videoUrl(e)}" target="_blank" rel="noopener noreferrer" style="flex:1;margin:0;display:flex;align-items:center;justify-content:center;gap:8px">${ICON.video} Videó</a>
+        <button class="btn" style="flex:1;margin:0" onclick="addRehabAsCustom('${reg.id}','${e.id}')">Felvétel gyakorlatként</button>
+      </div></div></div>`;
+  });
   return h+'</div>';
 }
 // „Tervek" fül: az edzések és edzéstervek KEZELÉSE (létrehozás, szerkesztés,

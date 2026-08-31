@@ -163,6 +163,16 @@ ok('7 barátok fül renderel', (await page.$$('#app')).length>0);
 await page.evaluate(()=>openInjury && openInjury()); await wait(150);
 ok('8 sérülés-mód lap', await page.evaluate(()=>document.getElementById('sheet').classList.contains('on'))); await page.evaluate(()=>closeSheet());
 
+// ---- 9. Gyógytorna / mobilitás oldal ----
+await page.evaluate(()=>openPhysio()); await wait(200);
+ok('9 gyógytorna oldal renderel', await page.evaluate(()=>tab==='physio' && document.querySelectorAll('#app .whyc').length>=6 && document.getElementById('app').textContent.includes('nem orvosi tanács')));
+await page.evaluate(()=>setPhysioRegion('knee')); await wait(150);
+ok('9 testtáj-váltás (térd)', await page.evaluate(()=>physioRegion==='knee'));
+const cxB=await page.evaluate(()=>Object.keys(S.customEx||{}).length);
+await page.evaluate(()=>addRehabAsCustom('core','rh_plank2')); await wait(150);
+ok('9 felvétel gyakorlatként → customEx', await page.evaluate(()=>Object.keys(S.customEx||{}).length)===cxB+1);
+ok('9 az új customEx time-alapú', await page.evaluate(()=>{ const k=Object.keys(S.customEx); return !!S.customEx[k[k.length-1]].time; }));
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));
