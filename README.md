@@ -11,6 +11,16 @@ több eszköz közt szinkronizál.
 
 **Élő verzió:** https://albi012.github.io/spartaiak/
 
+## Képernyőképek
+
+<table>
+  <tr>
+    <td align="center" width="33%"><img src="docs/screenshots/home.png" width="240" alt="Főképernyő"><br><sub>Főképernyő – „Mit edzek ma?"</sub></td>
+    <td align="center" width="33%"><img src="docs/screenshots/player.png" width="240" alt="Vezetett edzés"><br><sub>Vezetett edzés</sub></td>
+    <td align="center" width="33%"><img src="docs/screenshots/muscle-map.png" width="240" alt="Izomtérkép"><br><sub>Izomtérkép az összegzőben</sub></td>
+  </tr>
+</table>
+
 ---
 
 ## Mit tud
