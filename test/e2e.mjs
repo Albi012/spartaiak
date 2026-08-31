@@ -180,6 +180,8 @@ const physSessB=await page.evaluate(()=>S.sessions.length);
 await page.evaluate(()=>finish()); await wait(200);
 ok('9 finish NEM naplóz (nem edzés)', await page.evaluate(()=>S.active===null && S.sessions.length)===physSessB);
 ok('9 appbar gyógytorna-gomb', await page.evaluate(()=>!!document.querySelector('#physioBtn')));
+// Időzítő-értesítés: alapból ki, engedély nélkül a timerNotif biztonságos no-op
+ok('9 értesítés alapból ki + biztonságos', await page.evaluate(async ()=>{ const off=!notifyEnabled(); let threw=false; try{ await timerNotif('x','y','rest',true); await clearNotif('rest'); }catch(e){ threw=true; } return off && !threw; }));
 
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);

@@ -395,7 +395,7 @@ let tab='home', playing=false, curEx=0, tInt=null, tEnd=0, tLen=0, wl=null, nagO
 let logFilter=null;   // Napló szűrő edzéstípusra (day id) – null = mind
 let physioRegion='';  // Gyógytorna oldal aktív testtáj (üres = első)
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v68';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v69';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -1645,7 +1645,11 @@ function stTick(target){
   const leftMs=Math.max(0, stEnd-Date.now()), left=leftMs/1000;
   const el=document.getElementById('stVal'); if(el) el.textContent=fmtSec(Math.ceil(left));
   const bar=document.getElementById('stBar'); if(bar) bar.style.width=(target>0?left/target*100:0).toFixed(1)+'%';
-  if(leftMs<=0){ clearInterval(stInt); stInt=null; if(navigator.vibrate) navigator.vibrate([200,100,200]); beep(); releaseWake(); finishTimerSet(target); }
+  if(leftMs>0 && document.hidden && Date.now()-_lastHoldNotif>=1000){ _lastHoldNotif=Date.now();
+    timerNotif('Tartás', fmtSec(Math.ceil(left))+' van hátra', 'hold', true); }
+  if(leftMs<=0){ clearInterval(stInt); stInt=null; if(navigator.vibrate) navigator.vibrate([200,100,200]); beep();
+    if(document.hidden) timerNotif('Tartás kész', 'Szép munka!', 'hold', false); else clearNotif('hold');
+    releaseWake(); finishTimerSet(target); }
 }
 function toggleTimerSet(target){
   if(stInt){                                  // leállítás korán → a ténylegesen tartott idő
@@ -1656,8 +1660,8 @@ function toggleTimerSet(target){
   const b=document.getElementById('stBtn'); if(b){ b.textContent='Leállítás'; b.classList.remove('pri'); }
   clearInterval(stInt); stInt=setInterval(()=>stTick(target),200); stTick(target);
 }
-function finishTimerSet(v){ clearInterval(stInt); stInt=null; setRep(v); }   // rögzít + pihenő indul
-function closeTimerSet(){ clearInterval(stInt); stInt=null; releaseWake(); closeSheet(); }
+function finishTimerSet(v){ clearInterval(stInt); stInt=null; clearNotif('hold'); setRep(v); }   // rögzít + pihenő indul
+function closeTimerSet(){ clearInterval(stInt); stInt=null; releaseWake(); clearNotif('hold'); closeSheet(); }
 
 /* ---- Témázott modál (confirm/alert helyett) ------------------------ */
 let _modalRes=null;
@@ -1710,6 +1714,33 @@ function beep(){ if(restMuted()) return; try{ if(!audioCtx) return;
   o.type='sine'; o.frequency.setValueAtTime(880,t);
   g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.3,t+0.02); g.gain.exponentialRampToValueAtTime(0.0001,t+0.35);
   o.connect(g); g.connect(audioCtx.destination); o.start(t); o.stop(t+0.37); }catch(e){} }
+
+// Rendszer-értesítés a pihenő/tartás hátralévő idejével – opcionális
+// (gymlog_notify kulcs, alap: ki). Csak háttérben (document.hidden) jelenik
+// meg, hogy foreground-ban ne legyen zajos. Best-effort: a böngésző háttérben
+// throttle-olhatja a JS-t, így mély háttérben késhet. Nem szerveres push.
+let _lastRestNotif=0, _lastHoldNotif=0;
+function notifyEnabled(){ try{ return localStorage.getItem('gymlog_notify')==='1' && ('Notification' in window) && Notification.permission==='granted'; }catch(e){ return false; } }
+async function toggleNotify(){
+  const turnOn = localStorage.getItem('gymlog_notify')!=='1';
+  if(turnOn){
+    if(!('Notification' in window)){ await uiAlert('Ez a böngésző nem támogatja az értesítéseket.'); return; }
+    let p=Notification.permission;
+    if(p==='default'){ try{ p=await Notification.requestPermission(); }catch(e){} }
+    if(p!=='granted'){ await uiAlert('Az értesítés a böngészőben nincs engedélyezve. A telefon beállításaiban engedélyezheted az oldalnak.'); return; }
+  }
+  try{ localStorage.setItem('gymlog_notify', turnOn?'1':'0'); }catch(e){}
+}
+async function timerNotif(title, body, tag, silent){
+  if(!notifyEnabled()) return;
+  try{ const reg=await navigator.serviceWorker.getRegistration();
+    if(reg && reg.showNotification){ reg.showNotification(title,{body,tag,renotify:false,silent:!!silent,icon:'./icon-192.png',badge:'./icon-192.png'}); return; } }catch(e){}
+  try{ new Notification(title,{body,tag,silent:!!silent,icon:'./icon-192.png'}); }catch(e){}
+}
+async function clearNotif(tag){
+  try{ const reg=await navigator.serviceWorker.getRegistration();
+    if(reg && reg.getNotifications){ (await reg.getNotifications({tag})).forEach(n=>n.close()); } }catch(e){}
+}
 // Pihenő menet közbeni állítása (+/-). Ha a maradék meghaladja a kezdő
 // hosszt, a gyűrű teljességéhez igazítjuk; alul 0-ra vágjuk.
 function adjustRest(d){ if(!document.getElementById('rest').classList.contains('on')) return;
@@ -1723,7 +1754,7 @@ function startTimer(sec){
   ensureAudio();                                   // hang feloldása (a szett-rögzítés koppintásán belül)
   clearInterval(tInt); tInt=setInterval(tick,200); tick();
 }
-function stopTimer(){ clearInterval(tInt); const r=document.getElementById('rest'); if(r) r.classList.remove('on'); releaseWake(); }
+function stopTimer(){ clearInterval(tInt); const r=document.getElementById('rest'); if(r) r.classList.remove('on'); releaseWake(); clearNotif('rest'); }
 function tick(){
   const left=Math.max(0,tEnd-Date.now());
   const s=Math.ceil(left/1000);
@@ -1731,14 +1762,19 @@ function tick(){
   const R=52, C=2*Math.PI*R, frac=tLen? left/(tLen*1000) : 0;
   const ring=document.getElementById('restRing');
   ring.style.strokeDasharray=C.toFixed(1); ring.style.strokeDashoffset=(C*(1-frac)).toFixed(1);
+  // Háttérben: a hátralévő idő értesítésben (throttle-olva, némán).
+  if(left>0 && document.hidden && Date.now()-_lastRestNotif>=1000){ _lastRestNotif=Date.now();
+    timerNotif('Pihenő', (Math.floor(s/60)+':'+String(s%60).padStart(2,'0'))+' van hátra', 'rest', true); }
   if(left<=0){ clearInterval(tInt); if(navigator.vibrate) navigator.vibrate([200,100,200]); beep();
+    if(document.hidden) timerNotif('Pihenő letelt', 'Jöhet a következő szett!', 'rest', false); else clearNotif('rest');
     releaseWake(); setTimeout(()=>document.getElementById('rest').classList.remove('on'),1500); }
 }
 document.getElementById('restSkip').onclick=stopTimer;
 updateMuteLabel();
 // A képernyőzár feloldódhat háttérbe váltáskor – ha még megy a pihenő, kérjük vissza.
-document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'
-  && document.getElementById('rest').classList.contains('on') && Date.now()<tEnd) acquireWake(); });
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'){
+  clearNotif('rest'); clearNotif('hold');   // visszatérve a képernyőn látszik az óra
+  if(document.getElementById('rest').classList.contains('on') && Date.now()<tEnd) acquireWake(); } });
 
 function finish(){
   // Mobilitás rutin: nem naplózódik (nem edzés), csak lezárul.
@@ -2589,7 +2625,10 @@ function openAuthSheet(){
   h+=`<div class="eyebrow" style="margin-top:20px">Beállítások</div>
     <button class="btn" style="margin-top:8px;text-align:left" onclick="toggleMute();openAuthSheet()">
       <span class="small dim">Hangjelzés a pihenő végén</span><br>
-      <b>${restMuted()?'Kikapcsolva':'Bekapcsolva'}</b> <span class="dim">· koppints a váltáshoz</span></button>`;
+      <b>${restMuted()?'Kikapcsolva':'Bekapcsolva'}</b> <span class="dim">· koppints a váltáshoz</span></button>
+    <button class="btn" style="margin-top:8px;text-align:left" onclick="(async()=>{await toggleNotify();openAuthSheet();})()">
+      <span class="small dim">Időzítő értesítésben (háttérben)</span><br>
+      <b>${(function(){try{return localStorage.getItem('gymlog_notify')==='1'}catch(e){return false}})()?'Bekapcsolva':'Kikapcsolva'}</b> <span class="dim">· ha kiváltasz az appból, a pihenő ideje értesítésben látszik</span></button>`;
   h+=`<button class="btn ghost" style="margin-top:14px;color:var(--mut)" onclick="openWelcome()">Bemutató megtekintése</button>`;
   h+=`<div class="small dim" style="text-align:center;margin-top:14px">Verzió ${APP_VERSION}</div>`;
   document.getElementById('sheetIn').innerHTML=h;
