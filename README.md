@@ -21,28 +21,41 @@ több eszköz közt szinkronizál.
 - Egy megkezdett edzés minden rögzített szettje azonnal mentődik – ha
   véletlen bezárul az app, újranyitva a „Folytatás" kártyáról ott lehet
   folytatni, ahol abbamaradt.
-- Napló: minden edzés visszanézhető (dátum, szettek, összterhelés).
-- A képernyő ébren marad, amíg a pihenőóra megy.
+- Superset / kör: saját edzésben gyakorlatok összeköthetők – a tagok közt
+  rövid váltás, a teljes pihenő a kör végén.
+- Idő-alapú gyakorlatnál (plank stb.) beépített visszaszámláló óra, ami a
+  végén rögzíti a tartott másodperceket.
+- A pihenő a képernyőt ébren tartja; opcionálisan a hátralévő idő rendszer-
+  értesítésben is látszik, ha közben kiváltasz az appból.
+- Befejezés-összegző: időtartam, gyakorlat- és szettszám, összterhelés,
+  új csúcsok (PR), és egy elöl+hátul izomtérkép a terhelt izmokkal.
+- Napló: minden edzés visszanézhető (dátum, időtartam, szettek,
+  összterhelés), hónapokra bontva, lenyitható izomtérképpel.
 
 **Saját tervek**
 - Beépített 4 napos terv (Push A / Pull A / Push B / Pull B).
 - Saját gyakorlatok, saját edzések és több napból álló edzéstervek
-  összeállíthatók az appon belül.
-- Beépített gyakorlat-könyvtár (~80+ gyakorlat), izomcsoportra szűrhető
+  összeállíthatók az appon belül; kész sablonok is választhatók.
+- Beépített gyakorlat-könyvtár (~160 gyakorlat), izomcsoportra szűrhető
   választóval.
+- Bemelegítő-szett javaslat: a munkasúlyból automatikus lépcsők +
+  oldalankénti tárcsakiosztás.
+- Gyakorlatonkénti „Technika videó" link (külső fülön nyílik).
 
 **Haladás**
-- Összegző számok: összes edzés, e havi, hetes sorozat, össztömeg.
-- Edzésnaptár-heatmap az utolsó 16 hétről.
-- Heti izomcsoport-terhelés: hány munkaszett jut ezen a héten mellre,
-  hátra, lábra stb.
+- Összegző számok: összes edzés, e havi, hetes sorozat, össztömeg; szint /
+  XP (streak-fókuszú).
+- Edzésnaptár-heatmap az utolsó 16 hétről; havi aktivitás; a legtöbbet
+  fejlődő gyakorlatok.
+- Heti **izomtérkép**: elöl+hátul figura, a terhelt izmok folytonos
+  hőskálával színezve, és a héten kimaradt izomcsoportok kiemelése.
 - Gyakorlatonkénti trend nagy grafikonnal, teljes előzménnyel és a
-  csúccsal (PR); váltható munkasúly és térfogat (súly×ismétlés) között.
-- Becsült 1RM gyakorlatonként.
+  csúccsal (PR); váltható munkasúly / térfogat / becsült 1RM között.
 
 **Edző-funkciók**
 - Okos súlyjavaslat: a túlteljesítés arányában nagyobbat lép; hosszabb
-  kihagyás után visszaépítést ajánl.
+  kihagyás után visszaépítést ajánl. Választható progressziós szabályok.
+- „Mit edzek ma?": a heti izomtérkép hiányait lefedő edzésnapot ajánlja.
 - Sérülés-mód: az érintett testtájak gyakorlatai kimaradnak, a többi súlya
   csökken.
 - Kétszintű jegyzet (állandó gyakorlat-jegyzet + aznapi) és
@@ -51,6 +64,13 @@ több eszköz közt szinkronizál.
   tárcsát kell felrakni oldalanként.
 - Heti összefoglaló: az elmúlt hét edzéseit olvasható szöveggé alakítja,
   amit el lehet küldeni egy (AI-)edzőnek.
+
+**Gyógytorna / mobilitás**
+- Külön oldal (a felső sáv állandó ikonjáról): testtájankénti
+  mobilitás-, nyújtó- és stabilizáló gyakorlatok technikai emlékeztetővel
+  és videó-linkkel – *referencia, nem orvosi tanács*.
+- Testtájankénti **5 perces vezetett rutin** egy koppintással (a tartásokat
+  óra méri); ez nem naplózódik, nem befolyásolja a statokat.
 
 **Fiók, szinkron és barátok** *(opcionális)*
 - E-mail + jelszavas **regisztráció és belépés** – pár másodperc, a fiók
@@ -113,6 +133,10 @@ oldal.
 - Deploy: GitHub Pages (a `main` minden pushnál automatikusan publikál a
   `.github/workflows/pages.yml` révén). A repóban lévő `netlify.toml`
   alternatív Netlify-deployt is lehetővé tesz.
+- Tesztek a `test/` alatt: `merge-test.html` (a felhő-összefésülés
+  regressziói, böngészőben), és `e2e.mjs` (Playwright – a teljes
+  felhasználói folyamat egy fejlécnélküli böngészőben). Részletek:
+  `test/README.md`.
 
 Saját felhő-szinkronhoz: futtasd le a `supabase/*.sql` sémákat egy Supabase
 projektben, majd másold a `supabase-config.example.js`-t
