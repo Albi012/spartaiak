@@ -395,7 +395,7 @@ let tab='home', playing=false, curEx=0, tInt=null, tEnd=0, tLen=0, wl=null, nagO
 let logFilter=null;   // Napló szűrő edzéstípusra (day id) – null = mind
 let physioRegion='';  // Gyógytorna oldal aktív testtáj (üres = első)
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v69';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v70';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -2630,7 +2630,7 @@ function openAuthSheet(){
       <span class="small dim">Időzítő értesítésben (háttérben)</span><br>
       <b>${(function(){try{return localStorage.getItem('gymlog_notify')==='1'}catch(e){return false}})()?'Bekapcsolva':'Kikapcsolva'}</b> <span class="dim">· ha kiváltasz az appból, a pihenő ideje értesítésben látszik</span></button>`;
   h+=`<button class="btn ghost" style="margin-top:14px;color:var(--mut)" onclick="openWelcome()">Bemutató megtekintése</button>`;
-  h+=`<div class="small dim" style="text-align:center;margin-top:14px">Verzió ${APP_VERSION}</div>`;
+  h+=`<div class="small dim" style="text-align:center;margin-top:14px">Verzió ${APP_VERSION} · <a href="privacy.html" target="_blank" rel="noopener" style="color:var(--mut)">Adatvédelem</a></div>`;
   document.getElementById('sheetIn').innerHTML=h;
   document.getElementById('sheet').classList.add('on');
   if(loggedIn && !myProfile){ loadProfile().then(()=>{ const s=document.getElementById('sheet');

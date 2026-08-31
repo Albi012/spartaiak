@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Edzésnapló – Adatvédelmi tájékoztató</title>
+<meta name="robots" content="index,follow">
+<style>
+  :root{ color-scheme: light dark;
+    --bg:#F4F2EC; --card:#fff; --ink:#20262D; --mut:#5C6772; --line:#e4e0d6; --brass:#A9740F; }
+  @media (prefers-color-scheme: dark){ :root{
+    --bg:#0F1317; --card:#161B21; --ink:#EAF0F5; --mut:#94A2B0; --line:#242B33; --brass:#E0A93E; } }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:'Barlow',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    line-height:1.6;padding:24px 16px}
+  .wrap{max-width:720px;margin:0 auto}
+  h1{font-size:28px;margin:0 0 4px}
+  h2{font-size:20px;margin:28px 0 8px}
+  h3{font-size:15px;margin:20px 0 6px;color:var(--brass);text-transform:uppercase;letter-spacing:.06em}
+  p,li{color:var(--ink)}
+  .mut{color:var(--mut)}
+  a{color:var(--brass)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-top:14px}
+  ul{padding-left:20px;margin:6px 0}
+  hr{border:0;border-top:1px solid var(--line);margin:36px 0}
+  code{background:rgba(128,128,128,.15);padding:1px 5px;border-radius:5px;font-size:.92em}
+  .updated{color:var(--mut);font-size:14px;margin-bottom:20px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Edzésnapló – Adatvédelmi tájékoztató</h1>
+  <p class="updated">Hatályos: 2026. augusztus 31.</p>
+
+  <div class="card">
+    <p><strong>Röviden:</strong> az Edzésnapló az edzésadataidat alapból
+    <strong>a saját eszközödön</strong> (a böngésző tárolójában) tartja. Nincs
+    benne reklám, követés vagy analitika, és semmit nem adunk el. A felhő-alapú
+    szinkron opcionális, és csak akkor lép működésbe, ha te magad bekapcsolod.</p>
+  </div>
+
+  <h2>1. Milyen adatot kezel az app, és hol tárolódik</h2>
+  <h3>Helyi tárolás (alapértelmezett)</h3>
+  <p>Az edzésadat (edzések, szettek, súlyok, jegyzetek, gépbeállítás-fotók,
+  beállítások) a böngésződ helyi tárolójában (<code>localStorage</code>) marad,
+  az eszközödön. Ezt az adatot alapból <strong>senki nem kapja meg</strong> –
+  nem hagyja el a készüléket. A fotók is helyben, a naplóban tárolódnak.</p>
+
+  <h3>Opcionális felhő-szinkron</h3>
+  <p>Ha bekapcsolod a felhő-fiókot (regisztráció e-mail + jelszó), az edzésadatod
+  és az e-mail-címed egy <a href="https://supabase.com">Supabase</a> alapú
+  háttérben tárolódik, hogy több eszköz közt szinkronizáljon, és barátokkal
+  megoszthass összegzőket/edzésterveket. Ez a funkció alapból ki van kapcsolva;
+  fiók nélkül minden csak lokálisan működik. A barátoknak megosztott összegző
+  nem tartalmaz jegyzetet, fotót vagy sérülés-adatot.</p>
+
+  <h2>2. Harmadik felek</h2>
+  <ul>
+    <li><strong>Betűtípusok:</strong> az app a Google Fonts-ról tölt betűket
+      (a Google megkaphatja az IP-címed a betű-kéréshez).</li>
+    <li><strong>Technika-videók:</strong> a „Technika videó" linkek a YouTube-ot
+      nyitják meg egy külső fülön – csak ha rákoppintasz. Ekkor a YouTube saját
+      adatvédelmi szabályzata érvényes.</li>
+    <li><strong>Felhő-szinkron (opcionális):</strong> a Supabase mint tárhely-
+      és hitelesítés-szolgáltató.</li>
+  </ul>
+  <p class="mut">Nincs reklámhálózat, nincs analitika, nincs harmadik feles
+  követés vagy adatértékesítés.</p>
+
+  <h2>3. Értesítések</h2>
+  <p>Az időzítő (pihenő) opcionálisan rendszer-értesítésben mutatja a hátralévő
+  időt. Ez csak a te engedélyeddel jelenik meg, kizárólag helyben keletkezik
+  (nem szerveres push), és bármikor kikapcsolható.</p>
+
+  <h2>4. Az adataid kezelése</h2>
+  <ul>
+    <li><strong>Export / mentés:</strong> a Napló fülről az egész napló
+      kimenthető és visszaállítható JSON-ként.</li>
+    <li><strong>Törlés:</strong> az edzések, saját gyakorlatok/edzések/tervek
+      az appban törölhetők; a helyi adat a böngésző tárolójának ürítésével
+      teljesen eltávolítható.</li>
+    <li><strong>Fiók (ha használod):</strong> kijelentkezhetsz; a fiók és a
+      felhőben tárolt adat törlését a kapcsolattartónál kezdeményezheted.</li>
+  </ul>
+
+  <h2>5. Gyermekek</h2>
+  <p>Az app nem gyermekeknek készült, és nem gyűjt tudatosan gyermekekre
+  vonatkozó adatot.</p>
+
+  <h2>6. Változások</h2>
+  <p>A tájékoztató módosulhat; a lényeges változásokat a fenti „Hatályos"
+  dátum frissítése jelzi.</p>
+
+  <h2>7. Kapcsolat</h2>
+  <p>Kérdés vagy adattörlési kérés esetén:
+  <strong>[ide a kapcsolattartó e-mail-cím]</strong>, vagy nyiss egy hibajegyet a
+  <a href="https://github.com/albi012/spartaiak/issues">projekt GitHub-oldalán</a>.</p>
+
+  <hr>
+
+  <h1>Edzésnapló – Privacy Policy</h1>
+  <p class="updated">Effective: 31 August 2026</p>
+
+  <div class="card">
+    <p><strong>In short:</strong> Edzésnapló keeps your workout data
+    <strong>on your own device</strong> (in the browser's storage) by default.
+    No ads, no tracking, no analytics, nothing is sold. Cloud sync is optional
+    and only runs if you turn it on.</p>
+  </div>
+
+  <h2>1. What data is processed, and where it is stored</h2>
+  <p><strong>Local (default):</strong> workout data (sessions, sets, weights,
+  notes, machine-setup photos, settings) is stored in your browser's
+  <code>localStorage</code> on your device and does not leave it. </p>
+  <p><strong>Optional cloud sync:</strong> if you enable a cloud account
+  (email + password), your workout data and email are stored on a
+  <a href="https://supabase.com">Supabase</a> backend to sync across devices and
+  to share summaries/plans with friends. This is off by default; without an
+  account everything stays local. Shared summaries contain no notes, photos, or
+  injury data.</p>
+
+  <h2>2. Third parties</h2>
+  <ul>
+    <li><strong>Fonts:</strong> loaded from Google Fonts (Google may receive
+      your IP for the font request).</li>
+    <li><strong>Technique videos:</strong> "Technika videó" links open YouTube
+      in an external tab, only if you tap them; YouTube's own policy then
+      applies.</li>
+    <li><strong>Cloud sync (optional):</strong> Supabase as storage/auth
+      provider.</li>
+  </ul>
+  <p class="mut">No ad networks, no analytics, no third-party tracking, no data
+  selling.</p>
+
+  <h2>3. Notifications</h2>
+  <p>The rest timer can optionally show the remaining time in a system
+  notification. It appears only with your permission, is generated locally
+  (not server push), and can be turned off anytime.</p>
+
+  <h2>4. Your controls</h2>
+  <ul>
+    <li><strong>Export:</strong> the whole log can be exported/restored as JSON
+      from the Log tab.</li>
+    <li><strong>Deletion:</strong> sessions and custom exercises/workouts/plans
+      can be deleted in the app; clearing the browser storage removes all local
+      data.</li>
+    <li><strong>Account (if used):</strong> you can sign out; request account
+      and cloud-data deletion via the contact below.</li>
+  </ul>
+
+  <h2>5. Children</h2>
+  <p>The app is not directed at children and does not knowingly collect data
+  from children.</p>
+
+  <h2>6. Changes</h2>
+  <p>This policy may change; material changes are indicated by updating the
+  "Effective" date above.</p>
+
+  <h2>7. Contact</h2>
+  <p>For questions or data-deletion requests:
+  <strong>[contact email here]</strong>, or open an issue on the
+  <a href="https://github.com/albi012/spartaiak/issues">project's GitHub page</a>.</p>
+
+</div>
+</body>
+</html>
