@@ -122,8 +122,14 @@ azonosítóként jelenik meg a felületen.
 ## Gyógytorna / mobilitás oldal
 
 Külön nézet (`physioView`, `tab==='physio'`, NEM a bottom-navban – a
-főoldali „Gyógytorna / mobilitás" gombról és a sérülés-mód kártyáról
-nyílik). A `REHAB` katalógus testtájankénti (`REGION_MG`: váll/hát/csípő/
+felső sáv **állandó gyógytorna-ikonjáról** (`physioBtn`), a főoldali
+gombról és a sérülés-mód kártyáról nyílik).
+**5 perces rutin testtájanként:** a `startPhysioRoutine(rid)` a meglévő
+lejátszót indítja egy `physio_<testtáj>` szintetikus napra (`dayDef`/`exDef`
+feloldja a `rh_` gyakorlatokat `physioExDef`-fel: 1 szett, testsúly, rövid
+váltás; a tartásokat a plank-óra méri). Ez **nem edzés**: a `finish()`
+`isPhysioActive()` esetén NEM naplóz (nem szennyezi a statokat/streaket),
+csak lezár. A lejátszóban physio-módban nincs súlyállító/eszközsáv. A `REHAB` katalógus testtájankénti (`REGION_MG`: váll/hát/csípő/
 térd/boka/törzs) mobilitás-, nyújtó- és stabilizáló gyakorlatok
 gyűjteménye – **referencia, nem orvosi tanács** (a lapon kötelező
 figyelmeztetés). Minden tétel: rövid `cue` + cél + „Videó" link

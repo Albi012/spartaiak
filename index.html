@@ -287,6 +287,7 @@ textarea:focus{outline:2px solid var(--brass);outline-offset:2px}
     <span class="brand-name">Edzésnapló</span>
   </span>
   <button id="accountBtn" class="iconbtn" onclick="openAuthSheet()" aria-label="Fiók / felhő-szinkron" title="Fiók / felhő-szinkron">☁</button>
+  <button id="physioBtn" class="iconbtn" onclick="openPhysio()" aria-label="Gyógytorna / mobilitás" title="Gyógytorna / mobilitás">✚</button>
   <button id="injuryBtn" class="iconbtn" onclick="openInjury()" aria-label="Sérülés-mód" title="Sérülés-mód">✚</button>
   <button id="themeBtn" class="iconbtn" aria-label="Téma váltása" title="Téma váltása">☾</button>
 </div></header>
@@ -378,6 +379,7 @@ const ICON={
   back:'<svg class="svgic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>',
   play:'<svg class="svgic" viewBox="0 0 24 24" fill="currentColor"><path d="M7 5v14l11-7z"/></svg>',
   video:_s+'<rect x="2.5" y="5.5" width="14" height="13" rx="2.5"/><path d="M16.5 9.5l5-3v11l-5-3z"/></svg>',
+  physio:_s+'<path d="M3 12h3l2-5 3 10 2-7 2 4h6"/></svg>',
   dumbbell:'<svg class="svgic" viewBox="0 0 24 24" fill="currentColor"><rect x="1.5" y="9" width="2.5" height="6" rx="1"/><rect x="4" y="6.8" width="2.4" height="10.4" rx="1"/><rect x="6.4" y="10.6" width="11.2" height="2.8" rx="1.2"/><rect x="17.6" y="6.8" width="2.4" height="10.4" rx="1"/><rect x="20" y="9" width="2.5" height="6" rx="1"/></svg>',
   list:_s+'<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>',
   chart:_s+'<path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>',
@@ -393,7 +395,7 @@ let tab='home', playing=false, curEx=0, tInt=null, tEnd=0, tLen=0, wl=null, nagO
 let logFilter=null;   // Napló szűrő edzéstípusra (day id) – null = mind
 let physioRegion='';  // Gyógytorna oldal aktív testtáj (üres = első)
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v67';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v68';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -711,16 +713,28 @@ function videoUrl(e){
   const q=encodeURIComponent(((e&&e.n)||'')+' helyes technika gyakorlat');
   return 'https://www.youtube.com/results?search_query='+q;
 }
+// Gyógytorna-gyakorlat feloldása gyakorlat-defként (a mobilitás rutinhoz).
+// 1 szett, a REHAB célból származtatott ismétlés/tartás, testsúly, rövid
+// váltás-pihenő. Nem naplózandó „edzés" – csak a lejátszóhoz.
+function physioExDef(id){
+  for(const reg of REHAB){ const e=reg.ex.find(x=>x.id===id); if(!e) continue;
+    const parts=String(e.r).split('×'); const reps=(parts[1]||parts[0]||'10').trim();
+    return {id:e.id, n:e.n, mg:REGION_MG[reg.id]||'törzs', s:1, r:reps, w:0, rest:20, inc:2.5, bw:1, ...(e.time?{time:1}:{})}; }
+  return null;
+}
 function exDef(id){ for(const d of PLAN) for(const e of d.ex) if(e.id===id) return e;
   if(S.customEx && S.customEx[id]) return S.customEx[id];
   if(LIB[id]) return LIB[id];
+  if(id && id.indexOf('rh_')===0){ const p=physioExDef(id); if(p) return p; }
   return ARCHIVE[id] || {id:id,n:id,s:3,r:'10',w:0,rest:90,inc:2.5}; }
-// Nap (edzés) feloldása: beépített PLAN VAGY saját routine. A visszaadott
-// alak {id,name,sub,ex:[def,…]} – a hívók egységesen ezt használják.
+// Nap (edzés) feloldása: beépített PLAN VAGY saját routine VAGY gyógytorna-
+// rutin (physio_<testtáj>). A visszaadott alak {id,name,sub,ex:[def,…]}.
 function dayDef(id){
   const p=PLAN.find(d=>d.id===id); if(p) return p;
   const r=(S.routines||[]).find(x=>x.id===id);
   if(r) return {id:r.id, name:r.name, sub:r.sub||'', custom:true, ex:r.ex.map(exDef), ssLinks:(r.ssLinks||[]).slice()};
+  if(id && id.indexOf('physio_')===0){ const reg=REHAB.find(x=>x.id===id.slice(7));
+    if(reg) return {id, name:'Mobilitás – '+reg.name, sub:'5 perces rutin', custom:true, physio:1, ex:reg.ex.map(e=>physioExDef(e.id))}; }
   return null;
 }
 // Superset-csoportok származtatása: az `ssLinks`-ben szereplő gyakorlat-ID
@@ -1030,6 +1044,8 @@ function physioView(){
     <div class="whyrow" style="flex-wrap:wrap;margin:12px 0 8px">`+
     REHAB.map(r=>`<button class="whyc ${r.id===reg.id?'on':''}" onclick="setPhysioRegion('${r.id}')">${esc(r.name)}</button>`).join('')
     +`</div>`;
+  h+=`<button class="btn pri" style="margin:0 0 12px;display:flex;align-items:center;justify-content:center;gap:8px" onclick="startPhysioRoutine('${reg.id}')">${ICON.play} 5 perces rutin – ${esc(reg.name)}</button>
+    <p class="small dim" style="margin:-4px 2px 12px">Vezetett kör: minden gyakorlat 1 sor, rövid váltással; a tartásokat óra méri. Nem kerül a naplóba.</p>`;
   reg.ex.forEach(e=>{
     h+=`<div class="card"><div class="pad">
       <div class="row" style="align-items:baseline"><span class="cond grow" style="font-size:18px;font-weight:600">${esc(e.n)}</span>
@@ -1123,6 +1139,16 @@ async function startDay(id){
   if(groups.length) S.active.ss=groups;
   curEx=0; playing=true; save(); render(); window.scrollTo(0,0);
 }
+// 5 perces mobilitás rutin indítása (testtájra). A lejátszót használja, de
+// befejezéskor NEM naplózódik (nem edzés) – lásd finish().
+async function startPhysioRoutine(rid){
+  if(S.active && !(await uiConfirm('Van egy folyamatban lévő edzés. Eldobod és a mobilitás rutint kezded?', {ok:'Rutin indítása', danger:true}))) return;
+  const d=dayDef('physio_'+rid); if(!d) return;
+  S.active={day:d.id, t:Date.now(), log:{}, dayName:d.name}; S.activeT=Date.now();
+  d.ex.forEach(e=>{ S.active.log[e.id]={w:0, sets:new Array(e.s).fill(null)}; });
+  curEx=0; playing=true; save(); render(); window.scrollTo(0,0);
+}
+function isPhysioActive(){ return !!(S.active && String(S.active.day).indexOf('physio_')===0); }
 function resumePlayer(){ if(S.active){ playing=true; render(); window.scrollTo(0,0); } }
 function pausePlayer(){ playing=false; tab='home'; stopTimer(); render(); window.scrollTo(0,0); }
 async function discardActive(){ if(await uiConfirm('Biztos eldobod ezt az edzést?', {ok:'Eldobás', danger:true})){ S.active=null; S.activeT=Date.now(); playing=false; stopTimer(); tab='home'; save(); render(); window.scrollTo(0,0); } }
@@ -1476,8 +1502,9 @@ function playerView(){
     chips+=`<button class="chip ${cls}" onclick="openSet('${e.id}',${i})">
       <span class="r">${v==null?'·':v}</span><span class="l">${i+1}. sz</span></button>`; });
 
+  const physioMode=isPhysioActive();   // mobilitás: nincs súlyállító/eszköz
   let wt='';
-  if(!e.time){ const vc=!e.bw?` onclick="openPlateCalc(${L.w})" style="cursor:pointer" title="Tárcsák"`:'';
+  if(!e.time && !physioMode){ const vc=!e.bw?` onclick="openPlateCalc(${L.w})" style="cursor:pointer" title="Tárcsák"`:'';
     wt=`<div class="wt">
     <button onclick="bump('${e.id}',-1)" aria-label="kevesebb">−</button>
     <div class="val"${vc}>${wLabel(e,L.w)}${e.bw&&L.w<=0?'':'<span>kg</span>'}</div>
@@ -1485,7 +1512,7 @@ function playerView(){
 
   // Egyértelmű, mindig látható eszköz-gombok: tárcsa-kalkulátor + progresszió.
   let tools='';
-  if(!e.time){
+  if(!e.time && !physioMode){
     const t=[];
     if(!e.bw) t.push(`<button class="tool" onclick="openWarmup('${e.id}')">Bemelegítés</button>`);
     if(!e.bw) t.push(`<button class="tool" onclick="openPlateCalc(${L.w})">${ICON.dumbbell} Tárcsák</button>`);
@@ -1714,6 +1741,11 @@ document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==
   && document.getElementById('rest').classList.contains('on') && Date.now()<tEnd) acquireWake(); });
 
 function finish(){
+  // Mobilitás rutin: nem naplózódik (nem edzés), csak lezárul.
+  if(isPhysioActive()){
+    S.active=null; S.activeT=Date.now(); playing=false; stopTimer(); tab='home'; save();
+    render(); window.scrollTo(0,0); uiAlert('Mobilitás rutin kész – szép munka!'); return;
+  }
   const any=Object.values(S.active.log).some(l=>l.sets.some(x=>x!=null));
   if(!any){ uiAlert('Egyetlen szettet sem rögzítettél.'); return; }
   const done=S.active; done.end=Date.now();   // időtartamhoz (additív; régi edzésen hiányzik)
@@ -2790,6 +2822,7 @@ function paintIcons(){
   const set=(sel,svg)=>{ const el=document.querySelector(sel); if(el) el.innerHTML=svg; };
   set('#accountBtn', ICON.account);
   set('#injuryBtn', ICON.injury);
+  set('#physioBtn', ICON.physio);
   const navIcon={home:ICON.dumbbell, plans:ICON.plans, log:ICON.list, prog:ICON.chart, friends:ICON.friends};
   document.querySelectorAll('.nav button').forEach(btn=>{ const ic=btn.querySelector('.ic'); if(ic)
     ic.innerHTML = navIcon[btn.dataset.tab] || ICON.chart; });

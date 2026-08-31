@@ -172,6 +172,14 @@ const cxB=await page.evaluate(()=>Object.keys(S.customEx||{}).length);
 await page.evaluate(()=>addRehabAsCustom('core','rh_plank2')); await wait(150);
 ok('9 felvétel gyakorlatként → customEx', await page.evaluate(()=>Object.keys(S.customEx||{}).length)===cxB+1);
 ok('9 az új customEx time-alapú', await page.evaluate(()=>{ const k=Object.keys(S.customEx); return !!S.customEx[k[k.length-1]].time; }));
+// 5 perces mobilitás rutin: indul, physio nap, finish NEM naplóz
+await page.evaluate(()=>{ window.uiConfirm=()=>Promise.resolve(true); startPhysioRoutine('shoulder'); }); await wait(250);
+ok('9 mobilitás rutin indul (physio nap)', await page.evaluate(()=>playing && S.active && S.active.day==='physio_shoulder' && Object.keys(S.active.log).length===5 && (dayDef(S.active.day)||{}).physio));
+ok('9 physio módban nincs súlyállító', await page.evaluate(()=>!document.querySelector('.player .wt')));
+const physSessB=await page.evaluate(()=>S.sessions.length);
+await page.evaluate(()=>finish()); await wait(200);
+ok('9 finish NEM naplóz (nem edzés)', await page.evaluate(()=>S.active===null && S.sessions.length)===physSessB);
+ok('9 appbar gyógytorna-gomb', await page.evaluate(()=>!!document.querySelector('#physioBtn')));
 
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
