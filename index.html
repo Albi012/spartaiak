@@ -335,34 +335,34 @@ textarea:focus{outline:2px solid var(--brass);outline-offset:2px}
 <script>
 const PLAN = [
  {id:'pa',name:'Push A',sub:'Mell · váll · tricepsz',ex:[
-  {id:'bench',n:'Fekvenyomás',s:4,r:'5',w:70,rest:180,inc:2.5,mg:'mell'},
+  {id:'bench',n:'Fekvenyomás',s:4,r:'5',w:20,rest:180,inc:2.5,mg:'mell'},
   {id:'dip',n:'Tolódzkodás',s:4,r:'8',w:0,rest:150,inc:2.5,bw:1,mg:'mell'},
-  {id:'incdb',n:'Ferdepad nyomás (kézisúlyzó)',s:3,r:'8',w:22.5,rest:120,inc:2.5,mg:'mell'},
-  {id:'ohpdb',n:'Vállból nyomás ülve',s:3,r:'10',w:20,rest:120,inc:2.5,mg:'váll'},
-  {id:'lat',n:'Oldalemelés',s:3,r:'15',w:8,rest:60,inc:1,mg:'váll'},
-  {id:'push',n:'Tricepsz kötél lehúzás',s:3,r:'12',w:25,rest:60,inc:2.5,mg:'tricepsz'},
+  {id:'incdb',n:'Ferdepad nyomás (kézisúlyzó)',s:3,r:'8',w:10,rest:120,inc:2.5,mg:'mell'},
+  {id:'ohpdb',n:'Vállból nyomás ülve',s:3,r:'10',w:8,rest:120,inc:2.5,mg:'váll'},
+  {id:'lat',n:'Oldalemelés',s:3,r:'15',w:5,rest:60,inc:1,mg:'váll'},
+  {id:'push',n:'Tricepsz kötél lehúzás',s:3,r:'12',w:15,rest:60,inc:2.5,mg:'tricepsz'},
   {id:'hipabd',n:'Oldalfekvő csípőtávolítás',s:3,r:'20',w:0,rest:45,inc:2.5,bw:1,mg:'láb'}]},
  {id:'la',name:'Pull A',sub:'Hát · bicepsz',ex:[
   {id:'pull',n:'Húzódzkodás',s:4,r:'8',w:0,rest:180,inc:2.5,bw:1,mg:'hát'},
-  {id:'row',n:'Hasalva kézisúlyzós evezés',s:4,r:'10',w:27.5,rest:150,inc:2.5,mg:'hát'},
-  {id:'cable',n:'Ülő kábelevezés',s:3,r:'10',w:65,rest:90,inc:5,mg:'hát'},
-  {id:'face',n:'Arcvonó (face pull)',s:3,r:'15',w:45,rest:60,inc:2.5,mg:'váll'},
-  {id:'curl',n:'Bicepsz hajlítás',s:3,r:'10',w:12.5,rest:60,inc:2.5,mg:'bicepsz'},
-  {id:'hammer',n:'Kalapácshajlítás (csigán)',s:3,r:'12',w:30,rest:60,inc:2.5,mg:'bicepsz'},
+  {id:'row',n:'Hasalva kézisúlyzós evezés',s:4,r:'10',w:12,rest:150,inc:2.5,mg:'hát'},
+  {id:'cable',n:'Ülő kábelevezés',s:3,r:'10',w:25,rest:90,inc:5,mg:'hát'},
+  {id:'face',n:'Arcvonó (face pull)',s:3,r:'15',w:15,rest:60,inc:2.5,mg:'váll'},
+  {id:'curl',n:'Bicepsz hajlítás',s:3,r:'10',w:8,rest:60,inc:2.5,mg:'bicepsz'},
+  {id:'hammer',n:'Kalapácshajlítás (csigán)',s:3,r:'12',w:8,rest:60,inc:2.5,mg:'bicepsz'},
   {id:'hipabd',n:'Oldalfekvő csípőtávolítás',s:3,r:'20',w:0,rest:45,inc:2.5,bw:1,mg:'láb'}]},
  {id:'pb',name:'Push B',sub:'Váll · mell · törzs',ex:[
-  {id:'ohp',n:'Ülő rúdas vállból nyomás',s:4,r:'5',w:45,rest:180,inc:2.5,mg:'váll'},
-  {id:'dbbench',n:'Fekvenyomás kézisúlyzóval',s:4,r:'8',w:25,rest:150,inc:2.5,mg:'mell'},
+  {id:'ohp',n:'Ülő rúdas vállból nyomás',s:4,r:'5',w:20,rest:180,inc:2.5,mg:'váll'},
+  {id:'dbbench',n:'Fekvenyomás kézisúlyzóval',s:4,r:'8',w:12,rest:150,inc:2.5,mg:'mell'},
   {id:'dipbw',n:'Tolódzkodás (testsúly)',s:3,r:'8',w:0,rest:120,inc:2.5,bw:1,mg:'mell'},
-  {id:'machinc',n:'Ferdepad Smith-gépben',s:3,r:'10',w:40,rest:120,inc:2.5,mg:'mell'},
-  {id:'french',n:'Tricepsz lehúzás rúddal (csiga)',s:3,r:'12',w:40,rest:60,inc:2.5,mg:'tricepsz'},
-  {id:'plank',n:'Plank',s:3,r:'50 mp',w:10,rest:45,inc:2.5,bw:1,time:1,mg:'törzs'}]},
+  {id:'machinc',n:'Ferdepad Smith-gépben',s:3,r:'10',w:20,rest:120,inc:2.5,mg:'mell'},
+  {id:'french',n:'Tricepsz lehúzás rúddal (csiga)',s:3,r:'12',w:15,rest:60,inc:2.5,mg:'tricepsz'},
+  {id:'plank',n:'Plank',s:3,r:'50 mp',w:0,rest:45,inc:2.5,bw:1,time:1,mg:'törzs'}]},
  {id:'lb',name:'Pull B',sub:'Hát · hátsó lánc',ex:[
-  {id:'tbar',n:'Hasalva kézisúlyzós evezés',s:4,r:'6',w:27.5,rest:150,inc:2.5,mg:'hát'},
-  {id:'wide',n:'Széles fogású lehúzás',s:4,r:'8',w:50,rest:120,inc:5,mg:'hát'},
-  {id:'onerow',n:'Egykezes kézisúlyzó evezés',s:3,r:'10',w:27.5,rest:90,inc:2.5,mg:'hát'},
+  {id:'tbar',n:'Hasalva kézisúlyzós evezés',s:4,r:'6',w:12,rest:150,inc:2.5,mg:'hát'},
+  {id:'wide',n:'Széles fogású lehúzás',s:4,r:'8',w:25,rest:120,inc:5,mg:'hát'},
+  {id:'onerow',n:'Egykezes kézisúlyzó evezés',s:3,r:'10',w:12,rest:90,inc:2.5,mg:'hát'},
   {id:'legcurl',n:'Combhajlítás fekve',s:4,r:'12',w:15,rest:120,inc:5,mg:'láb'},
-  {id:'rear',n:'Hátsó vállemelés',s:3,r:'15',w:8,rest:60,inc:1,mg:'váll'},
+  {id:'rear',n:'Hátsó vállemelés',s:3,r:'15',w:5,rest:60,inc:1,mg:'váll'},
   {id:'knee',n:'Hanging knee raise',s:3,r:'12',w:0,rest:60,inc:2.5,bw:1,mg:'törzs'}]}
 ];
 const MGS=['mell','hát','váll','tricepsz','bicepsz','láb','törzs'];
@@ -395,7 +395,7 @@ let tab='home', playing=false, curEx=0, tInt=null, tEnd=0, tLen=0, wl=null, nagO
 let logFilter=null;   // Napló szűrő edzéstípusra (day id) – null = mind
 let physioRegion='';  // Gyógytorna oldal aktív testtáj (üres = első)
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v70';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v71';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';

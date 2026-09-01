@@ -81,6 +81,14 @@ alapértéket kapnak; a `save()`/`backup()`/`restore()` viszi őket):
 arányában nagyobbat lép (nem fix +inc). Kihagyás (>10 nap) esetén a
 `startDay` visszalépést (−15%) ajánl.
 
+**A PLAN alapértelmezett `w` súlyai semleges, kezdő szintűek** – ezt egy
+üres naplójú, új felhasználó látja első indításkor. A tulajdonos SAJÁT
+számai ettől függetlenek: a `startW(id)` először a böngészőben tárolt
+`weights[id]`-t (progresszióval korrigálva) használja, és csak history
+nélküli gyakorlatnál esik vissza a PLAN `w`-re. Ezért a PLAN `w`
+csökkentése a régi felhasználónak láthatatlan, csak a friss kezdőnek ad
+biztonságos kiindulást. A `w` szabadon hangolható (NEM azonosító).
+
 **Progressziós programok (`prog`):** választható, gyakorlatonkénti
 szabály, hogy a súly hogyan lépjen a következő edzésre. Kulcsolt, additív
 mező: `prog[exId] = 'linear'|'greyskull'|'double'|'off'` (a `'smart'` =
