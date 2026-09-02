@@ -228,11 +228,15 @@ indításkor jön (üres napló + nincs jelző); a fiók-lapról bármikor
 **Beállítás-kulcsok** (mind FÜGGETLEN a `gymlog_v1`-től): `gymlog_mute`
 (`'1'` = pihenő-hang ki), `gymlog_notify` (`'1'` = időzítő rendszer-
 értesítésben). Utóbbi: a `tick()`/`stTick()` háttérben (`document.hidden`)
-a hátralévő időt némán frissülő értesítésbe (`timerNotif`, SW
-`showNotification`, `rest`/`hold` tag) írja, a végén egy hangos „letelt"
-értesítést ad; visszatéréskor/leállításkor `clearNotif` törli. Best-effort
-(a böngésző háttérben throttle-olhatja a JS-t), **nem szerveres push**;
-engedélyt a `toggleNotify` kér a profil-lapon.
+háttérváltásonként **EGYSZER**, némán posztol egy „folyamatban" értesítést
+(`timerNotif`, SW `showNotification`, `rest`/`hold` tag) – NEM
+másodpercenként, mert az újraposzt a lezárt telefonon minden alkalommal
+felébreszti a képernyőt. A `_restNotifShown`/`_holdNotifShown` zászló
+biztosítja az egyszeriséget; visszatéréskor / új időzítőnél / leállításkor
+nullázódik. A végén egy hangos „letelt" értesítés jön;
+visszatéréskor/leállításkor `clearNotif` törli. Best-effort (a böngésző
+háttérben throttle-olhatja a JS-t), **nem szerveres push**; engedélyt a
+`toggleNotify` kér a profil-lapon.
 
 **Felhő-szinkron – veszteségmentes összefésülés:** belépve a felhő nem
 felülír, hanem UNIÓT képez a helyi naplóval (`Auth.mergeGym` az
