@@ -97,6 +97,14 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--brass);out
 .pill{display:inline-block;font-size:11px;letter-spacing:.09em;font-weight:700;color:var(--on-brass);
   background:var(--brass);padding:2px 8px;border-radius:999px;vertical-align:middle;margin-left:6px}
 
+/* Kör-progress a Folytatás kártyán (mai készültség) */
+.miniring{position:relative;width:46px;height:46px;flex:none}
+.miniring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.miniring .mr-bg{fill:none;stroke:var(--card2);stroke-width:4}
+.miniring .mr-fg{fill:none;stroke:var(--brass);stroke-width:4;stroke-linecap:round;transition:stroke-dashoffset .35s ease}
+.miniring .mr-ic{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--brass)}
+.miniring .mr-ic .svgic{width:20px;height:20px}
+
 /* Szett-chipek */
 .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 .chip{width:56px;height:56px;border-radius:14px;background:var(--card2);border:1px solid var(--line);
@@ -417,7 +425,7 @@ let tab='home', playing=false, curEx=0, tInt=null, tEnd=0, tLen=0, wl=null, nagO
 let logFilter=null;   // Napló szűrő edzéstípusra (day id) – null = mind
 let physioRegion='';  // Gyógytorna oldal aktív testtáj (üres = első)
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v73';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v74';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -990,8 +998,15 @@ function homeView(){
     const d=dayDef(S.active.day) || {name:S.active.dayName||'Edzés', ex:[]};
     const exN=d.ex.filter(e=>S.active.log[e.id]).length;
     const doneN=d.ex.filter(e=>exDone(e,S.active.log[e.id])).length;
+    const frac=exN?doneN/exN:0, R=19, C=2*Math.PI*R, off=(C*(1-frac)).toFixed(1);
+    const pct=Math.round(frac*100);
     h+=`<div class="card" style="border-color:var(--brass)"><button class="daybtn" onclick="resumePlayer()">
-      <span class="daytag" style="color:var(--brass)">${ICON.play}</span>
+      <span class="miniring" role="img" aria-label="${pct}% kész">
+        <svg viewBox="0 0 46 46" aria-hidden="true">
+          <circle class="mr-bg" cx="23" cy="23" r="${R}"></circle>
+          <circle class="mr-fg" cx="23" cy="23" r="${R}" style="stroke-dasharray:${C.toFixed(1)};stroke-dashoffset:${off}"></circle>
+        </svg>
+        <span class="mr-ic">${ICON.play}</span></span>
       <span class="grow"><span class="cond" style="font-size:21px;font-weight:600;display:block">Folytatás – ${esc(d.name)}</span>
       <span class="small dim">${doneN}/${exN} gyakorlat kész</span></span>
       <span style="color:var(--brass);font-size:22px">›</span></button></div>`;
