@@ -188,6 +188,27 @@ A felület ikonjai **monokróm inline SVG-k** (`ICON` objektum,
 válnak platformonként színes emojivá. Új ikon is így kerüljön be; a
 statikus gombok/nav ikonjait a `paintIcons()` tölti be induláskor.
 
+## Mikro-interakciók
+
+Kis, teremben is érezhető visszajelzések – mind `prefers-reduced-motion`
+alatt kikapcsol (`reducedMotion()`), a haptika opcionális (`navigator.vibrate`):
+
+- **Szett-rögzítés:** rövid rezgés (`vibrate(12)`) + a frissen felvett
+  chip pipa-pulzusa (`justSet` → a `render` a `.chip[data-i]`-re teszi a
+  `.pop` osztályt egyszer). Az idő-alapú gyakorlat (`finishTimerSet`) is a
+  `setRep`-en megy át, így ugyanezt kapja.
+- **Nézetváltás:** a `render` csak akkor csomagolja `document.startViewTransition`-be
+  a festést, ha a **nézet-kulcs** (`_viewKey` = fül / player / szerkesztő)
+  ténylegesen változott – az in-view frissítések (súlyállítás, mentés) NEM
+  animálnak. Az `#app` `view-transition-name:appview`, a régi/új
+  cross-fade + kis emelkedés.
+- **Count-up:** a nagy stat-számok (`[data-cu]`) 0-ról a valós értékre
+  pörögnek fel belépéskor (`runCountUps`, csak nézetváltáskor fut, nem
+  minden `render`-nél).
+- **Húzható alsó lap:** a `#sheetIn`-en lefelé húzva (felül állva,
+  `scrollTop<=0`) bezárul; a `.sheet.drag` alatt nincs belépő-anim, a
+  `.sheet.snap` a visszapattanás. A háttérre koppintás továbbra is zár.
+
 ## Tárolás
 
 `window.storage`-ot próbál először (ez csak Claude-artifactként fut),
