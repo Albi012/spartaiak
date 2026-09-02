@@ -3,6 +3,9 @@ node_modules/
 .netlify/
 *.log
 
+# Design-vászon munkafájlok (a kész terv publikált Artifactként él, nem a repóban)
+.design-*/
+
 # Titkok – soha ne kerüljenek a repóba.
 # Megjegyzés: a supabase-config.js CSAK a publikálható (böngésző-biztos)
 # kulcsot tartalmazza, ezért az szándékosan a repóban van (RLS védi az adatot).
