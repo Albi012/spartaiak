@@ -58,6 +58,14 @@ alapértéket kapnak; a `save()`/`backup()`/`restore()` viszi őket):
   súlya −15%. `null` = kikapcsolva.
 - `lastBackup` – az utolsó biztonsági mentés ideje; ebből jön a havi
   mentés-emlékeztető.
+- `bw` – **napi testsúly-napló**: `{ 'YYYY-MM-DD': kg }` alak, naponta egy
+  érték (felülírható). Additív, FÜGGETLEN az edzésadattól – a `startW`-t /
+  progressziót NEM érinti. Edzés nélküli napon is rögzíthető: a főoldalon
+  állandó „Napi testsúly" kártya (`bwHomeCard`) nyitja a lapot (`openBwSheet`
+  → stepper ±0,1/±0,5/±1, trend-grafikon `bwChart`, utolsó napok listája;
+  a lista sorára koppintva az adott nap szerkeszthető). A felhő-szinkron
+  per-kulcs (dátum) unióban viszi (`auth.js` `bw` mező); törlés nincs, csak
+  felülírás, így tombstone sem kell. `bwKey(t)` a helyi dátumkulcs.
 - Session-szinten: `note` (aznapi jegyzet), `deload` (kihagyás utáni
   visszaépítés jelző), `end` (befejezés időbélyege – az időtartamhoz;
   additív, régi edzésen hiányzik, olyankor nincs időtartam). Log-szinten:

@@ -123,7 +123,7 @@
     // Kulcsolt mezők: unió (per-kulcs az újabb nyer, a régi kulcsok maradnak).
     // A síremlékkel jelölt kulcsokat (pl. törölt saját gyakorlat cx_… és a
     // hozzá tartozó súly/jegyzet/fotó/progr.) kizárjuk.
-    ['weights','notes','photos','customEx','prog'].forEach(f=>{
+    ['weights','notes','photos','customEx','prog','bw'].forEach(f=>{
       if(a[f]||b[f]){ const merged = Object.assign({}, older[f]||{}, newer[f]||{});
         Object.keys(merged).forEach(k=>{ if(tomb.has(k)) delete merged[k]; });
         out[f] = merged; }

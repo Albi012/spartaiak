@@ -183,6 +183,14 @@ ok('9 appbar gyógytorna-gomb', await page.evaluate(()=>!!document.querySelector
 // Időzítő-értesítés: alapból ki, engedély nélkül a timerNotif biztonságos no-op
 ok('9 értesítés alapból ki + biztonságos', await page.evaluate(async ()=>{ const off=!notifyEnabled(); let threw=false; try{ await timerNotif('x','y','rest',true); await clearNotif('rest'); }catch(e){ threw=true; } return off && !threw; }));
 
+// 10. Napi testsúly-napló
+await page.evaluate(()=>{ tab='home'; render(); });
+ok('10 testsúly kártya a főoldalon', await page.evaluate(()=>document.getElementById('app').textContent.includes('testsúly')||document.getElementById('app').textContent.includes('Testsúly')));
+ok('10 rögzítés ma + mentés', await page.evaluate(()=>{ openBwSheet(); const start=bwDraft; bwStep(0.5); bwStep(0.5); bwSave();
+  const k=bwKey(Date.now()); return Math.abs(S.bw[k]-(start+1))<0.001; }));
+ok('10 felülírás nem szaporít napot', await page.evaluate(()=>{ const n1=Object.keys(S.bw).length; openBwSheet(); bwStep(-0.3); bwSave(); return Object.keys(S.bw).length===n1; }));
+ok('10 bw a mentett JSON-ban', await page.evaluate(async ()=>{ const raw=await readKey('gymlog_v1'); return raw.includes('"bw"'); }));
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));
