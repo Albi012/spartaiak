@@ -209,9 +209,16 @@ edzőtől kapott edzéstervet alakít saját edzéssé/tervvé. **NEM hív LLM-e
 (offline, kulcs nélkül) és **NEM írja felül** a meglévő tervet – additív,
 biztonságos import:
 
-- A lap ad egy másolható **prompt-sablont** (`AI_PROMPT_TEMPLATE`), ami az
-  AI-t a parseolható formátumra tereli: `NAP: <név>` sorok, alattuk
-  `- <gyakorlat> | <s>x<r> | <súly/testsúly> | <pihenő>`.
+- A lap egy **személyre szabott, másolható promptot** ad (`buildAiPrompt`),
+  ami a naplóból összeállított „rólam" kontextussal indul (`aiUserContext`:
+  jelenlegi terv, edzésgyakoriság, fő munkasúlyok, 28-napos izomcsoport-
+  egyensúly az `aiMgBalance`-ból + elhanyagolt csoportok, testsúly-trend,
+  átlagos alvás, sérülés-mód), majd kitöltendő célok (cél / heti edzésszám
+  / felszerelés / tapasztalat), végül a KÖTÖTT kimeneti formátum
+  (`AI_FORMAT_BLOCK`: `NAP: <név>` sorok, alattuk
+  `- <gyakorlat> | <s>x<r> | <súly/testsúly> | <pihenő>`). A kontextus csak
+  származtatott összefoglaló (nincs nyers napló-export). Az
+  `AI_FORMAT_BLOCK` alakját ne változtasd az `aiParsePlan` igazítása nélkül.
 - `aiParsePlan(text)` toleráns parser (pipe-formátum ÉS szabad szöveg is);
   soha nem dob. `aiParseExLine` a sor-értelmező.
 - `aiMatchEx(name)` a beírt nevet az `exLibrary()`-hez párosítja (token-

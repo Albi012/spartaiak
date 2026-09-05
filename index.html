@@ -427,7 +427,7 @@ let tab='home', playing=false, curEx=0, tInt=null, tEnd=0, tLen=0, wl=null, nagO
 let logFilter=null;   // Napló szűrő edzéstípusra (day id) – null = mind
 let physioRegion='';  // Gyógytorna oldal aktív testtáj (üres = első)
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v77';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v78';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -1302,8 +1302,10 @@ async function addStarterProgram(i){
  * (offline, kulcs nélkül), és NEM írja felül a meglévő tervet – additív:
  * a meglévő gyakorlatneveket a könyvtárhoz párosítja (így a súlytörténet
  * összekapcsolódik), az ismeretlenekből saját gyakorlatot (cx_) készít. */
-const AI_PROMPT_TEMPLATE =
-`Készíts nekem egy edzéstervet. A választ PONTOSAN ebben a formátumban add, és semmi mást ne írj köré:
+// A kimeneti formátum – az importőr ezt tudja parseolni. NE változtasd az
+// alakját anélkül, hogy az aiParsePlan-t is igazítanád.
+const AI_FORMAT_BLOCK =
+`A választ PONTOSAN ebben a formátumban add, és semmi mást ne írj köré:
 
 NAP: <nap neve>
 - <gyakorlat magyar neve> | <szettek>x<ismétlés> | <súly kg vagy: testsúly> | <pihenő mp>
@@ -1317,7 +1319,56 @@ NAP: Push A
 - Tolódzkodás | 4x8 | testsúly | 150
 - Oldalemelés | 3x15 | 8 | 60
 
-Magyar gyakorlatneveket használj, a súlyt kg-ban, a pihenőt másodpercben.`;
+Magyar gyakorlatneveket használj (lehetőleg ismert, elterjedt neveket), a súlyt kg-ban, a pihenőt másodpercben.`;
+
+// Izomcsoport-terhelés az elmúlt 28 napban (szett/izomcsoport).
+function aiMgBalance(){ const now=Date.now(), acc={};
+  (S.sessions||[]).forEach(s=>{ if(now-s.t>28*864e5) return;
+    Object.keys(s.log||{}).forEach(id=>{ const n=(s.log[id].sets||[]).filter(x=>x!=null).length; if(!n) return;
+      const mg=exDef(id).mg||'egyéb'; acc[mg]=(acc[mg]||0)+n; }); });
+  return acc; }
+
+// A naplóból összeállított „rólam" tények – hogy az AI SZEMÉLYRE SZABOTT
+// tervet írjon. Csak származtatott összefoglaló (nincs nyers napló-export).
+function aiUserContext(){
+  const L=[], now=Date.now();
+  const act=activeProg();
+  if(act){ const days=act.days.map(d=>{const dd=dayDef(d);return dd?dd.name:null;}).filter(Boolean).join(', ');
+    L.push(`Jelenlegi terv: ${act.name}${days?' ('+days+')':''}.`); }
+  if((S.sessions||[]).length){ const recent=S.sessions.filter(s=>now-s.t<28*864e5).length;
+    L.push(`Edzések az elmúlt 4 hétben: ${recent} (összesen ${S.sessions.length}).`); }
+  const ws=Object.keys(S.weights||{}).filter(id=>S.weights[id]>0)
+    .map(id=>({n:exDef(id).n, w:S.weights[id]})).sort((a,b)=>b.w-a.w).slice(0,8);
+  if(ws.length) L.push('Jelenlegi munkasúlyok: '+ws.map(x=>`${x.n} ${x.w} kg`).join(', ')+'.');
+  const mg=aiMgBalance(), keys=Object.keys(mg);
+  if(keys.length){ const sorted=keys.sort((a,b)=>mg[b]-mg[a]);
+    const under=MGS.filter(m=>!mg[m]);
+    L.push('Izomcsoport-terhelés (28 nap, szett): '+sorted.map(m=>`${m} ${mg[m]}`).join(', ')+'.'
+      +(under.length?` Elhanyagolt: ${under.join(', ')}.`:'')); }
+  const bl=bwLast(); if(bl){ const e=bwEntries(); let trend='';
+    if(e.length>=3){ const d=Math.round((bl.kg-e[Math.max(0,e.length-8)].kg)*10)/10; trend=d?` (${d>0?'+':''}${bwNum(d)} kg az elmúlt hetekben)`:''; }
+    L.push(`Testsúly: ${bwNum(bl.kg)} kg${trend}.`); }
+  const se=slpEntries(); if(se.length){ const avg=Math.round(se.reduce((a,b)=>a+b.min,0)/se.length);
+    L.push(`Átlagos alvás: ${slpFmt(avg)}.`); }
+  if(typeof injuryOn==='function' && injuryOn() && S.injury && S.injury.parts && S.injury.parts.length)
+    L.push(`Kímélendő testtáj (sérülés-mód): ${S.injury.parts.join(', ')} – ezt kerüld vagy csak óvatosan terheld.`);
+  return L;
+}
+
+// A teljes, másolható prompt: rólam-kontextus + kitöltendő célok + formátum.
+function buildAiPrompt(){
+  const ctx=aiUserContext();
+  const about = ctx.length ? 'Rólam (az edzésnaplóm alapján):\n- '+ctx.join('\n- ')+'\n\n' : '';
+  return `Te vagy a személyi edzőm. Írj nekem SZEMÉLYRE SZABOTT edzéstervet az alábbi adataim alapján.\n\n`
+    + about
+    + `Kiegészítő infók (kérlek vedd figyelembe – írd át, ami rám igaz):\n`
+    + `- Célom: [erő / izomtömeg / fogyás / állóképesség]\n`
+    + `- Heti edzésszám: [pl. 3–4]\n`
+    + `- Elérhető felszerelés: [pl. teljes terem / otthon kézisúlyzókkal]\n`
+    + `- Tapasztalat: [kezdő / haladó]\n\n`
+    + `Szempontok: a jelenlegi munkasúlyaimból haladj tovább; pótold az elhanyagolt izomcsoportokat; kerüld a kímélendő területet; adj reális ismétléstartományt és pihenőidőt.\n\n`
+    + AI_FORMAT_BLOCK;
+}
 
 function aiNorm(s){ return (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ').trim(); }
 
@@ -1391,9 +1442,10 @@ function aiGuessMg(name){
   return 'törzs';
 }
 
-let aiResolved=null;
+let aiResolved=null, aiPromptText='';
 function openAiImport(){
   aiResolved=null;
+  aiPromptText=buildAiPrompt();          // a naplóból személyre szabott prompt
   document.getElementById('sheetIn').innerHTML=aiImportHtml();
   document.getElementById('sheet').classList.add('on');
 }
@@ -1402,15 +1454,18 @@ function aiImportHtml(){
     <div class="row"><div class="grow"><span class="eyebrow">AI-terv importálása</span>
       <h2 style="font-size:24px">Edzésterv beillesztése</h2></div>
       <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
-    <p class="small mut" style="margin:6px 0 0">1) Másold a promptot az AI edződnek. 2) Illeszd be a válaszát. 3) Feldolgozás. A meglévő terved NEM változik – új edzés jön létre.</p>
-    <div class="exnote" style="margin-top:12px;align-items:flex-start"><div class="exnote-t" style="white-space:pre-wrap;font-size:13px">${esc(AI_PROMPT_TEMPLATE)}</div></div>
+    <p class="small mut" style="margin:6px 0 0">1) Másold a promptot az AI edződnek – már tartalmazza a naplód összefoglalóját. 2) Illeszd be a válaszát. 3) Feldolgozás. A meglévő terved NEM változik – új edzés jön létre.</p>
+    <details class="mmfold" style="margin-top:12px;border:1px solid var(--line);border-radius:12px;overflow:hidden">
+      <summary style="border-top:none">A prompt tartalma (a naplód alapján)</summary>
+      <div class="exnote" style="margin:0;border:none;border-radius:0"><div class="exnote-t" style="white-space:pre-wrap;font-size:13px">${esc(aiPromptText)}</div></div>
+    </details>
     <button class="btn" style="margin-top:8px" onclick="aiCopyTpl()">Prompt másolása</button>
     <textarea id="aiText" rows="7" style="width:100%;margin-top:12px" placeholder="Ide illeszd be az AI válaszát…"></textarea>
     <button class="btn pri" style="margin-top:10px" onclick="aiProcess()">Feldolgozás</button>
     <div id="aiPreview"></div>`;
 }
 function aiCopyTpl(){
-  const t=AI_PROMPT_TEMPLATE;
+  const t=aiPromptText||buildAiPrompt();
   const done=()=>uiAlert('A prompt a vágólapon – illeszd be az AI edződnek.');
   try{ if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(done,()=>aiCopyFallback(t)); return; } }catch(e){}
   aiCopyFallback(t);

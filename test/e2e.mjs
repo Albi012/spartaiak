@@ -205,6 +205,10 @@ ok('12 parser: napok + gyakorlatok', await page.evaluate(()=>{ const d=aiParsePl
 ok('12 párosítás meglévő ID-re', await page.evaluate(()=>{ const m=aiMatchEx('Fekvenyomás'); return !!m && m.id==='bench'; }));
 ok('12 ismeretlen nem párosít', await page.evaluate(()=>aiMatchEx('Zzz qwerty kamu')===null));
 ok('12 testsúly-jelölés', await page.evaluate(()=>{ const d=aiParsePlan('- Húzódzkodás | 4x8 | testsúly'); return d[0].ex[0].bw===1 && d[0].ex[0].w===0; }));
+ok('12 személyre szabott prompt (formátum + kontextus)', await page.evaluate(()=>{
+  S.weights=Object.assign({},S.weights,{bench:80}); if(!S.bw)S.bw={}; S.bw[bwKey(Date.now())]=78;
+  const p=buildAiPrompt();
+  return p.includes('NAP:') && p.includes('| <pihenő') && p.includes('Rólam') && (p.includes('munkasúlyok')||p.includes('Testsúly')); }));
 ok('12 import: routine + customEx (meglévő ID újrahasznál)', await page.evaluate(()=>{
   const before=(S.routines||[]).length, bcx=Object.keys(S.customEx||{}).length;
   aiResolved=[{name:'Teszt A', ex:[
