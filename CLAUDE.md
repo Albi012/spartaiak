@@ -202,6 +202,27 @@ MÁSOLJA őket friss `r_`/`p_` ID-vel (`addStarterRoutine`/`addStarterProgram`) 
 - **NE nevezd át** a `cx_…`/`r_…`/`p_…` ID-kat – ezek is kulcsként
   szerepelnek a mentett adatban.
 
+## AI-terv importálása
+
+A Tervek fül „AI-terv importálása" gombja (`openAiImport`) egy külső AI
+edzőtől kapott edzéstervet alakít saját edzéssé/tervvé. **NEM hív LLM-et**
+(offline, kulcs nélkül) és **NEM írja felül** a meglévő tervet – additív,
+biztonságos import:
+
+- A lap ad egy másolható **prompt-sablont** (`AI_PROMPT_TEMPLATE`), ami az
+  AI-t a parseolható formátumra tereli: `NAP: <név>` sorok, alattuk
+  `- <gyakorlat> | <s>x<r> | <súly/testsúly> | <pihenő>`.
+- `aiParsePlan(text)` toleráns parser (pipe-formátum ÉS szabad szöveg is);
+  soha nem dob. `aiParseExLine` a sor-értelmező.
+- `aiMatchEx(name)` a beírt nevet az `exLibrary()`-hez párosítja (token-
+  átfedés + tartalmazás, küszöb 0.6). Ha talál, a **meglévő ID-t
+  használja** → a súlytörténet összekapcsolódik; ha nem, `aiGuessMg`-vel
+  becsült izomcsoporttal új `cx_` gyakorlat készül.
+- Előnézet (`aiProcess`→`aiPreviewHtml`) mutatja, mi kötődik meglévőhöz
+  (✓) és mi új (+); a `aiImportApply` naponta egy `r_` routine-t hoz létre
+  (több nap esetén egy `p_` tervbe fűzve), majd a főoldalra visz. A PLAN
+  és a meglévő routine-ok érintetlenek.
+
 ## Ikonok
 
 A felület ikonjai **monokróm inline SVG-k** (`ICON` objektum,

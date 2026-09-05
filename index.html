@@ -427,7 +427,7 @@ let tab='home', playing=false, curEx=0, tInt=null, tEnd=0, tLen=0, wl=null, nagO
 let logFilter=null;   // Napló szűrő edzéstípusra (day id) – null = mind
 let physioRegion='';  // Gyógytorna oldal aktív testtáj (üres = első)
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v76';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v77';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -1164,6 +1164,7 @@ function plansView(){
   h+=`<button class="btn pri" style="margin-top:14px" onclick="openStarters()">Kész edzések és tervek ›</button>
       <button class="btn" style="margin-top:8px" onclick="openBuilder()">+ Új edzés</button>
       <button class="btn" style="margin-top:8px" onclick="openProgram()">+ Új edzésterv</button>
+      <button class="btn" style="margin-top:8px" onclick="openAiImport()">AI-terv importálása ›</button>
       ${S.hidePlan?`<button class="btn ghost" style="margin-top:8px;color:var(--mut)" onclick="restorePlan()">Beépített alapterv visszaállítása</button>`:''}
       <button class="btn ghost" style="margin-top:8px;margin-bottom:4px;color:var(--mut)" onclick="openManageEx()">Saját gyakorlatok kezelése${(S.customEx&&Object.keys(S.customEx).length)?' ('+Object.keys(S.customEx).length+')':''}</button>`;
   return h+'</div>';
@@ -1293,6 +1294,172 @@ async function addStarterProgram(i){
   S.programs.push({ id:uid('p_'), name:p.name, days:dayIds });
   save(); closeSheet(); tab='home'; render(); window.scrollTo(0,0);
   await uiAlert('„'+p.name+'" terv hozzáadva ('+dayIds.length+' edzéssel).');
+}
+
+/* ================= AI-terv importálása =============================== *
+ * A felhasználó egy külső AI edzőtől kapott edzéstervet illeszt be; az app
+ * egy toleráns parserrel ÚJ saját edzéssé/tervvé alakítja. NEM hív LLM-et
+ * (offline, kulcs nélkül), és NEM írja felül a meglévő tervet – additív:
+ * a meglévő gyakorlatneveket a könyvtárhoz párosítja (így a súlytörténet
+ * összekapcsolódik), az ismeretlenekből saját gyakorlatot (cx_) készít. */
+const AI_PROMPT_TEMPLATE =
+`Készíts nekem egy edzéstervet. A választ PONTOSAN ebben a formátumban add, és semmi mást ne írj köré:
+
+NAP: <nap neve>
+- <gyakorlat magyar neve> | <szettek>x<ismétlés> | <súly kg vagy: testsúly> | <pihenő mp>
+- ...
+NAP: <következő nap neve>
+- ...
+
+Példa:
+NAP: Push A
+- Fekvenyomás | 4x5 | 70 | 180
+- Tolódzkodás | 4x8 | testsúly | 150
+- Oldalemelés | 3x15 | 8 | 60
+
+Magyar gyakorlatneveket használj, a súlyt kg-ban, a pihenőt másodpercben.`;
+
+function aiNorm(s){ return (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ').trim(); }
+
+// Egy gyakorlat-sor értelmezése (pipe-formátum VAGY szabad szöveg).
+function aiParseExLine(body){
+  let name='', s=3, r='10', w=0, bw=0, rest=90, hasW=false;
+  const sr=(str)=>{ const m=str.match(/(\d+)\s*[x×]\s*([0-9]+(?:\s*[-–]\s*[0-9]+)?|amrap|failure|max)/i);
+    if(m){ s=parseInt(m[1])||3; r=m[2].replace(/\s+/g,''); return true; } return false; };
+  if(body.indexOf('|')>=0){
+    const p=body.split('|').map(x=>x.trim());
+    name=p[0]||'';
+    if(p[1]){ if(!sr(p[1])){ const rr=p[1].match(/\d+/); if(rr) r=rr[0]; } }
+    if(p[2]!=null && p[2]!==''){ const wt=p[2].toLowerCase();
+      if(/tests|testsuly|bodyweight|\bbw\b|sajat/.test(aiNorm(wt))){ bw=1; w=0; }
+      else { const f=parseFloat(p[2].replace(',','.')); if(!isNaN(f)){ w=f; hasW=true; } } }
+    if(p[3]){ const rs=p[3].match(/\d+/); if(rs) rest=parseInt(rs[0]); }
+  } else {
+    sr(body);
+    const wm=body.match(/(\d+(?:[.,]\d+)?)\s*kg/i); if(wm){ w=parseFloat(wm[1].replace(',','.')); hasW=true; }
+    if(/tests|testsuly|bodyweight|sajat suly/.test(aiNorm(body))){ bw=1; w=0; }
+    name=body.replace(/(\d+)\s*[x×]\s*[0-9\-–]+.*/i,'').replace(/\d+(?:[.,]\d+)?\s*kg.*/i,'').replace(/[-–—|@]+\s*$/,'').trim();
+    if(!name) name=body.trim();
+  }
+  name=(name||'').replace(/\s{2,}/g,' ').trim().slice(0,60);
+  if(!name) return null;
+  return { name, s:Math.max(1,Math.min(12,s)), r:(r||'10').toString().slice(0,12), w:Math.max(0,w), bw, rest:Math.max(10,Math.min(600,rest)), hasW };
+}
+
+// Teljes terv értelmezése napokra + gyakorlatokra. Soha nem dob.
+function aiParsePlan(text){
+  const lines=(text||'').split(/\r?\n/); const days=[]; let cur=null;
+  const startDay=nm=>{ cur={ name:(nm||'Edzés').trim().slice(0,40)||'Edzés', ex:[] }; days.push(cur); };
+  for(const raw of lines){
+    const line=(raw||'').trim(); if(!line) continue;
+    const m=line.match(/^(?:nap|day)\s*\d*\s*[:\-–—]\s*(.+)$/i);
+    if(m){ startDay(m[1]); continue; }
+    const body=line.replace(/^[-*•·•\d).\s]+/,'').trim(); if(!body) continue;
+    const looksEx = /^[-*•·•]/.test(line) || line.indexOf('|')>=0 || /\d+\s*[x×]\s*\d+/i.test(body);
+    if(looksEx){ if(!cur) startDay('AI edzés'); const ex=aiParseExLine(body); if(ex) cur.ex.push(ex); continue; }
+    if(body.split(/\s+/).length<=5){ startDay(body); }   // rövid cím → nap-fejléc
+  }
+  return days.filter(d=>d.ex.length);
+}
+
+// Név → meglévő gyakorlat-ID párosítás (token-átfedés + tartalmazás).
+function aiMatchEx(name){
+  const q=aiNorm(name); if(!q) return null;
+  const qt=q.split(' ').filter(t=>t.length>=3);
+  let best=null, bestScore=0;
+  for(const e of exLibrary()){ const en=aiNorm(e.n); if(!en) continue;
+    if(en===q) return e;
+    const et=en.split(' ');
+    let ov=0; qt.forEach(t=>{ if(et.some(x=>x.indexOf(t)===0||t.indexOf(x)===0)) ov++; });
+    let score=qt.length? ov/qt.length : 0;
+    if(en.indexOf(q)>=0 || q.indexOf(en)>=0) score=Math.max(score,0.9);
+    if(score>bestScore){ bestScore=score; best=e; }
+  }
+  return bestScore>=0.6 ? best : null;
+}
+
+// Izomcsoport-tipp új gyakorlathoz (a térkép színezéséhez); heurisztika.
+function aiGuessMg(name){
+  const q=aiNorm(name), has=(...ws)=>ws.some(w=>q.indexOf(w)>=0);
+  if(has('fekvenyom','mell','pec','tarogat','fekvotamasz','tolodz')) return 'mell';
+  if(has('huzodz','evez','lehuz','hat','csonak','holtemel','deadlift')) return 'hát';
+  if(has('vall','oldalemel','arcvono','face')) return 'váll';
+  if(has('tricepsz','francia','kotel','dip','nyakrol')) return 'tricepsz';
+  if(has('bicepsz','hajlit','kalapacs','curl')) return 'bicepsz';
+  if(has('guggol','kitor','comb','vadli','lab','legpress','legcurl','csipo','glute')) return 'láb';
+  if(has('plank','has','crunch','torzs','knee','csavar')) return 'törzs';
+  return 'törzs';
+}
+
+let aiResolved=null;
+function openAiImport(){
+  aiResolved=null;
+  document.getElementById('sheetIn').innerHTML=aiImportHtml();
+  document.getElementById('sheet').classList.add('on');
+}
+function aiImportHtml(){
+  return `<div class="grabber"></div>
+    <div class="row"><div class="grow"><span class="eyebrow">AI-terv importálása</span>
+      <h2 style="font-size:24px">Edzésterv beillesztése</h2></div>
+      <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
+    <p class="small mut" style="margin:6px 0 0">1) Másold a promptot az AI edződnek. 2) Illeszd be a válaszát. 3) Feldolgozás. A meglévő terved NEM változik – új edzés jön létre.</p>
+    <div class="exnote" style="margin-top:12px;align-items:flex-start"><div class="exnote-t" style="white-space:pre-wrap;font-size:13px">${esc(AI_PROMPT_TEMPLATE)}</div></div>
+    <button class="btn" style="margin-top:8px" onclick="aiCopyTpl()">Prompt másolása</button>
+    <textarea id="aiText" rows="7" style="width:100%;margin-top:12px" placeholder="Ide illeszd be az AI válaszát…"></textarea>
+    <button class="btn pri" style="margin-top:10px" onclick="aiProcess()">Feldolgozás</button>
+    <div id="aiPreview"></div>`;
+}
+function aiCopyTpl(){
+  const t=AI_PROMPT_TEMPLATE;
+  const done=()=>uiAlert('A prompt a vágólapon – illeszd be az AI edződnek.');
+  try{ if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(done,()=>aiCopyFallback(t)); return; } }catch(e){}
+  aiCopyFallback(t);
+}
+function aiCopyFallback(t){ try{ const ta=document.createElement('textarea'); ta.value=t;
+  ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.select();
+  document.execCommand('copy'); document.body.removeChild(ta); uiAlert('A prompt a vágólapon.'); }
+  catch(e){ uiAlert('Másold ki kézzel a fenti promptot.'); } }
+function aiProcess(){
+  const txt=(document.getElementById('aiText')||{}).value||'';
+  const days=aiParsePlan(txt);
+  const prev=document.getElementById('aiPreview');
+  if(!days.length){ aiResolved=null;
+    prev.innerHTML=`<div class="banner" style="margin-top:12px">Nem sikerült edzést kiolvasni. Ellenőrizd a formátumot: „NAP: …", majd soronként „- gyakorlat | 4x8 | 60".</div>`; return; }
+  aiResolved=days.map(d=>({ name:d.name, ex:d.ex.map(x=>({ parsed:x, match:aiMatchEx(x.name) })) }));
+  prev.innerHTML=aiPreviewHtml();
+}
+function aiPreviewHtml(){
+  let matched=0, neu=0, h=`<div style="margin-top:16px"><span class="eyebrow">Előnézet</span>`;
+  aiResolved.forEach(d=>{ h+=`<div class="card" style="margin-top:8px"><div class="pad">
+    <div class="cond" style="font-size:17px;font-weight:600">${esc(d.name)}</div>`;
+    d.ex.forEach(item=>{ const p=item.parsed;
+      const meta=`${p.s}×${esc(p.r)}${p.bw?' · testsúly':p.hasW?' · '+p.w+'kg':''}`;
+      if(item.match){ matched++; h+=`<div class="small" style="margin-top:5px"><span style="color:var(--sage)">✓</span> ${esc(item.match.n)} <span class="dim">${meta}</span></div>`; }
+      else { neu++; h+=`<div class="small" style="margin-top:5px"><span style="color:var(--brass)">+</span> ${esc(p.name)} <span class="dim">(új) ${meta}</span></div>`; } });
+    h+=`</div></div>`; });
+  h+=`<div class="small mut" style="margin-top:8px">${matched} meglévő gyakorlat összekötve (a súlytörténeteddel), ${neu} új létrehozva. A meglévő terved érintetlen.</div>
+    <button class="btn pri" style="margin-top:10px" onclick="aiImportApply()">Hozzáadás az edzéseimhez</button></div>`;
+  return h;
+}
+async function aiImportApply(){
+  if(!aiResolved||!aiResolved.length){ uiAlert('Nincs mit importálni.'); return; }
+  if(!S.customEx)S.customEx={}; if(!S.routines)S.routines=[]; if(!S.programs)S.programs=[];
+  let newEx=0; const dayIds=[];
+  aiResolved.forEach(d=>{
+    const exIds=d.ex.map(item=>{
+      if(item.match) return item.match.id;                 // meglévő ID – történet összekötve
+      const id=uid('cx_'), p=item.parsed;
+      const def={ id, n:p.name, mg:aiGuessMg(p.name), s:p.s, r:p.r, w:p.w, inc:2.5, rest:p.rest };
+      if(p.bw) def.bw=1;
+      S.customEx[id]=def; newEx++; return id;
+    });
+    const rid=uid('r_');
+    S.routines.push({ id:rid, name:d.name||'AI edzés', sub:exIds.length+' gyakorlat', ex:exIds });
+    dayIds.push(rid);
+  });
+  if(dayIds.length>1) S.programs.push({ id:uid('p_'), name:'AI edzésterv', days:dayIds });
+  save(); closeSheet(); tab='home'; render(); window.scrollTo(0,0);
+  await uiAlert(`Kész: ${dayIds.length} edzés${dayIds.length>1?' + terv':''}, ${newEx} új gyakorlat. Megtalálod a főoldaladon és a Tervek fülön.`);
 }
 
 /* ================= Edzés-összeállító (saját edzések) ================ */

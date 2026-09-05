@@ -200,6 +200,21 @@ ok('11 rögzítés + minőség + mentés', await page.evaluate(()=>{ openSleepSh
 ok('11 slpFmt formázás', await page.evaluate(()=>slpFmt(465)==='7ó 45p' && slpFmt(480)==='8ó'));
 ok('11 sleep a mentett JSON-ban', await page.evaluate(async ()=>{ const raw=await readKey('gymlog_v1'); return raw.includes('"sleep"'); }));
 
+// 12. AI-terv import
+ok('12 parser: napok + gyakorlatok', await page.evaluate(()=>{ const d=aiParsePlan('NAP: Teszt A\n- Fekvenyomás | 4x5 | 70 | 180\n- Kamugyakorlat XY | 3x10 | 20'); return d.length===1 && d[0].ex.length===2 && d[0].ex[0].s===4 && d[0].ex[0].w===70; }));
+ok('12 párosítás meglévő ID-re', await page.evaluate(()=>{ const m=aiMatchEx('Fekvenyomás'); return !!m && m.id==='bench'; }));
+ok('12 ismeretlen nem párosít', await page.evaluate(()=>aiMatchEx('Zzz qwerty kamu')===null));
+ok('12 testsúly-jelölés', await page.evaluate(()=>{ const d=aiParsePlan('- Húzódzkodás | 4x8 | testsúly'); return d[0].ex[0].bw===1 && d[0].ex[0].w===0; }));
+ok('12 import: routine + customEx (meglévő ID újrahasznál)', await page.evaluate(()=>{
+  const before=(S.routines||[]).length, bcx=Object.keys(S.customEx||{}).length;
+  aiResolved=[{name:'Teszt A', ex:[
+    {parsed:{name:'Fekvenyomás',s:4,r:'5',w:70,bw:0,rest:180,hasW:true}, match:aiMatchEx('Fekvenyomás')},
+    {parsed:{name:'Zzz Kamu',s:3,r:'10',w:20,bw:0,rest:90,hasW:true}, match:null}]}];
+  aiImportApply(); if(typeof _closeModal==='function') _closeModal(false);
+  const r=S.routines[S.routines.length-1];
+  return S.routines.length===before+1 && Object.keys(S.customEx).length===bcx+1 && r.ex[0]==='bench' && String(r.ex[1]).indexOf('cx_')===0;
+}));
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));
