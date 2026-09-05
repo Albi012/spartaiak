@@ -361,6 +361,8 @@ textarea:focus{outline:2px solid var(--brass);outline-offset:2px}
      az app változatlanul, localStorage-ból fut. Lásd docs/1-fazis-auth-TODO.md -->
 <script src="supabase-config.js" onerror="void 0"></script>
 <script src="js/auth.js"></script>
+<!-- Natív Health-híd (alvás). Sima weben inert; csak Capacitor-burokban aktív. -->
+<script src="js/health.js" onerror="void 0"></script>
 
 <script>
 const PLAN = [
@@ -420,12 +422,12 @@ const ICON={
 
 let S = {sessions:[], active:null, weights:{}, notes:{}, photos:{}, injury:null, lastBackup:0,
          customEx:{}, routines:[], programs:[], hidePlan:false, activeProgram:null,
-         deleted:[], activeT:0, prog:{}, bw:{}};
+         deleted:[], activeT:0, prog:{}, bw:{}, sleep:{}};
 let tab='home', playing=false, curEx=0, tInt=null, tEnd=0, tLen=0, wl=null, nagOff=false;
 let logFilter=null;   // Napló szűrő edzéstípusra (day id) – null = mind
 let physioRegion='';  // Gyógytorna oldal aktív testtáj (üres = első)
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v75';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v76';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -475,7 +477,7 @@ async function save(){
   const v=JSON.stringify({sessions:S.sessions,active:S.active,weights:S.weights,
     notes:S.notes,photos:S.photos,injury:S.injury,lastBackup:S.lastBackup,
     customEx:S.customEx,routines:S.routines,programs:S.programs,hidePlan:S.hidePlan,activeProgram:S.activeProgram,
-    deleted:S.deleted,activeT:S.activeT,prog:S.prog,bw:S.bw});
+    deleted:S.deleted,activeT:S.activeT,prog:S.prog,bw:S.bw,sleep:S.sleep});
   const ok=await writeKey(KEY,v);
   if(!ok&&storeMode!=='none'){ storeMode='none'; render(); }
 }
@@ -1028,8 +1030,9 @@ function homeView(){
         <button class="btn pri" onclick="startDay('${sug.dayId}')">Kezdés ›</button></div></div>`;
     }
   }
-  // Napi testsúly – edzés nélküli napon is (mindig látható)
+  // Napi testsúly + alvás – edzés nélküli napon is (mindig látható)
   h+=bwHomeCard();
+  h+=sleepHomeCard();
   // Edzéstervek: aktív választó + a kiválasztott terv napjai
   const plist=programsList(), act=activeProg();
   if(plist.length>1){
@@ -2069,7 +2072,7 @@ function logView(){
 }
 function backup(){
   const v=JSON.stringify({sessions:S.sessions,weights:S.weights,notes:S.notes,photos:S.photos,
-    customEx:S.customEx,routines:S.routines,programs:S.programs,bw:S.bw});
+    customEx:S.customEx,routines:S.routines,programs:S.programs,bw:S.bw,sleep:S.sleep});
   const b=new Blob([v],{type:'application/json'}), u=URL.createObjectURL(b);
   const a=document.createElement('a'); a.href=u;
   a.download='edzesnaplo-'+fmtDate(Date.now()).replace(/\./g,'')+'.json';
@@ -2084,7 +2087,7 @@ function restore(){
       if(!(await uiConfirm('Ez felülírja a jelenlegi '+S.sessions.length+' edzést '+d.sessions.length+' mentett edzéssel. Folytatod?', {ok:'Visszaállítás', danger:true}))) return;
       S.sessions=d.sessions; S.weights=d.weights||{}; if(d.notes)S.notes=d.notes; if(d.photos)S.photos=d.photos;
       if(d.customEx)S.customEx=d.customEx; if(d.routines)S.routines=d.routines; if(d.programs)S.programs=d.programs;
-      if(d.bw)S.bw=d.bw;
+      if(d.bw)S.bw=d.bw; if(d.sleep)S.sleep=d.sleep;
       save(); render();
     }catch(e){ uiAlert('Ez nem érvényes mentésfájl.'); } };
     r.readAsText(f); };
@@ -2413,6 +2416,116 @@ function bwSheetHtml(){
     ${bwChart()}
     ${hist}
     <button class="btn pri" style="margin-top:14px" onclick="bwSave()">Mentés</button>`;
+}
+
+/* ---- Alvás-napló (edzés nélküli napon is) ---------------------------
+   Additív mező: S.sleep = { 'YYYY-MM-DD': {min, q} } – perc + minőség(1..5).
+   Az edzésadatot NEM érinti; a felhő-szinkron per-kulcs unióban viszi
+   (auth.js 'sleep'). A natív Health-behúzást a js/health.js adja, ha a
+   Capacitor-híd elérhető; web-en kézi bevitel a fallback. */
+const BW_MOON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>';
+function slpEntries(){ const b=S.sleep||{}; return Object.keys(b).filter(k=>b[k]&&b[k].min>0).sort().map(k=>({d:k,min:b[k].min,q:b[k].q||0})); }
+function slpLast(){ const e=slpEntries(); return e.length?e[e.length-1]:null; }
+function slpToday(){ const v=(S.sleep||{})[bwKey(Date.now())]; return v&&v.min>0?v:null; }
+function slpFmt(min){ min=Math.round(min); const h=Math.floor(min/60), m=min%60; return h+'ó'+(m?' '+m+'p':''); }
+function slpQLabel(q){ return ['','gyenge','közepes','oké','jó','kiváló'][q]||''; }
+
+function slpMiniSpark(){ const e=slpEntries(); if(e.length<2) return '';
+  const pts=e.slice(-14).map(x=>x.min), W=88, H=34;
+  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="flex:none;color:var(--brass)" aria-hidden="true"><path d="${sparkPath(pts,W,H,5)}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`; }
+
+// Minőség-pöttyök (kitöltött/üres, monokróm – téma-követő).
+function slpDots(q){ let s='<span style="display:inline-flex;gap:3px;vertical-align:middle">';
+  for(let i=1;i<=5;i++) s+=`<i style="width:7px;height:7px;border-radius:50%;background:${i<=q?'var(--brass)':'var(--line)'}"></i>`;
+  return s+'</span>'; }
+
+function sleepHomeCard(){
+  const today=slpToday(), e=slpEntries(), last=slpLast();
+  let mid;
+  if(today){
+    mid = `<span class="cond" style="font-size:21px;font-weight:600;display:block">${slpFmt(today.min)} <span class="small dim" style="font-weight:400">ma éjjel</span></span>
+      <span class="small dim">${today.q?slpDots(today.q)+' '+slpQLabel(today.q):'rögzítve'}</span>`;
+  } else if(last){
+    mid = `<span class="cond" style="font-size:21px;font-weight:600;display:block">Alvás</span>
+      <span class="small dim">utoljára ${bwDaysAgo(last.d)}: ${slpFmt(last.min)} · koppints a rögzítéshez</span>`;
+  } else {
+    mid = `<span class="cond" style="font-size:21px;font-weight:600;display:block">Alvás</span>
+      <span class="small dim">Rögzítsd az éjszakát – edzés nélküli napon is</span>`;
+  }
+  return `<div class="card"><button class="daybtn" onclick="openSleepSheet()">
+    <span class="daytag" style="color:var(--brass)">${BW_MOON}</span>
+    <span class="grow">${mid}</span>
+    ${slpMiniSpark()}
+    <span style="color:var(--brass);font-size:22px">›</span></button></div>`;
+}
+
+function slpChart(){ const e=slpEntries(); if(e.length<2) return '';
+  const arr=e.slice(-30), pts=arr.map(x=>x.min), W=300, H=96, pad=10;
+  const mn=Math.min(...pts), mx=Math.max(...pts), cur=pts[pts.length-1];
+  const lastY=(H-pad)-((cur-mn)/((mx-mn)||1))*(H-2*pad);
+  const avg=Math.round(pts.reduce((a,b)=>a+b,0)/pts.length);
+  return `<div style="margin-top:14px">
+    <svg class="chartbig" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
+      <path d="${sparkPath(pts,W,H,pad)}" fill="none" stroke="var(--brass)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+      <circle cx="${W}" cy="${lastY.toFixed(1)}" r="3" fill="var(--brass)"/>
+    </svg>
+    <div class="small dim" style="display:flex;justify-content:space-between;margin-top:2px">
+      <span>min ${slpFmt(mn)}</span><span>átlag ${slpFmt(avg)}</span><span>max ${slpFmt(mx)}</span></div>
+  </div>`;
+}
+
+let slpDraft=0, slpQ=0, slpDate='';
+function openSleepSheet(dateKey){ slpDate=dateKey||bwKey(Date.now());
+  const cur=(S.sleep||{})[slpDate];
+  slpDraft = cur&&cur.min>0 ? cur.min : (slpLast()?slpLast().min:450);
+  slpQ = cur?cur.q||0 : 0;
+  renderSleepSheet(); document.getElementById('sheet').classList.add('on'); }
+function slpStep(d){ slpDraft=Math.max(0,Math.min(1080,slpDraft+d)); renderSleepSheet(); }
+function slpSetQ(q){ slpQ = slpQ===q?0:q; renderSleepSheet(); }
+async function slpSync(){
+  if(!(window.Health && Health.available())) return;
+  const btn=document.getElementById('slpSyncBtn'); if(btn){ btn.disabled=true; btn.textContent='Behúzás…'; }
+  try{ const r=await Health.syncSleep();
+    if(r && r.ok && r.min>0){ slpDate=r.day||slpDate; slpDraft=r.min; if(r.q) slpQ=r.q; renderSleepSheet(); }
+    else uiAlert('Nem érkezett alvásadat az elmúlt éjszakára.');
+  }catch(e){ uiAlert('Az alvás behúzása nem sikerült.'); }
+}
+function slpSave(){ if(!S.sleep)S.sleep={};
+  if(slpDraft>0) S.sleep[slpDate]={min:slpDraft, q:slpQ||0};
+  if(navigator.vibrate) navigator.vibrate(12); save(); closeSheet(); render(); }
+function renderSleepSheet(){ const el=document.getElementById('sheetIn'); if(el) el.innerHTML=sleepSheetHtml(); }
+function sleepSheetHtml(){
+  const isToday = slpDate===bwKey(Date.now());
+  const prev = slpLast();
+  const e=slpEntries();
+  const canSync = !!(window.Health && Health.available());
+  let hist='';
+  if(e.length){ hist = `<div style="margin-top:6px">`+
+    e.slice(-8).reverse().map(x=>`<div class="histrow" onclick="openSleepSheet('${x.d}')" style="cursor:pointer">
+      <span class="d">${bwFmtDate(x.d)}${x.d===slpDate?' <span style="color:var(--brass)">•</span>':''}</span>
+      <span class="w">${slpFmt(x.min)}</span>
+      <span class="r">${x.q?slpDots(x.q):bwDaysAgo(x.d)}</span></div>`).join('')+`</div>`; }
+  return `<div class="grabber"></div>
+    <div class="row"><div class="grow"><span class="eyebrow">Alvás</span>
+      <h2 style="font-size:24px">${isToday?'Ma éjjel':bwFmtDate(slpDate)}</h2>
+      <span class="small dim">${prev?'Előző: '+slpFmt(prev.min)+' · '+bwDaysAgo(prev.d):'Első bejegyzés'}</span></div>
+      <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
+    ${canSync?`<button id="slpSyncBtn" class="btn" style="margin-top:12px" onclick="slpSync()">Behúzás a Health-ből</button>`:''}
+    <div class="wt" style="margin-top:14px">
+      <button onclick="slpStep(-15)" aria-label="kevesebb">−</button>
+      <div class="val" style="font-size:32px">${slpFmt(slpDraft)}</div>
+      <button onclick="slpStep(15)" aria-label="több">+</button></div>
+    <div class="toolrow">
+      <button class="tool" onclick="slpStep(-60)">−1ó</button>
+      <button class="tool" onclick="slpStep(-15)">−15p</button>
+      <button class="tool" onclick="slpStep(15)">+15p</button>
+      <button class="tool" onclick="slpStep(60)">+1ó</button></div>
+    <div class="small dim" style="text-align:center;margin-top:16px">Minőség</div>
+    <div class="whyrow" style="justify-content:center;margin-top:8px">
+      ${[1,2,3,4,5].map(q=>`<button class="whyc ${slpQ===q?'on':''}" onclick="slpSetQ(${q})">${q}</button>`).join('')}</div>
+    ${slpChart()}
+    ${hist}
+    <button class="btn pri" style="margin-top:14px" onclick="slpSave()">Mentés</button>`;
 }
 
 function progView(){
@@ -3084,6 +3197,14 @@ if(window.Auth){
   Auth.init().catch(()=>{});
 }
 updateAuthBtn();
+
+// Natív Health-híd (alvás): a beolvasott értéket a saját S.sleep-be mentjük.
+// Web-en inert (Health.available() false), így a kártya kézi bevitel marad.
+if(window.Health){
+  Health.hooks.applySleep = (day, min, q)=>{ if(!(min>0)) return;
+    if(!S.sleep) S.sleep={}; S.sleep[day]={min:min, q:q||0}; save(); render(); };
+  try{ Health.init(); }catch(e){}
+}
 
 // Service worker – offline app-héj. Az edzésadatot (localStorage) nem érinti.
 if('serviceWorker' in navigator){

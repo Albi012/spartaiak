@@ -66,6 +66,19 @@ alapértéket kapnak; a `save()`/`backup()`/`restore()` viszi őket):
   a lista sorára koppintva az adott nap szerkeszthető). A felhő-szinkron
   per-kulcs (dátum) unióban viszi (`auth.js` `bw` mező); törlés nincs, csak
   felülírás, így tombstone sem kell. `bwKey(t)` a helyi dátumkulcs.
+- `sleep` – **alvás-napló**: `{ 'YYYY-MM-DD': {min, q} }` (alvott perc +
+  minőség 1..5), naponta egy érték (felülírható). Ugyanaz a minta, mint a
+  `bw`: additív, edzéstől független, per-kulcs (dátum) unióban szinkronizál
+  (`auth.js` `sleep`). Főoldali „Alvás" kártya (`sleepHomeCard`) → lap
+  (`openSleepSheet`: időtartam-stepper ±15p, minőség 1–5, `slpChart`,
+  előzmények). **Natív Health-behúzás:** a `js/health.js` (`window.Health`)
+  Capacitor-hídon HealthKit (iOS `SleepAnalysis`) / Health Connect
+  (Android `SleepSession`) alvást olvas; web-en INERT
+  (`Health.available()===false`) → kézi bevitel. A lap „Behúzás a
+  Health-ből" gombja csak natív burokban látszik; a `Health.hooks.applySleep`
+  callback menti az `S.sleep`-be. Runbook: `docs/native-health/README.md`
+  (ez leváltja a TWA-tervet, ha natív egészségadat kell). `slpFmt` a
+  perc→„7ó 45p" formázó.
 - Session-szinten: `note` (aznapi jegyzet), `deload` (kihagyás utáni
   visszaépítés jelző), `end` (befejezés időbélyege – az időtartamhoz;
   additív, régi edzésen hiányzik, olyankor nincs időtartam). Log-szinten:

@@ -191,6 +191,15 @@ ok('10 rögzítés ma + mentés', await page.evaluate(()=>{ openBwSheet(); const
 ok('10 felülírás nem szaporít napot', await page.evaluate(()=>{ const n1=Object.keys(S.bw).length; openBwSheet(); bwStep(-0.3); bwSave(); return Object.keys(S.bw).length===n1; }));
 ok('10 bw a mentett JSON-ban', await page.evaluate(async ()=>{ const raw=await readKey('gymlog_v1'); return raw.includes('"bw"'); }));
 
+// 11. Alvás-napló + Health-híd
+await page.evaluate(()=>{ tab='home'; render(); });
+ok('11 alvás kártya a főoldalon', await page.evaluate(()=>document.getElementById('app').textContent.includes('Alvás')));
+ok('11 Health web-en inert (nincs dobás)', await page.evaluate(()=>!!window.Health && Health.available()===false));
+ok('11 rögzítés + minőség + mentés', await page.evaluate(()=>{ openSleepSheet(); slpStep(60); slpSetQ(4); slpSave();
+  const k=bwKey(Date.now()); return S.sleep[k] && S.sleep[k].min>0 && S.sleep[k].q===4; }));
+ok('11 slpFmt formázás', await page.evaluate(()=>slpFmt(465)==='7ó 45p' && slpFmt(480)==='8ó'));
+ok('11 sleep a mentett JSON-ban', await page.evaluate(async ()=>{ const raw=await readKey('gymlog_v1'); return raw.includes('"sleep"'); }));
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));

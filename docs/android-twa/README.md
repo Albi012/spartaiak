@@ -1,5 +1,11 @@
 # Android app a Play Store-ba (TWA)
 
+> ℹ️ **Ha natív egészség-/alvásadat is kell** (Apple Health / Health
+> Connect), a TWA NEM elég – az nem éri el a Health Connectet. Akkor a
+> mobilos kiadást Capacitor-burokba kell tenni: lásd
+> [`docs/native-health/README.md`](../native-health/README.md). A TWA
+> továbbra is jó út, ha nincs szükség natív egészségadatra.
+
 Az Edzésnapló már telepíthető PWA, ezért Androidra a legegyszerűbb út a
 **Trusted Web Activity (TWA)**: az app gyakorlatilag a live PWA-t futtatja
 teljes képernyőn, böngésző-sáv nélkül, Chrome motorral. Minden webes
