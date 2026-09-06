@@ -291,13 +291,70 @@ textarea:focus{outline:2px solid var(--brass);outline-offset:2px}
   @keyframes restIn{from{transform:scale(.9);opacity:0}to{transform:scale(1);opacity:1}}
   @keyframes sheetUp{from{transform:translateY(26px)}to{transform:translateY(0)}}
   @keyframes vtOut{to{opacity:0}}
-  @keyframes vtIn{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes vtIn{from{opacity:0}to{opacity:1}}
   .chip.pop{animation:chipPop .3s cubic-bezier(.25,.8,.3,1.35)}
   .rest.on .rest-card{animation:restIn .3s cubic-bezier(.2,.7,.3,1.25)}
   .sheet.on .inner{animation:sheetUp .26s cubic-bezier(.2,.7,.3,1)}
   ::view-transition-old(appview){animation:vtOut .16s ease both}
   ::view-transition-new(appview){animation:vtIn .24s cubic-bezier(.2,.7,.3,1) both}
 }
+
+/* ---- Belépő- és felületi animációk (TISZTÁN vizuális) ---------------
+   Nézetbe lépéskor a kártyák lépcsőzetesen beúsznak, a sávok/gyűrűk
+   kirajzolódnak, az overlayek lágyan nyílnak. Semmilyen funkciót nem
+   érint – csak megjelenés. prefers-reduced-motion alatt minden kikapcsol.
+   A `.enter` osztályt az enterAnim() teszi az #app-ra nézetváltáskor. */
+@media (prefers-reduced-motion: no-preference){
+  @keyframes riseIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  @keyframes popIn{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}
+  @keyframes growX{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+  @keyframes navPop{0%{transform:scale(1)}45%{transform:scale(1.18)}100%{transform:scale(1)}}
+
+  /* Lépcsőzetes kártya-belépő */
+  #app.enter .wrap>*{animation:riseIn .38s cubic-bezier(.22,.75,.28,1) both}
+  #app.enter .wrap>*:nth-child(2){animation-delay:.035s}
+  #app.enter .wrap>*:nth-child(3){animation-delay:.07s}
+  #app.enter .wrap>*:nth-child(4){animation-delay:.105s}
+  #app.enter .wrap>*:nth-child(5){animation-delay:.14s}
+  #app.enter .wrap>*:nth-child(6){animation-delay:.175s}
+  #app.enter .wrap>*:nth-child(7){animation-delay:.21s}
+  #app.enter .wrap>*:nth-child(8){animation-delay:.245s}
+  #app.enter .wrap>*:nth-child(n+9){animation-delay:.28s}
+  #app.enter .player .pmain>*{animation:riseIn .34s cubic-bezier(.22,.75,.28,1) both}
+  #app.enter .player .pmain>*:nth-child(2){animation-delay:.04s}
+  #app.enter .player .pmain>*:nth-child(3){animation-delay:.08s}
+  #app.enter .player .pmain>*:nth-child(n+4){animation-delay:.12s}
+
+  /* Sávok, gyűrűk, térkép, grafikonok kirajzolódása */
+  #app.enter .mgfill{transform-origin:left center;animation:growX .6s cubic-bezier(.22,.75,.28,1) .1s both}
+  #app.enter .miniring{animation:popIn .4s cubic-bezier(.2,.7,.3,1.2) .06s both}
+  #app.enter .muscmap{animation:fadeIn .5s ease .12s both}
+  #app.enter .hmwrap{animation:fadeIn .45s ease .1s both}
+  #app.enter .chartbig,#app.enter .spark{animation:fadeIn .5s ease .1s both}
+
+  /* Overlayek lágy nyitása */
+  .sheet.on{animation:fadeIn .2s ease both}
+  .modal.on{animation:fadeIn .18s ease both}
+  .modal.on .modal-card{animation:popIn .26s cubic-bezier(.2,.7,.3,1.25) both}
+  .rest.on{animation:fadeIn .2s ease both}
+  .photo.on{animation:fadeIn .18s ease both}
+  .photo.on img{animation:popIn .28s cubic-bezier(.2,.7,.3,1.2) both}
+
+  /* Alsó nav: az aktív fül ikonja pukkan egyet váltáskor */
+  .nav button.on .svgic{animation:navPop .34s cubic-bezier(.25,.8,.3,1.3)}
+}
+
+/* Finom állapot- és press-átmenetek (mozgásmentesen is ártalmatlanok) */
+.nav button{transition:color .2s ease,background .22s ease}
+.nav button:active{transform:scale(.96)}
+.btn,.tool,.whyc,.iconbtn,.seg button,.kb button,.mgchip{transition:transform .12s ease,background .2s ease,border-color .2s ease,color .2s ease,box-shadow .2s ease}
+.card{transition:border-color .22s ease,box-shadow .22s ease}
+.daybtn,.pcard,.histrow{transition:background .18s ease,transform .12s ease}
+.daybtn:active{transform:scale(.995)}
+.ring-fg{filter:drop-shadow(0 0 5px color-mix(in srgb,var(--brass),transparent 55%))}
+.mr-fg{transition:stroke-dashoffset .5s cubic-bezier(.22,.75,.28,1)}
+.mgfill{transition:width .5s cubic-bezier(.22,.75,.28,1)}
 #app{view-transition-name:appview}
 /* Húzható alsó lap: az ujjal-követő eltolás alatt az anim-belépőt kikapcsoljuk */
 .sheet .inner{touch-action:pan-y}
@@ -427,7 +484,7 @@ let tab='home', playing=false, curEx=0, tInt=null, tEnd=0, tLen=0, wl=null, nagO
 let logFilter=null;   // Napló szűrő edzéstípusra (day id) – null = mind
 let physioRegion='';  // Gyógytorna oldal aktív testtáj (üres = első)
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v78';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v79';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -924,17 +981,30 @@ function _paint(){
   // Frissen rögzített szett-chip pipa-pulzusa (a nézetben, ahol látszik)
   if(justSet){ const c=a.querySelector(`.chip[data-i="${justSet.i}"]`); if(c) c.classList.add('pop'); justSet=null; }
 }
-let _viewKey='__init__';
+let _viewKey='__init__', _enterT=null;
 function render(){
   const immersive = (playing && !!S.active) || !!editing;
   document.body.classList.toggle('playing', immersive);
   const key = editing?('edit:'+editing):(playing&&S.active?'play':tab);
-  const viewChanged = key!==_viewKey && _viewKey!=='__init__';
+  const first = _viewKey==='__init__';
+  const viewChanged = key!==_viewKey && !first;
   _viewKey = key;
+  // A festés UTÁNI vizuális horgok (belépő animáció + statok felszámolása)
+  // a festéssel egy egységben futnak – így a View Transition ágon is a
+  // friss DOM-ra kerülnek, nem a régire.
+  const paint = ()=>{ _paint();
+    if(viewChanged || first){ enterAnim(); requestAnimationFrame(runCountUps); } };
   if(viewChanged && !reducedMotion() && document.startViewTransition){
-    document.startViewTransition(_paint);
-  } else _paint();
-  if(viewChanged) requestAnimationFrame(runCountUps);   // nagy statok felszámolása belépéskor
+    document.startViewTransition(paint);
+  } else paint();
+}
+// Belépő animáció: az #app kap egy `.enter` osztályt, amire a CSS a
+// kártyák lépcsőzetes beúszását akasztja. Tisztán megjelenés.
+function enterAnim(){
+  if(reducedMotion()) return;
+  const a=document.getElementById('app'); if(!a) return;
+  a.classList.remove('enter'); void a.offsetWidth; a.classList.add('enter');
+  clearTimeout(_enterT); _enterT=setTimeout(()=>a.classList.remove('enter'), 1100);
 }
 // Nagy stat-számok „felpörgetése" 0-ról a valós értékre (csak nézetbe lépéskor).
 function runCountUps(){

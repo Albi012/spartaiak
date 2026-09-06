@@ -257,6 +257,19 @@ alatt kikapcsol (`reducedMotion()`), a haptika opcionális (`navigator.vibrate`)
 - **Húzható alsó lap:** a `#sheetIn`-en lefelé húzva (felül állva,
   `scrollTop<=0`) bezárul; a `.sheet.drag` alatt nincs belépő-anim, a
   `.sheet.snap` a visszapattanás. A háttérre koppintás továbbra is zár.
+- **Belépő animáció (`enterAnim`)**: nézetváltáskor (és első festéskor) az
+  `#app` kap egy `.enter` osztályt ~1,1 mp-re, amire a CSS a `.wrap>*`
+  kártyák **lépcsőzetes beúszását** akasztja (`riseIn`, 35 ms-os lépcsők,
+  a 9. elemtől azonos késleltetés), plusz a `.mgfill` sávok kirajzolódását
+  (`growX`), a `.miniring` pukkanását, az izomtérkép/heatmap/grafikonok
+  halvány beúszását. A View Transition emiatt már **tiszta cross-fade**
+  (nincs benne eltolás) – az irányt a kártya-lépcsőzet adja.
+- **Festés utáni horgok:** a `render` a belépő animációt és a
+  `runCountUps`-ot a festéssel EGY egységben (a `paint` callbacken belül)
+  futtatja, így a View Transition ágon is a friss DOM-ra kerülnek.
+- **Overlay-nyitás:** `.sheet/.modal/.rest/.photo` háttér lágy `fadeIn`,
+  a modál-kártya és a fotó `popIn` rugóval; az alsó nav aktív ikonja
+  `navPop`-ot pukkan váltáskor. Mind csak megjelenés, funkciót nem érint.
 
 ## Tárolás
 
