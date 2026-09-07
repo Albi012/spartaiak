@@ -381,6 +381,13 @@ media-blokkban definiálva – a `:root`-on legyen az alapérték.
 
 - **Egy kézzel, izzadt ujjal használható.** Minden koppintható elem
   legalább 44px. A szett-rögzítés két koppintás legyen, ne több.
+  A `repKbSheet` rácsa ezért a cél körüli tartományt (`t-4 … t+6`) adja
+  egy koppintással, **alatta pedig kézi mező** (`#repMan` +
+  `setRepManual()`) a tartományon kívüli számhoz – pl. 30 fekvőtámasz
+  12-es célnál, vagy egy hosszú tartás mp-e. A mező csak egész 0..999
+  értéket fogad el; érvénytelennél nem rögzít és nyitva marad. A `0`
+  érvényes rögzített érték (sikertelen szett), a `null` továbbra is
+  „nincs rögzítve" – ezt a „Törlés" adja.
 - **Két téma, sötét az alapértelmezett.** Teremben a sötét kényelmesebb
   és kevesebbet fogyaszt; a világos téma választható (rendszerkövetéssel).
 - **A szám a főszereplő.** A súly és az ismétlés nagy, tabuláris

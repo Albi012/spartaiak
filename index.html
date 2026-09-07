@@ -252,6 +252,10 @@ a.btn{text-decoration:none;color:var(--ink)}
 .kb{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px}
 .kb button{padding:16px 0;border-radius:13px;background:var(--card2);border:1px solid var(--line);font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:700}
 .kb button:active{background:var(--brass-d)}
+/* Kézi ismétlés-mező a rács alatt: a natív számléptető nyilai csak szűkítik
+   a beviteli felületet, ezért elrejtjük – a telefon számbillentyűzete jön fel. */
+#repMan{-moz-appearance:textfield;min-height:48px}
+#repMan::-webkit-outer-spin-button,#repMan::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 textarea{font-family:inherit;font-size:16px;color:var(--ink);background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:12px;line-height:1.4}
 textarea:focus{outline:2px solid var(--brass);outline-offset:2px}
 
@@ -495,7 +499,7 @@ let tab='home', playing=false, curEx=0, tInt=null, tEnd=0, tLen=0, wl=null, nagO
 let logFilter=null;   // Napló szűrő edzéstípusra (day id) – null = mind
 let physioRegion='';  // Gyógytorna oldal aktív testtáj (üres = első)
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v80';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v81';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -2052,17 +2056,37 @@ function openSet(id,i){
   document.getElementById('sheetIn').innerHTML=repKbSheet(e,i,t);
   document.getElementById('sheet').classList.add('on');
 }
-// Ismétlés-választó billentyűzet (a cél körüli tartomány).
+// Ismétlés-választó billentyűzet (a cél körüli tartomány) + kézi mező.
+// A rács a tipikus esetet fedi két koppintással; a mező azért kell, mert a
+// tartományon kívüli szám (pl. 30 fekvőtámasz 12-es célnál, vagy egy hosszú
+// tartás mp-e) különben nem rögzíthető.
 function repKbSheet(e,i,t){
   const opts=[]; for(let k=Math.max(1,t-4);k<=t+6;k++) opts.push(k);
+  const unit=e.time?'mp':'ismétlés';
   let h=`<div class="grabber"></div>
     <div class="row"><div class="grow"><span class="eyebrow">${i+1}. szett</span>
     <h2 style="font-size:24px">${esc(e.n)}</h2><span class="small dim">cél: ${esc(e.r)}${e.time?'':' ismétlés'}</span></div>
     <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
     <div class="kb">`;
   opts.forEach(k=>{ h+=`<button onclick="setRep(${k})" style="${k==t?'border-color:var(--brass);color:var(--brass)':''}">${k}</button>`; });
-  h+=`</div><button class="btn" style="margin-top:12px;color:var(--mut)" onclick="setRep(null)">Törlés</button>`;
+  h+=`</div>
+    <div class="row" style="gap:8px;margin-top:12px">
+      <input id="repMan" type="number" inputmode="numeric" pattern="[0-9]*" min="0" max="999" step="1"
+        class="num" placeholder="Egyéb…" aria-label="Kézi ${unit}-megadás"
+        style="flex:1;min-width:0;font-size:20px;font-weight:600;text-align:center"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();setRepManual();}">
+      <button class="btn pri" style="flex:0 0 42%;margin:0" onclick="setRepManual()">Rögzítés</button>
+    </div>
+    <button class="btn" style="margin-top:8px;color:var(--mut)" onclick="setRep(null)">Törlés</button>`;
   return h;
+}
+// A kézi mező beolvasása. Csak egész, 0..999 megy át; hibás értéknél nem
+// rögzít (a mező marad, hogy javítható legyen).
+function setRepManual(){
+  const el=document.getElementById('repMan'); if(!el) return;
+  const v=parseInt(el.value,10);
+  if(!Number.isFinite(v) || v<0 || v>999){ el.value=''; el.focus(); return; }
+  setRep(v);
 }
 function closeSheet(){ document.getElementById('sheet').classList.remove('on'); }
 

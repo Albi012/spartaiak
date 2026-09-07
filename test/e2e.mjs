@@ -242,6 +242,28 @@ ok('13 a GIF-ek NEM az app-héj része (offline-könnyű)', await page.evaluate(
   const t=await (await fetch('sw.js')).text(); const m=t.match(/APP_SHELL\s*=\s*\[[^\]]*\]/);
   return !!m && !/gif\//.test(m[0]); }));
 
+// 14. Kézi ismétlés-megadás (a rács tartományán kívüli szám)
+await page.evaluate(()=>{ if(!S.active) startDay('pa'); }); await wait(300);
+const manEx = await page.evaluate(()=>{ const e=dayDef(S.active.day).ex.filter(x=>S.active.log[x.id])[0]; openSet(e.id,0); return e.id; }); await wait(200);
+ok('14 a lapon van kézi mező + Rögzítés', await page.evaluate(()=>{
+  const el=document.getElementById('repMan');
+  return !!el && el.getAttribute('inputmode')==='numeric' && /Rögzítés/.test(document.getElementById('sheetIn').textContent); }));
+ok('14 tartományon kívüli szám rögzül', await page.evaluate(id=>{
+  document.getElementById('repMan').value='27'; setRepManual(); return S.active.log[id].sets[0]; }, manEx)===27);
+await page.evaluate(id=>openSet(id,1), manEx); await wait(200);
+ok('14 nulla is rögzíthető (nem „nincs rögzítve")', await page.evaluate(id=>{
+  document.getElementById('repMan').value='0'; setRepManual(); return S.active.log[id].sets[1]===0; }, manEx));
+await page.evaluate(id=>openSet(id,2), manEx); await wait(200);
+ok('14 érvénytelen érték nem rögzít, a lap nyitva marad', await page.evaluate(id=>{
+  document.getElementById('repMan').value='1500'; setRepManual();
+  return S.active.log[id].sets[2]===null && document.getElementById('sheet').classList.contains('on'); }, manEx));
+ok('14 üres mező sem rögzít', await page.evaluate(id=>{
+  document.getElementById('repMan').value=''; setRepManual(); return S.active.log[id].sets[2]===null; }, manEx));
+await page.evaluate(()=>closeSheet());
+ok('14 idő-alapú gyakorlatnál is van kézi mező', await page.evaluate(()=>{
+  const h=repKbSheet({id:'plank',n:'Plank',r:'45 mp',time:1},0,45);
+  return h.includes('id="repMan"') && h.includes('mp'); }));
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));
