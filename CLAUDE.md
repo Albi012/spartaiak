@@ -84,7 +84,10 @@ alapértéket kapnak; a `save()`/`backup()`/`restore()` viszi őket):
   (`RDY_DEF`). SKALÁR preferencia: a felhő-összefésülésben az újabb állapotból
   jön (mint az `injury`/`hidePlan`), nincs külön kezelés. Maga a PONTSZÁM
   NEM tárolódik – mindig a naplóból számoljuk (lásd „Készenlét").
-- Session-szinten: `note` (aznapi jegyzet), `deload` (kihagyás utáni
+- Session-szinten: `note` (aznapi jegyzet), `noteEx` (**melyik gyakorlatnál
+  írtad** – gyakorlat-ID; additív, régi edzésen hiányzik, olyankor csak a
+  jegyzet látszik; az ELSŐ írásnál rögzül és marad, a jegyzet kiürítésekor
+  törlődik), `deload` (kihagyás utáni
   visszaépítés jelző), `end` (befejezés időbélyege – az időtartamhoz;
   additív, régi edzésen hiányzik, olyankor nincs időtartam). Log-szinten:
   `why` (`busy`|`heavy`|`time` – miért tért el a tervtől).
@@ -459,6 +462,11 @@ media-blokkban definiálva – a `:root`-on legyen az alapérték.
   jelenik meg (a `fromPlayer` zászlóval). Váltáskor a még nem mentett
   szöveget átvisszük, ha a másik oldal üres – meglévő jegyzetet SOHA nem ír
   felül, és a már mentett szöveget nem másolja át.
+  A **napi jegyzet megjegyzi, melyik gyakorlatnál írtad** (`noteEx`): a lap
+  mentés előtt kiírja („Ide kerül: …"), a napló és a heti export pedig
+  „(<gyakorlat> közben)" alakban mutatja. A bélyeg az első írásnál rögzül,
+  hogy később is tudd, mi közben jutott eszedbe – egy másik gyakorlatnál
+  végzett szerkesztés NEM viszi el.
 - **A főoldal hőse a készenlét-kártya.** A dekoratív „Melyik nap jön?"
   fejléc és a redundáns belépő-gombok (Tervek kezelése, gyógytorna)
   kikerültek – előbbi az alsó nav füle, utóbbi a felső sáv ikonja.

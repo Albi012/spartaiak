@@ -397,6 +397,29 @@ ok('16 meglévő jegyzetet a váltás soha nem ír felül', await page.evaluate(
   delete S.active.note; delete S.notes[id];
   try{localStorage.removeItem('gymlog_noteday')}catch(e){}
   return ok2; }));
+// A napi jegyzet megjegyzi, MELYIK gyakorlatnál írtad.
+ok('16 a napi jegyzet bélyeget kap az aktuális gyakorlatról', await page.evaluate(()=>{
+  delete S.active.note; delete S.active.noteEx;
+  exNav(3); const itt=playerExId();
+  openPlayerNote(); setNoteMode(true);
+  const elo=document.getElementById('sheetIn').textContent.includes(exDef(itt).n);  // mentés ELŐTT is látszik
+  document.getElementById('noteTa').value='bal váll kicsit húz'; saveNote('day','');
+  return elo && S.active.noteEx===itt && S.active.note==='bal váll kicsit húz'; }));
+ok('16 később, MÁS gyakorlatnál szerkesztve a bélyeg marad', await page.evaluate(()=>{
+  const eredeti=S.active.noteEx; exNav(5);
+  openPlayerNote(); document.getElementById('noteTa').value='…de elmúlt'; saveNote('day','');
+  return S.active.noteEx===eredeti && eredeti!==playerExId(); }));
+ok('16 kiürítéskor a bélyeg is megy (ne maradjon hazug nyom)', await page.evaluate(()=>{
+  openPlayerNote(); document.getElementById('noteTa').value=''; saveNote('day','');
+  return S.active.note===undefined && S.active.noteEx===undefined; }));
+ok('16 a napló kiírja, melyik gyakorlatnál íródott', await page.evaluate(()=>{
+  const fake={t:Date.now(),day:'pa',log:{bench:{w:60,sets:[5,5,5]}},note:'fáradt',noteEx:'ohpdb'};
+  S.sessions.push(fake); const h=logView(); S.sessions.pop();
+  return h.includes('Vállból nyomás ülve közben') && h.includes('fáradt'); }));
+ok('16 bélyeg nélküli régi jegyzet is rendben jelenik meg', await page.evaluate(()=>{
+  const fake={t:Date.now(),day:'pa',log:{bench:{w:60,sets:[5,5,5]}},note:'régi jegyzet'};
+  S.sessions.push(fake); const h=logView(); S.sessions.pop();
+  return h.includes('Jegyzet: régi jegyzet') && !/közben/.test(h.split('régi jegyzet')[0].slice(-80)); }));
 ok('16 a lejátszón kívül nincs kapcsoló', await page.evaluate(()=>{
   openNoteSheet('ex','bench');
   const n=document.querySelectorAll('#sheetIn .seg button').length; closeSheet(); return n===0; }));

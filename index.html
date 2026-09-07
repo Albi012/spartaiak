@@ -563,7 +563,7 @@ function logRdyBadge(t){
 }
 let physioRegion='';  // Gyógytorna oldal aktív testtáj (üres = első)
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v84';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v85';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -2553,7 +2553,7 @@ function logView(){
       <div class="row"><div class="grow"><span class="cond" style="font-size:20px;font-weight:600">${esc(dn)}</span>
       <div class="small dim">${fmtDate(s.t)}${dur?' · '+fmtDur(dur):''} · ${tot} szett · <span class="num">${load.toLocaleString('hu')}</span> kg${hi?' <span style="color:var(--red);font-weight:600">· kiugró</span>':''}${logRdyInline(s.t)}</div></div>
       <button onclick="del(${idx})" class="small dim" style="padding:8px">Törlés</button></div>
-      ${s.note?`<div class="small mut" style="padding:0 16px 10px">Jegyzet: ${esc(s.note)}</div>`:''}</div>`;
+      ${s.note?`<div class="small mut" style="padding:0 16px 10px">Jegyzet${s.noteEx?` <span class="dim">(${esc(exDef(s.noteEx).n)} közben)</span>`:''}: ${esc(s.note)}</div>`:''}</div>`;
     const seen=new Set();
     d.ex.forEach(e=>{ seen.add(e.id); const l=s.log[e.id]; if(!l||!l.sets.some(x=>x!=null))return;
       h+=`<div class="hrow"><span class="small grow">${esc(e.n)}${l.why?` <span class="dim" style="font-size:11px">· ${WHY[l.why]}</span>`:''}</span>
@@ -2650,7 +2650,7 @@ function weeklyReport(){
   };
   sess.forEach(s=>{ const d=dayDef(s.day)||{ex:[]};
     t+='\n— '+fmtDate(s.t)+' — '+dayName(s)+' (összterhelés: '+sessionLoad(s).toLocaleString('hu')+' kg)\n';
-    if(s.note) t+='  Aznapi jegyzet: '+s.note+'\n';
+    if(s.note) t+='  Aznapi jegyzet'+(s.noteEx?' ('+exDef(s.noteEx).n+' közben)':'')+': '+s.note+'\n';
     const seen=new Set();
     d.ex.forEach(e=>{ seen.add(e.id); const l=s.log[e.id]; if(l&&l.sets.some(x=>x!=null)) t+=line(e,l); });
     Object.keys(s.log).forEach(id=>{ if(seen.has(id))return; const l=s.log[id];
@@ -3633,7 +3633,8 @@ function setNoteMode(day){
   const saved=((wasDay ? (S.active&&S.active.note) : (id&&S.notes[id])) || '').trim();
   try{ localStorage.setItem('gymlog_noteday', day?'1':'0'); }catch(e){}
   if(typed && typed!==saved){
-    if(day){ if(S.active && !S.active.note) S.active.note=typed; }
+    if(day){ if(S.active && !S.active.note){ S.active.note=typed;
+      if(!S.active.noteEx && id) S.active.noteEx=id; } }      // az átvitt szöveg is kap bélyeget
     else if(id && !S.notes[id]) S.notes[id]=typed;
   }
   openPlayerNote();
@@ -3669,11 +3670,17 @@ function openNoteSheet(kind,id,fromPlayer){
     const pin=document.getElementById('photoIn'); if(pin) pin.onchange=()=>addPhoto(id,pin.files[0]);
   } else {
     const cur=(S.active&&S.active.note)||'';
+    // A bélyeg: ha már van, azt mutatjuk (ott írtad); ha még nincs, azt,
+    // ami MOST rákerül – így mentés előtt látod, mi lesz rögzítve.
+    const stampId=(S.active&&S.active.noteEx)||playerExId();
+    const stampNew=!(S.active&&S.active.noteEx);
+    const stamp = stampId ? `<div class="small dim" style="margin-top:8px">${stampNew?'Ide kerül':'Ekkor írtad'}: <b style="color:var(--mut)">${esc(exDef(stampId).n)}</b></div>` : '';
     h+=`<div class="row"><div class="grow"><span class="eyebrow">Mai jegyzet</span>
       <h2 style="font-size:22px">Nap jegyzete</h2><span class="small dim">Csak erre az edzésre</span></div>
       <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
       ${noteSegment('day', fromPlayer)}
       <textarea id="noteTa" rows="3" style="width:100%;margin-top:12px;resize:vertical" placeholder="Pl. fáradt voltam, jobb váll kicsit húz">${esc(cur)}</textarea>
+      ${stamp}
       <button class="btn pri" style="margin-top:12px" onclick="saveNote('day','')">Mentés</button>`;
     document.getElementById('sheetIn').innerHTML=h;
   }
@@ -3682,7 +3689,15 @@ function openNoteSheet(kind,id,fromPlayer){
 function saveNote(kind,id){
   const v=document.getElementById('noteTa').value.trim();
   if(kind==='ex'){ if(v) S.notes[id]=v; else delete S.notes[id]; }
-  else if(S.active){ if(v) S.active.note=v; else delete S.active.note; }
+  else if(S.active){
+    if(v){
+      S.active.note=v;
+      // Melyik gyakorlatnál írtad? A bélyeg az ELSŐ írásnál rögzül, és
+      // marad – így később is tudod, mi közben jutott eszedbe. Üresre
+      // törléskor a bélyeg is megy, hogy ne maradjon hazug nyom.
+      if(!S.active.noteEx){ const ex=playerExId(); if(ex) S.active.noteEx=ex; }
+    } else { delete S.active.note; delete S.active.noteEx; }
+  }
   closeSheet(); save(); render();
 }
 function addPhoto(id,file){
