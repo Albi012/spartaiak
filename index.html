@@ -563,7 +563,7 @@ function logRdyBadge(t){
 }
 let physioRegion='';  // Gyógytorna oldal aktív testtáj (üres = első)
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v85';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v86';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -2629,15 +2629,19 @@ function copyAll(){
 }
 
 /* ---- Heti összefoglaló (AI edzőnek) -------------------------------- */
-// Az elmúlt 7 nap edzései a jegyzetekkel; ha héten nincs, az utolsó 3 edzés.
+// AZ AKTUÁLIS NAPTÁRI HÉT edzései a jegyzetekkel (hétfő 00:00-tól, ugyanaz a
+// `weekStart`, amit a sorozat- és a heti izomtérkép-számítás használ) – NEM
+// gördülő 7 nap, mert a szöveg „heti összefoglaló"-t ígér, és egy hétfői
+// edzés nem tartozik a múlt hétbe. Ha ezen a héten még nincs edzés, az
+// utolsó 3 megy el, és a fejléc ezt meg is mondja.
 function weeklyReport(){
   const WHY={busy:'gép foglalt',heavy:'túl nehéz',time:'kevés idő'};
-  const cutoff=Date.now()-7*864e5;
-  let sess=(S.sessions||[]).filter(s=>s.t>=cutoff), weekly=true;
+  const wkStart=weekStart(Date.now());
+  let sess=(S.sessions||[]).filter(s=>s.t>=wkStart), weekly=true;
   if(!sess.length){ sess=(S.sessions||[]).slice(-3); weekly=false; }
   let t='Edzésnapló – ';
-  if(sess.length){ const from=fmtDate(sess[0].t), to=fmtDate(sess[sess.length-1].t);
-    t += weekly ? 'heti összefoglaló ('+from+' – '+to+')' : 'utolsó '+sess.length+' edzés ('+from+' – '+to+')'; }
+  if(weekly) t+='heti összefoglaló ('+fmtDate(wkStart)+' – '+fmtDate(Date.now())+', '+sess.length+' edzés)';
+  else if(sess.length) t+='utolsó '+sess.length+' edzés ('+fmtDate(sess[0].t)+' – '+fmtDate(sess[sess.length-1].t)+') – ezen a héten még nem volt edzés';
   else t+='heti összefoglaló';
   t+='\n\nKérlek, edzőként nézd át ezeket az edzéseket, és adj rövid visszajelzést + javaslatot a következő hétre.\n';
   if(!sess.length) return t+'\n(Nincs rögzített edzés.)';
@@ -2665,7 +2669,7 @@ function openWeeklyExport(){
     <div class="row"><div class="grow"><span class="eyebrow">Heti összefoglaló</span>
     <h2 style="font-size:22px">Küldd el az edződnek</h2></div>
     <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
-    <p class="small dim" style="margin-top:6px">Az elmúlt 7 nap edzései a jegyzetekkel, AI-edzőnek kész szöveggel.</p>
+    <p class="small dim" style="margin-top:6px">Az e heti edzések (hétfőtől) a jegyzetekkel, AI-edzőnek kész szöveggel.</p>
     <textarea id="weeklyTa" rows="9" readonly style="width:100%;margin-top:10px">${esc(_weeklyText)}</textarea>
     <div class="row" style="gap:8px;margin-top:12px">
       <button class="btn pri" style="flex:1;margin:0" onclick="shareWeekly()">Megosztás</button>

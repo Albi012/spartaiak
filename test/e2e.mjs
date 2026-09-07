@@ -425,6 +425,29 @@ ok('16 a lejátszón kívül nincs kapcsoló', await page.evaluate(()=>{
   const n=document.querySelectorAll('#sheetIn .seg button').length; closeSheet(); return n===0; }));
 await page.evaluate(()=>{ S.active=null; playing=false; closeSheet(); tab='home'; render(); }); await wait(200);
 
+// 17. Heti összefoglaló edzőnek: AZ AKTUÁLIS NAPTÁRI HÉT, nem gördülő 7 nap
+ok('17 a múlt heti edzés kimarad, akkor is, ha 7 napon belüli', await page.evaluate(()=>{
+  const bak=S.sessions, ws=weekStart(Date.now());
+  S.sessions=[
+    {t:ws-12*36e5, day:'pa', log:{bench:{w:60,sets:[5,5,5]}}, note:'MULTHETI'},  // vasárnap este
+    {t:ws+2*36e5,  day:'la', log:{pull:{w:0,sets:[8,8,8]}},   note:'EHETI'}      // hétfő reggel
+  ];
+  const t=weeklyReport(); S.sessions=bak;
+  return t.includes('EHETI') && !t.includes('MULTHETI') && /heti összefoglaló/.test(t); }));
+ok('17 a fejléc a hét kezdetétől máig szól', await page.evaluate(()=>{
+  const bak=S.sessions, ws=weekStart(Date.now());
+  S.sessions=[{t:ws+2*36e5, day:'pa', log:{bench:{w:60,sets:[5,5,5]}}}];
+  const t=weeklyReport().split('\n')[0]; S.sessions=bak;
+  return t.includes(fmtDate(ws)) && t.includes(fmtDate(Date.now())) && t.includes('1 edzés'); }));
+ok('17 üres héten az utolsó edzésekre esik vissza, és ezt ki is mondja', await page.evaluate(()=>{
+  const bak=S.sessions, ws=weekStart(Date.now());
+  S.sessions=[{t:ws-3*864e5, day:'pa', log:{bench:{w:60,sets:[5,5,5]}}}];
+  const t=weeklyReport(); S.sessions=bak;
+  return /utolsó 1 edzés/.test(t) && /ezen a héten még nem volt edzés/.test(t); }));
+ok('17 a lap leírása is a hetet ígéri', await page.evaluate(()=>{
+  openWeeklyExport(); const t=document.getElementById('sheetIn').textContent; closeSheet();
+  return /e heti/.test(t) && !/elmúlt 7 nap/.test(t); }));
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));

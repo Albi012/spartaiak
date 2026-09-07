@@ -238,6 +238,20 @@ biztonságos import:
   (több nap esetén egy `p_` tervbe fűzve), majd a főoldalra visz. A PLAN
   és a meglévő routine-ok érintetlenek.
 
+## Heti összefoglaló edzőnek
+
+A Napló fül „Heti összefoglaló edzőnek" gombja (`openWeeklyExport` →
+`weeklyReport`) másolható/megosztható szöveget ad egy AI vagy valódi
+edzőnek: az edzések a szettekkel, az eltérés-okokkal és a jegyzetekkel.
+
+**Az időablak az AKTUÁLIS NAPTÁRI HÉT** (`weekStart(Date.now())`-tól, hétfő
+00:00), NEM gördülő 7 nap – a szöveg „heti összefoglalót" ígér, és egy
+vasárnapi edzés nem tartozik a hétfőn kezdődő héthez. Ugyanazt a
+`weekStart`-ot használja, mint a hetes sorozat és a heti izomtérkép, így a
+felület egységesen érti a „hetet". Ha ezen a héten még nincs edzés, az
+utolsó 3 megy el, és a fejléc ezt meg is mondja („ezen a héten még nem volt
+edzés") – nem tesz úgy, mintha heti anyag volna.
+
 ## Készenlét (readiness)
 
 Egyetlen napi szám (0..100), ami az app fő tájékozódási pontja. A
