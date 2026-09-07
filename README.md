@@ -157,7 +157,16 @@ védik.)
 
 ---
 
-## Licenc
+## Licenc és forrásmegjelölés
 
 Személyes projekt. Ha felhasználnád, nyiss egy issue-t vagy vedd fel a
 kapcsolatot a repó tulajdonosával.
+
+**Technika-ábrák.** A `gif/` mappa gyakorlat-animációi a
+[Gym visual](https://gymvisual.com/) illusztrációi (© Gym visual), a
+[hasaneyldrm/exercises-dataset](https://github.com/hasaneyldrm/exercises-dataset)
+gyűjteményből, 64 színre optimalizálva. A forrásmegjelölés az appban is ott
+van minden ábra alatt (`gifBox()`), illetve a gyakorlatválasztó lap alján –
+**ne vedd ki**. Az ábrák szerzői joga a Gym visualé; ha ezt a projektet
+továbbterjeszted vagy kereskedelmi célra használnád, előbb tisztázd velük a
+felhasználási feltételeket.

@@ -26,6 +26,7 @@
   --sage:#63C295; --sage-d:#14291E;
   --red:#E9694C; --miss-bg:#3A241E;
   --bar:rgba(15,19,23,.72); --shadow:rgba(0,0,0,.45);
+  --gif-filter:brightness(.8) contrast(1.04);
 }
 @media (prefers-color-scheme: light){
   :root:not([data-theme]){
@@ -35,6 +36,7 @@
     --sage:#2C9A64; --sage-d:#DDF0E6;
     --red:#C8492C; --miss-bg:#FBE7E0;
     --bar:rgba(244,242,236,.8); --shadow:rgba(40,50,60,.14);
+  --gif-filter:none;
   }
 }
 :root[data-theme="light"]{
@@ -44,6 +46,7 @@
   --sage:#2C9A64; --sage-d:#DDF0E6;
   --red:#C8492C; --miss-bg:#FBE7E0;
   --bar:rgba(244,242,236,.8); --shadow:rgba(40,50,60,.14);
+  --gif-filter:none;
 }
 :root[data-theme="dark"]{
   --bg:#0F1317; --card:#171D24; --card2:#1F2833; --line:#2A343F;
@@ -52,6 +55,7 @@
   --sage:#63C295; --sage-d:#14291E;
   --red:#E9694C; --miss-bg:#3A241E;
   --bar:rgba(15,19,23,.72); --shadow:rgba(0,0,0,.45);
+  --gif-filter:brightness(.8) contrast(1.04);
 }
 
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
@@ -256,6 +260,13 @@ textarea:focus{outline:2px solid var(--brass);outline-offset:2px}
 .exnote-t{font-size:14px;color:var(--mut);white-space:pre-wrap;flex:1;min-width:0}
 .exphoto{width:64px;height:64px;object-fit:cover;border-radius:11px;border:1px solid var(--line);flex:none}
 .exphoto.lg{width:100%;height:auto;max-height:280px;object-fit:contain;background:var(--card2)}
+/* Technika-animáció (GIF). A képek fehér hátterűek, ezért saját fehér
+   alapon ülnek – így sötét témában sem villan be éles keret. */
+.exgif{margin:10px auto 0;padding:0;max-width:200px;width:100%}
+.exgif img{display:block;width:100%;height:auto;aspect-ratio:1/1;border-radius:12px;border:1px solid var(--line);background:#fff;filter:var(--gif-filter)}
+.exgif figcaption{margin-top:4px;text-align:center;font-size:11px;color:var(--dim)}
+.exgif figcaption a{color:var(--dim)}
+.exgift{width:44px;height:44px;flex:none;border-radius:9px;border:1px solid var(--line);background:#fff;object-fit:cover;filter:var(--gif-filter)}
 
 /* Terv kontra valóság / sérülés – választható címkék */
 .whyrow{display:flex;flex-wrap:wrap;gap:8px}
@@ -484,7 +495,7 @@ let tab='home', playing=false, curEx=0, tInt=null, tEnd=0, tLen=0, wl=null, nagO
 let logFilter=null;   // Napló szűrő edzéstípusra (day id) – null = mind
 let physioRegion='';  // Gyógytorna oldal aktív testtáj (üres = első)
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v79';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v80';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -801,6 +812,81 @@ function videoUrl(e){
   if(e && VIDEO[e.id]) return VIDEO[e.id];
   const q=encodeURIComponent(((e&&e.n)||'')+' helyes technika gyakorlat');
   return 'https://www.youtube.com/results?search_query='+q;
+}
+// Technika-animáció (GIF) gyakorlatonként. A GIFX térkép exId → fájl-alapnév;
+// a fájlok a `gif/` mappában vannak, a képek © Gym visual (gymvisual.com) –
+// az attribúciót a `gifBox()` mindig kiírja a kép alá, ne vedd ki.
+// Az ID-k naplókulcsok: ha új gyakorlat kap ábrát, ide vegyél fel sort.
+// A GIF-ek NEM részei a service worker app-héjának (`sw.js` APP_SHELL) –
+// futásidőben, megtekintéskor cache-elődnek, így az offline app-héj könnyű marad.
+const GIFX={bench:'0025-EIeI8Vf',dip:'0251-9WTm7dq',incdb:'0314-ns0SIbU',ohpdb:'0405-znQUdHY',
+  lat:'0334-DsgkuIt',push:'0200-dU605di',hipabd:'0710-7WaDzyL',pull:'0652-lBDjFxJ',
+  row:'0327-7vG5o25',cable:'0861-fUBheHs',face:'0203-wqNPGCg',curl:'0294-NbVPDMW',
+  hammer:'0165-HPlPoQA',ohp:'0091-kTbSH9h',dbbench:'0289-SpYC0Kp',dipbw:'0251-9WTm7dq',
+  machinc:'0757-5v7KYld',french:'0201-3ZflifB',plank:'2135-VBAWRPG',tbar:'0327-7vG5o25',
+  wide:'0150-eYnzaCm',onerow:'0292-C0MA9bC',legcurl:'0586-17lJ1kr',rear:'2292-mu5Guxt',
+  knee:'0011-03lzqwk',hyp:'0489-zhMwOwE',x_inclbb:'0047-3TZduzM',x_declbb:'0033-GrO65fd',
+  x_inclmach:'1299-jHAnWmT',x_machpress:'0577-T0yTjgW',x_dbfly:'0308-yz9nUhF',
+  x_lowfly:'0179-FVmZVhk',x_pecdeck:'0596-v3xmPAR',x_pushup:'0662-I4hDWkc',
+  x_declpushup:'0279-i5cEhka',x_svend:'0856-I1OBLnn',x_deadlift:'0032-ila4NZS',
+  x_pendlay:'0027-eZyBC3j',x_chinup:'1326-T2mxWqc',x_neutralpd:'0818-rkg41Fb',
+  x_closepd:'2616-4c9BhzB',x_straightarm:'0238-x69MAlq',x_seatedrow:'1350-7I6LNUG',
+  x_chestrow:'1350-7I6LNUG',x_shrug:'0095-dG7tG5y',x_dbshrug:'0406-NJzBsGJ',
+  x_pullover:'0375-9XjtHvS',x_invrow:'0499-bZGHsAZ',x_arnold:'2137-Xy4jlWA',
+  x_dbpress:'0426-A6wtbuL',x_machsp:'0603-67n3r98',x_cablelat:'0178-goJ6ezq',
+  x_frontraise:'0310-3eGE2JC',x_uprightrow:'0120-UDlhcO8',x_pushpress:'1700-FS63wTN',
+  x_closegrip:'0030-J6Dx1Mu',x_skull:'0061-iZop9xO',x_ohext:'0092-5uFK1xr',
+  x_dbfrench:'1738-5fKX7wi',x_dipmach:'0814-X6C6i5Y',x_pushbar:'0241-gAwDzB3',
+  x_bbcurl:'0031-25GPyDY',x_ezcurl:'0447-6TG6x2w',x_preacher:'0070-qOgPVf6',
+  x_inclcurl:'0318-ae9UoXQ',x_cablecurl:'0868-G08RZcQ',x_concentration:'0297-gvsWLQw',
+  x_spider:'0454-Ye5Qxb0',x_reversecurl:'0080-xNrS20v',x_squat:'0043-qXTaZnJ',
+  x_frontsquat:'0042-zG0zs85',x_legpress:'2287-V07qpXy',x_hacksquat:'0046-5VCj6iH',
+  x_goblet:'1760-yn8yg1r',x_lunge:'0054-t8iSghb',x_bulgarian:'0099-gGNQmVt',
+  x_stepup:'0431-aXtJhlg',x_rdl:'0085-wQ2c4XD',x_stiffdl:'0116-hrVQWvE',
+  x_legext:'0585-my33uHU',x_legcurlseat:'0599-Zg3XY7P',x_gluteham:'3193-Vvwjz6N',
+  x_calfstand:'1372-8ozhUIZ',x_calfseated:'0088-ktsFQAZ',x_adductor:'0598-oHsrypV',
+  x_abductor:'0597-CHpahtl',x_kbswing:'0549-UHJlbu3',x_hangleg:'0472-I3tsCnC',
+  x_legraise:'0620-WhuFnR7',x_situp:'3679-6ZCiYWQ',x_cablecrunch:'0175-WW95auq',
+  x_russian:'0687-XVDdcoj',x_pallof:'0979-9pa4H5m',x_sidebend:'0407-IpONWYv',
+  x_deadbug:'0276-iny3m5y',x_sideplank:'3544-5VXmnV5',x_farmer:'2133-qPEzJjA',
+  x_smithbench:'0748-trqKQv2',x_cablepress:'2144-nIR4Rwl',x_chestdip:'0251-9WTm7dq',
+  x_declfly:'0302-xXm4nYq',x_diamondpush:'0283-soIB2rj',x_kroc:'0292-C0MA9bC',
+  x_widerowm:'0218-qcY50ZD',x_goodmorning:'0044-XlZ4lAC',x_ext45:'0488-zkgRrbK',
+  x_reverseflydb:'0383-EAs3xL9',x_machinelat:'0584-dRTfGZT',x_cablefrontr:'0162-u2X71Np',
+  x_bradford:'0105-dCPESfR',x_cubanpress:'0299-QfAKy1G',x_jmpress:'0052-ZsiqXYa',
+  x_benchdip:'1399-9RT8oQW',x_reversepush:'0207-VjYliFZ',x_singlepush:'1723-qRZ5S1N',
+  x_tatepress:'0436-s5PdDyY',x_dbcurlstand:'0294-NbVPDMW',x_zottman:'0439-kXaIn5A',
+  x_bayesian:'0868-G08RZcQ',x_dragcurl:'0038-IENzBdA',x_ropehammer:'0165-HPlPoQA',
+  x_wristcurl:'0126-82LxxkW',x_revwrist:'0082-LsZkfU6',x_smithsquat:'0770-jFtipLl',
+  x_pausesquat:'0043-qXTaZnJ',x_pistol:'0544-5bpPTHv',x_walkinglunge:'1460-IZVHb27',
+  x_reverselunge:'0078-VaP75jl',x_sidelunge:'1410-py1HSzx',x_singlerdl:'1756-gEyURal',
+  x_legpress45:'0739-10Z2DXU',x_donkeycalf:'0284-u5ESqzH',x_sissy:'1489-xdYPUtE',
+  x_vups:'1014-H6ETwO9',x_bicycle:'0972-tZkGYZ9',x_reversecrunch:'0872-nCU1Ekp',
+  x_obliquecr:'1495-cJgSTmh',x_landminetwist:'0562-QYysSLV',x_hangoblique:'1761-BaE7O6U',
+  x_backextw:'0573-rUXfn3R',x_cablecross:'1269-UKWTJWR',x_floorpress:'0065-vtusOWT',
+  x_rackpull:'0074-za9Ni4z',x_singlepd:'3563-U5INZY6',x_renegade:'0521-b9kqlBy',
+  x_behindneck:'0747-Gpn4ADc',x_leaningcablelat:'0178-goJ6ezq',x_yraise:'1017-aHDy5O5',
+  x_ropepush:'0200-dU605di',x_crosshammer:'0298-Qyk5J3p',x_inclhammer:'0320-ByX0WxV',
+  x_highcablecurl:'0868-G08RZcQ',x_trapbar:'0811-jQGwmxN',x_zercher:'0127-LSTChY9',
+  x_standleg:'0795-C5jncD2',x_crunch:'0274-TFqbd8t',x_mountainclimber:'0630-RJgzwny',
+  rack:'0074-za9Ni4z',abs:'0175-WW95auq'};
+function gifUrl(e){ const f=e&&GIFX[e.id]; return f?('gif/'+f+'.gif'):null; }
+// Egységes ábra-doboz: lusta betöltés, fix arány (nincs ugrálás), és a
+// kötelező forrásmegjelölés. Ha nincs ábra az adott gyakorlathoz, üres string.
+// Kis lista-bélyegkép (gyakorlatválasztó). Lusta betöltés: a böngésző csak a
+// látótérbe kerülő ábrákat tölti le, így a ~160 elemű könyvtár nem húz be
+// mindent egyszerre. A forrásmegjelölés a lap alján egyszer szerepel.
+function gifThumb(e){
+  const u=gifUrl(e); if(!u) return '';
+  return `<img class="exgift" src="${u}" alt="" loading="lazy" decoding="async" width="44" height="44">`;
+}
+function gifBox(e,opt){
+  const u=gifUrl(e); if(!u) return '';
+  const w=(opt&&opt.w)||200;
+  return `<figure class="exgif" style="max-width:${w}px">
+    <img src="${u}" alt="${esc(((e&&e.n)||'')+' – technika ábra')}" loading="lazy" decoding="async" width="180" height="180">
+    <figcaption>Ábra © <a href="https://gymvisual.com/" target="_blank" rel="noopener noreferrer">Gym visual</a></figcaption>
+  </figure>`;
 }
 // Gyógytorna-gyakorlat feloldása gyakorlat-defként (a mobilitás rutinhoz).
 // 1 szett, a REHAB célból származtatott ismétlés/tartás, testsúly, rövid
@@ -1666,8 +1752,9 @@ function pickerRowsHtml(){
   const lib=exLibrary().filter(e=>
     (!q || e.n.toLowerCase().includes(q)) &&
     (!pickerMg || (e.mg||'')===pickerMg));
-  return lib.map(e=>`<button class="btn" style="text-align:left;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px" onclick="addToDraft('${e.id}')">
-      <span style="min-width:0"><span style="font-weight:600">${esc(e.n)}</span>
+  return lib.map(e=>`<button class="btn" style="text-align:left;display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px" onclick="addToDraft('${e.id}')">
+      ${gifThumb(e)}
+      <span class="grow" style="min-width:0"><span style="font-weight:600">${esc(e.n)}</span>
       <span class="small dim" style="display:block">${e.s}×${e.r}${e.mg?' · '+e.mg:''} · ${e.src}</span></span>
       <span style="color:var(--brass);font-size:24px;flex:none">+</span></button>`).join('')
     || '<div class="empty">Nincs találat ebben az izomcsoportban.</div>';
@@ -1687,7 +1774,8 @@ function renderPicker(){
     <input type="text" placeholder="Keresés név szerint…" value="${esc(pickerQ)}" oninput="pickerQ=this.value;renderPickerRows()" style="width:100%;margin:12px 0 10px">
     <div class="whyrow" id="pickerChips" style="margin-bottom:12px">${pickerChipsHtml()}</div>
     <button class="btn pri" style="margin-bottom:12px" onclick="openCustomEx()">+ Új saját gyakorlat</button>
-    <div id="pickerRows" style="max-height:40vh;overflow-y:auto">${pickerRowsHtml()}</div>`;
+    <div id="pickerRows" style="max-height:40vh;overflow-y:auto">${pickerRowsHtml()}</div>
+    <p class="small dim" style="text-align:center;margin:10px 0 0">Ábrák © <a href="https://gymvisual.com/" target="_blank" rel="noopener noreferrer" style="color:var(--dim)">Gym visual</a></p>`;
 }
 function addToDraft(exId){ draft.ex.push(exId); closeSheet(); render(); }
 
@@ -2947,7 +3035,8 @@ function openProgDetail(id, metric){
       <span class="small dim">Csúcs ${wLabel(e,pr)}${e.bw&&pr<=0?'':' kg'} · ${rows.length} alkalom</span>${(()=>{const b=best1RM(id);return b?`<br><span class="small" style="color:var(--brass)">Becsült 1RM ~${b.est} kg <span class="dim">(${b.w}×${b.r})</span></span>`:'';})()}</div>
       <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
     <div class="seg">${seg('w','Súly')}${seg('vol','Térfogat')}${e.bw?'':seg('1rm','1RM')}</div>
-    <a class="small" href="${videoUrl(e)}" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:6px;color:var(--brass);text-decoration:none;margin:8px 2px 0">${ICON.video} Technika videó ›</a>`;
+    <a class="small" href="${videoUrl(e)}" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:6px;color:var(--brass);text-decoration:none;margin:8px 2px 0">${ICON.video} Technika videó ›</a>
+    ${gifBox(e,{w:160})}`;
   if(pts.length>1){
     h+=`<svg class="chartbig" viewBox="0 0 100 120" preserveAspectRatio="none">
       <path d="${area}" fill="var(--brass-d)" opacity=".55"/>
@@ -3073,6 +3162,7 @@ function openNoteSheet(kind,id){
     h+=`<div class="row"><div class="grow"><span class="eyebrow">Gyakorlat-jegyzet</span>
       <h2 style="font-size:22px">${esc(e.n)}</h2><span class="small dim">Állandó – padszög, ülésmagasság, technika</span></div>
       <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
+      ${gifBox(e)}
       <textarea id="noteTa" rows="3" style="width:100%;margin-top:12px;resize:vertical" placeholder="Pl. pad 30°, ülés 4-es lyuk, könyök be">${esc(pn)}</textarea>
       ${ph?`<img class="exphoto lg" src="${ph}" alt="beállítás fotó" style="margin-top:10px">`:''}
       <div class="row" style="gap:8px;margin-top:10px">

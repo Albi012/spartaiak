@@ -230,6 +230,37 @@ biztonságos import:
   (több nap esetén egy `p_` tervbe fűzve), majd a főoldalra visz. A PLAN
   és a meglévő routine-ok érintetlenek.
 
+## Technika-animációk (GIF)
+
+Gyakorlatonként egy rövid, hurkolt **technika-animáció** (180×180 GIF) a
+`gif/` mappában. Ez a bedrótozott „Technika videó" link **kiegészítése**,
+nem a helyettesítője.
+
+- **Térkép:** `GIFX[exId] = '<fájl-alapnév>'` (a `.gif` nélkül), az
+  `index.html`-ben a `VIDEO` blokk után. 159 gyakorlat, 145 fájl (néhány
+  ID ugyanazt az ábrát használja, pl. `dip`/`dipbw`). A PLAN mind a 26
+  gyakorlata le van fedve. **A fájlneveket NE nevezd át** – a térkép
+  ezekre hivatkozik.
+- **Segédek:** `gifUrl(e)` → `'gif/<név>.gif'` vagy `null`;
+  `gifBox(e,{w})` → a nagy ábra + kötelező forrásmegjelölés;
+  `gifThumb(e)` → 44px-es lista-bélyegkép. Mindkettő `loading="lazy"`.
+- **Hol jelenik meg:** gyakorlat-jegyzet lap (`openNoteSheet('ex')`),
+  haladás-részletlap (`openProgDetail`), és bélyegképként a
+  gyakorlatválasztóban (`pickerRowsHtml`, a lap alján egyszeri
+  forrásmegjelöléssel).
+- **Sötét téma:** az ábrák fehér alapúak, ezért a `--gif-filter` token
+  sötétben tompít (`brightness(.8)`), világosban `none`. Új színt itt is a
+  `:root`-on adj alapértéknek.
+- **Offline:** a GIF-ek **NEM részei a `sw.js` APP_SHELL-jének** – az
+  app-héj könnyű marad, az ábrák futásidőben (megtekintéskor)
+  cache-elődnek a cache-first ághoz. Ezt ne írd át.
+- **Jogok:** az ábrák © **Gym visual** (gymvisual.com), a
+  `hasaneyldrm/exercises-dataset` gyűjteményből. A forrásmegjelölést a
+  `gifBox()` és a választó lap alja írja ki – **ne vedd ki**. Részletek:
+  `gif/ATTRIBUTION.md`.
+- Saját gyakorlat (`cx_…`) és gyógytorna-tétel (`rh_…`) nem kap ábrát; a
+  `gifBox`/`gifThumb` ilyenkor üres stringet ad (nincs törött kép).
+
 ## Ikonok
 
 A felület ikonjai **monokróm inline SVG-k** (`ICON` objektum,

@@ -16,3 +16,10 @@
   for = "/manifest.webmanifest"
   [headers.values]
     Cache-Control = "no-cache"
+
+# Technika-ábrák: tartalom-hash helyett stabil fájlnevek (a forrás-gyűjtemény
+# azonosítói), és soha nem változnak – így hosszan cache-elhetők.
+[[headers]]
+  for = "/gif/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

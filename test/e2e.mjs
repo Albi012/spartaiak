@@ -219,6 +219,29 @@ ok('12 import: routine + customEx (meglévő ID újrahasznál)', await page.eval
   return S.routines.length===before+1 && Object.keys(S.customEx).length===bcx+1 && r.ex[0]==='bench' && String(r.ex[1]).indexOf('cx_')===0;
 }));
 
+// 13. Technika-animációk (GIF)
+ok('13 GIFX térkép + minden PLAN gyakorlatnak van ábrája', await page.evaluate(()=>{
+  const ids=[...new Set(PLAN.flatMap(d=>d.ex.map(e=>e.id)))];
+  return typeof GIFX==='object' && Object.keys(GIFX).length>100 && ids.every(id=>!!GIFX[id]); }));
+ok('13 gifUrl relatív útvonal / ismeretlenre null', await page.evaluate(()=>
+  gifUrl(exDef('bench'))==='gif/'+GIFX.bench+'.gif' && gifUrl({id:'nincs_ilyen'})===null));
+ok('13 gifBox forrásmegjelöléssel', await page.evaluate(()=>{
+  const h=gifBox(exDef('bench')); return h.includes('gymvisual.com') && h.includes('loading="lazy"') && gifBox({id:'nincs_ilyen'})===''; }));
+ok('13 jegyzet-lapon megjelenik az ábra', await page.evaluate(async ()=>{
+  openNoteSheet('ex','bench'); const im=document.querySelector('#sheetIn .exgif img');
+  const okk=!!im && im.getAttribute('src').startsWith('gif/'); closeSheet(); return okk; }));
+ok('13 a GIF-fájl tényleg letölthető', await page.evaluate(async ()=>{
+  const r=await fetch(gifUrl(exDef('bench'))); return r.ok && (r.headers.get('content-type')||'').includes('gif'); }));
+ok('13 választóban bélyegkép (lusta)', await page.evaluate(()=>{
+  draft={id:null,name:'t',ex:[],ssLinks:[]}; openExPicker();
+  const th=document.querySelectorAll('#pickerRows .exgift');
+  const okk=th.length>50 && th[0].getAttribute('loading')==='lazy'
+    && document.getElementById('sheetIn').textContent.includes('Gym visual');
+  closeSheet(); return okk; }));
+ok('13 a GIF-ek NEM az app-héj része (offline-könnyű)', await page.evaluate(async ()=>{
+  const t=await (await fetch('sw.js')).text(); const m=t.match(/APP_SHELL\s*=\s*\[[^\]]*\]/);
+  return !!m && !/gif\//.test(m[0]); }));
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));
