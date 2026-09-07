@@ -156,8 +156,8 @@ azonosítóként jelenik meg a felületen.
 ## Gyógytorna / mobilitás oldal
 
 Külön nézet (`physioView`, `tab==='physio'`, NEM a bottom-navban – a
-felső sáv **állandó gyógytorna-ikonjáról** (`physioBtn`), a főoldali
-gombról és a sérülés-mód kártyáról nyílik).
+felső sáv **állandó gyógytorna-ikonjáról** (`physioBtn`) és a sérülés-mód
+kártyájáról nyílik; a főoldali belépő-gomb kikerült, ott csak zaj volt).
 **5 perces rutin testtájanként:** a `startPhysioRoutine(rid)` a meglévő
 lejátszót indítja egy `physio_<testtáj>` szintetikus napra (`dayDef`/`exDef`
 feloldja a `rh_` gyakorlatokat `physioExDef`-fel: 1 szett, testsúly, rövid
@@ -379,7 +379,9 @@ indításkor jön (üres napló + nincs jelző); a fiók-lapról bármikor
 újranyitható.
 
 **Beállítás-kulcsok** (mind FÜGGETLEN a `gymlog_v1`-től): `gymlog_mute`
-(`'1'` = pihenő-hang ki), `gymlog_notify` (`'1'` = időzítő rendszer-
+(`'1'` = pihenő-hang ki), `gymlog_noteday` (`'1'` = a lejátszó jegyzet-gombja
+alapból a NAP jegyzetét nyitja; hiánya/`'0'` = az éppen mutatott
+gyakorlatét – lásd „Jegyzetelés"), `gymlog_notify` (`'1'` = időzítő rendszer-
 értesítésben). Utóbbi: a `tick()`/`stTick()` háttérben (`document.hidden`)
 háttérváltásonként **EGYSZER**, némán posztol egy „folyamatban" értesítést
 (`timerNotif`, SW `showNotification`, `rest`/`hold` tag) – NEM
@@ -448,6 +450,18 @@ media-blokkban definiálva – a `:root`-on legyen az alapérték.
   értéket fogad el; érvénytelennél nem rögzít és nyitva marad. A `0`
   érvényes rögzített érték (sikertelen szett), a `null` továbbra is
   „nincs rögzítve" – ezt a „Törlés" adja.
+- **Jegyzetelés edzés közben: az AKTUÁLIS gyakorlathoz.** A lejátszó
+  „Jegyzet" gombja (`openPlayerNote`) alapból annak a gyakorlatnak az
+  állandó jegyzetét nyitja, amelyiken épp állsz (`playerExId`) – ez a
+  gyakoribb eset (padszög, fogás, technika). A lapon egy `.seg` kapcsoló
+  (`noteSegment` → `setNoteMode`) vált a mai nap jegyzetére, és a választás
+  megjegyződik (`gymlog_noteday`). A kapcsoló CSAK a lejátszóból nyitva
+  jelenik meg (a `fromPlayer` zászlóval). Váltáskor a még nem mentett
+  szöveget átvisszük, ha a másik oldal üres – meglévő jegyzetet SOHA nem ír
+  felül, és a már mentett szöveget nem másolja át.
+- **A főoldal hőse a készenlét-kártya.** A dekoratív „Melyik nap jön?"
+  fejléc és a redundáns belépő-gombok (Tervek kezelése, gyógytorna)
+  kikerültek – előbbi az alsó nav füle, utóbbi a felső sáv ikonja.
 - **Két téma, sötét az alapértelmezett.** Teremben a sötét kényelmesebb
   és kevesebbet fogyaszt; a világos téma választható (rendszerkövetéssel).
 - **A szám a főszereplő.** A súly és az ismétlés nagy, tabuláris

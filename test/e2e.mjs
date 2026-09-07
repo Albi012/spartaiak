@@ -43,7 +43,14 @@ await seed(backup);
 ok('1 app betölt (storeMode)', await page.evaluate(()=>storeMode==='local' || storeMode==='claude'));
 ok('1 standards mód (nincs quirks)', await page.evaluate(()=>document.compatMode==='CSS1Compat'));
 ok('1 lang=hu', await page.evaluate(()=>document.documentElement.lang==='hu'));
-ok('1 főoldal címe', (await page.$eval('#app h1',e=>e.textContent)).includes('Melyik nap'));
+// A dekoratív „Melyik nap jön?" fejléc kikerült; a főoldal a készenlét-
+// kártyával és a startolható napokkal kezd, fölötte a rövid összegzővel.
+ok('1 nincs dekoratív főoldal-fejléc', await page.evaluate(()=>{
+  const t=document.getElementById('app').textContent;
+  return !/Melyik nap jön/.test(t) && !/Tervek és edzések kezelése/.test(t) && !/Gyógytorna \/ mobilitás ›/.test(t); }));
+ok('1 az összegző sor megmaradt', await page.evaluate(()=>/edzés összesen/.test(document.getElementById('app').textContent)));
+ok('1 a Tervek és a gyógytorna továbbra is elérhető', await page.evaluate(()=>
+  !!document.querySelector('#physioBtn') && !!document.querySelector('nav button[data-tab="plans"], [data-tab="plans"]')));
 ok('1 nap-kártyák láthatók', (await page.$$('.daybtn')).length>=4);
 ok('1 suggestDay napot ajánl', await page.evaluate(()=>{ const s=suggestDay(); return !!(s&&s.dayId)&&Array.isArray(s.covers)&&s.covers.length>0; }));
 ok('1 „Mit edzek ma?" kártya', await page.$$eval('#app .eyebrow',es=>es.some(e=>/Mit edzek ma/.test(e.textContent))));
@@ -354,6 +361,46 @@ ok('15 lejátszó: készenlét-sáv (csak tanács, a súlyt nem állítja)', awa
   const w=S.active.log[e.id].w; render();
   return !!st && S.active.log[e.id].w===w; }));
 await page.evaluate(()=>{ S.active=null; playing=false; tab='home'; render(); }); await wait(200);
+
+// 16. Jegyzet: alapból az éppen mutatott gyakorlathoz
+await page.evaluate(()=>{ S.active=null; playing=false; try{localStorage.removeItem('gymlog_noteday')}catch(e){}
+  window.uiConfirm=()=>Promise.resolve(true); tab='home'; render(); startDay('pa'); }); await wait(400);
+await page.evaluate(()=>exNav(1)); await wait(200);
+ok('16 alapból a gyakorlathoz köt (nem a naphoz)', await page.evaluate(()=>{
+  openPlayerNote();
+  const t=document.getElementById('sheetIn').textContent;
+  return noteDayMode()===false && /Gyakorlat-jegyzet/.test(t) && t.includes(exDef(playerExId()).n); }));
+ok('16 a lapon ott a kapcsoló', await page.evaluate(()=>
+  document.querySelectorAll('#sheetIn .seg button').length===2));
+ok('16 a jegyzet az AKTUÁLIS gyakorlathoz mentődik', await page.evaluate(()=>{
+  const id=playerExId(); openPlayerNote();
+  document.getElementById('noteTa').value='pad 30 fok'; saveNote('ex',id);
+  return S.notes[id]==='pad 30 fok' && !(S.active&&S.active.note); }));
+ok('16 átváltás a mai napra, és megjegyzi', await page.evaluate(()=>{
+  openPlayerNote(); setNoteMode(true);
+  const t=document.getElementById('sheetIn').textContent;
+  return noteDayMode()===true && /Nap jegyzete/.test(t); }));
+ok('16 a váltás nem nyeli le a begépelt szöveget', await page.evaluate(()=>{
+  // vissza gyakorlat-módba, gépelünk, majd váltunk – a nap jegyzete üres, oda kerül
+  setNoteMode(false); openPlayerNote();
+  const id=playerExId(); const volt=S.notes[id];
+  document.getElementById('noteTa').value='ezt még nem mentettem';
+  setNoteMode(true);
+  const atment = S.active.note==='ezt még nem mentettem';
+  S.active.note=undefined; delete S.active.note; S.notes[id]=volt; setNoteMode(false);
+  return atment; }));
+ok('16 meglévő jegyzetet a váltás soha nem ír felül', await page.evaluate(()=>{
+  const id=playerExId(); S.notes[id]='EREDETI'; S.active.note='NAPI';
+  try{localStorage.setItem('gymlog_noteday','1')}catch(e){}
+  openPlayerNote(); document.getElementById('noteTa').value='új szöveg'; setNoteMode(false);
+  const ok2 = S.notes[id]==='EREDETI' && S.active.note==='NAPI';
+  delete S.active.note; delete S.notes[id];
+  try{localStorage.removeItem('gymlog_noteday')}catch(e){}
+  return ok2; }));
+ok('16 a lejátszón kívül nincs kapcsoló', await page.evaluate(()=>{
+  openNoteSheet('ex','bench');
+  const n=document.querySelectorAll('#sheetIn .seg button').length; closeSheet(); return n===0; }));
+await page.evaluate(()=>{ S.active=null; playing=false; closeSheet(); tab='home'; render(); }); await wait(200);
 
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);

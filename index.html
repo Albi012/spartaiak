@@ -563,7 +563,7 @@ function logRdyBadge(t){
 }
 let physioRegion='';  // Gyógytorna oldal aktív testtáj (üres = első)
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v83';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v84';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -1201,9 +1201,11 @@ function homeView(){
   if(storeMode==='none') h+=`<div class="wrap"><div class="card" style="border-color:var(--red);margin-top:16px"><div class="pad">
     <span class="cond" style="font-size:18px;font-weight:600;color:var(--red)">A mentés nem működik</span>
     <div class="small mut" style="margin-top:4px">Ez a böngésző letiltotta a helyi tárolást. Kapcsold ki a privát böngészést, vagy engedélyezd a sütiket ehhez az oldalhoz – különben minden bezáráskor elvesznek az adatok.</div></div></div></div>`;
-  h += `<div class="wrap"><div class="top"><span class="eyebrow">Push / pull · 4 nap</span>
-    <h1 style="font-size:34px;margin-top:4px">Melyik nap jön?</h1>
-    <p class="mut small" style="margin:6px 0 0">${done} edzés összesen · ${wk} az elmúlt 7 napban${done?' · utoljára '+ago:''}</p></div>`;
+  // A főoldal hőse a készenlét-kártya; a „Melyik nap jön?" fejléc-blokk
+  // kikerült (a nap kiválasztását a kártyák és a „Mit edzek ma?" viszik).
+  // A rövid összegző sor marad – az valódi információ.
+  h += `<div class="wrap">${done?`<div class="top" style="padding-bottom:0">
+    <p class="mut small" style="margin:0">${done} edzés összesen · ${wk} az elmúlt 7 napban · utoljára ${ago}</p></div>`:''}`;
   // Finom emlékeztető, ha csúszol (a rendszeresség a lényeg). Magától eltűnik,
   // amint legközelebb edzel.
   if(done && daysSince>=5 && !S.active) h+=`<div class="card" style="border-color:var(--brass)"><div class="pad">
@@ -1307,10 +1309,11 @@ function homeView(){
       <span class="cond" style="font-size:18px;font-weight:600">Nincs még edzésterved</span>
       <div class="small mut" style="margin:4px 0 10px">Állíts össze egyet, vagy válassz kész sablont a Tervek fülön.</div>
       <button class="btn pri" onclick="tab='plans';render();window.scrollTo(0,0)">Tervek fül ›</button></div></div>`;
-  } else {
-    h+=`<button class="btn ghost" style="margin-top:14px;margin-bottom:4px;color:var(--mut)" onclick="tab='plans';render();window.scrollTo(0,0)">Tervek és edzések kezelése ›</button>`;
   }
-  h+=`<button class="btn ghost" style="margin-top:8px;margin-bottom:4px;color:var(--mut)" onclick="openPhysio()">Gyógytorna / mobilitás ›</button>`;
+  // A „Tervek és edzések kezelése" és a „Gyógytorna / mobilitás" belépő
+  // kikerült a főoldalról: az előbbi az alsó nav „Tervek" füle, az utóbbi a
+  // felső sáv állandó gyógytorna-ikonja (`physioBtn`) – mindkettő egy
+  // koppintás, a főoldalon csak zaj volt.
   return h+'</div>';
 }
 
@@ -2115,7 +2118,7 @@ function playerView(){
         : `<button class="btn pri" onclick="exNav(${curEx+1})" style="flex:1">Következő ›</button>`}
     </div>
     <div class="row" style="gap:10px;max-width:560px;margin:0 auto;padding:0 16px 16px;width:100%">
-      <button class="btn" style="flex:1;margin:0" onclick="openNoteSheet('day','')">Nap jegyzete${S.active.note?' •':''}</button>
+      <button class="btn" style="flex:1;margin:0" onclick="openPlayerNote()">Jegyzet${noteHasText()?' •':''}</button>
       <button class="btn ghost" style="flex:1;margin:0;color:var(--red)" onclick="discardActive()">Edzés eldobása</button>
     </div>
   </div>`;
@@ -3595,13 +3598,62 @@ function openWarmup(exId){
 }
 
 /* ---- Jegyzetek (állandó + aznapi) és fotó -------------------------- */
-function openNoteSheet(kind,id){
+// Edzés közben a jegyzet ALAPBÓL ahhoz a gyakorlathoz tartozik, amelyiken
+// épp állsz – ez a gyakoribb eset (padszög, fogás, technika). A lapon egy
+// kapcsolóval átváltható a mai napra, és a választás megjegyződik:
+// `gymlog_noteday` kulcs ('1' = alapból a nap jegyzete). FÜGGETLEN a
+// `gymlog_v1` naplóadattól, mint a többi beállítás-kulcs.
+function noteDayMode(){ try{ return localStorage.getItem('gymlog_noteday')==='1'; }catch(e){ return false; } }
+// Az éppen mutatott gyakorlat a lejátszóban (a playerView ugyanezt számolja).
+function playerExId(){
+  if(!S.active) return null;
+  const d=dayDef(S.active.day)||{ex:[]};
+  const exs=d.ex.filter(x=>S.active.log[x.id]);
+  if(!exs.length) return null;
+  const e=exs[Math.max(0, Math.min(curEx, exs.length-1))];
+  return e?e.id:null;
+}
+// Van-e már jegyzet azon a helyen, ahová most írnánk (a gomb pöttyéhez).
+function noteHasText(){
+  const id=playerExId();
+  return (!noteDayMode() && id) ? !!S.notes[id] : !!(S.active&&S.active.note);
+}
+function openPlayerNote(){
+  const id=playerExId();
+  openNoteSheet((!noteDayMode() && id) ? 'ex' : 'day', id||'', true);
+}
+// Mód-váltás a lapon belül. A már begépelt, MÉG NEM MENTETT szöveget
+// átvisszük, ha a másik oldalon nincs még jegyzet – így a váltás nem nyeli
+// le, amit épp írtál, de meglévőt soha nem ír felül.
+function setNoteMode(day){
+  const ta=document.getElementById('noteTa'), typed=ta?ta.value.trim():'';
+  const id=playerExId(), wasDay=noteDayMode();
+  // Amit a mező mutat, az lehet a MÁR MENTETT jegyzet is – azt nem visszük át,
+  // különben a puszta mód-váltás átmásolná a régi szöveget a másik oldalra.
+  const saved=((wasDay ? (S.active&&S.active.note) : (id&&S.notes[id])) || '').trim();
+  try{ localStorage.setItem('gymlog_noteday', day?'1':'0'); }catch(e){}
+  if(typed && typed!==saved){
+    if(day){ if(S.active && !S.active.note) S.active.note=typed; }
+    else if(id && !S.notes[id]) S.notes[id]=typed;
+  }
+  openPlayerNote();
+  if(typeof render==='function') render();
+}
+// A kapcsoló csak a lejátszóból nyitva jelenik meg (kívül nincs „mai nap").
+function noteSegment(kind, fromPlayer){
+  if(!fromPlayer || !S.active || !playerExId()) return '';
+  return `<div class="seg" style="margin-top:12px">
+    <button class="${kind==='ex'?'on':''}" onclick="setNoteMode(false)">Ehhez a gyakorlathoz</button>
+    <button class="${kind==='day'?'on':''}" onclick="setNoteMode(true)">A mai naphoz</button></div>`;
+}
+function openNoteSheet(kind,id,fromPlayer){
   let h=`<div class="grabber"></div>`;
   if(kind==='ex'){
     const e=exDef(id), pn=S.notes[id]||'', ph=S.photos[id];
     h+=`<div class="row"><div class="grow"><span class="eyebrow">Gyakorlat-jegyzet</span>
       <h2 style="font-size:22px">${esc(e.n)}</h2><span class="small dim">Állandó – padszög, ülésmagasság, technika</span></div>
       <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
+      ${noteSegment('ex', fromPlayer)}
       ${gifBox(e)}
       <textarea id="noteTa" rows="3" style="width:100%;margin-top:12px;resize:vertical" placeholder="Pl. pad 30°, ülés 4-es lyuk, könyök be">${esc(pn)}</textarea>
       ${ph?`<img class="exphoto lg" src="${ph}" alt="beállítás fotó" style="margin-top:10px">`:''}
@@ -3620,6 +3672,7 @@ function openNoteSheet(kind,id){
     h+=`<div class="row"><div class="grow"><span class="eyebrow">Mai jegyzet</span>
       <h2 style="font-size:22px">Nap jegyzete</h2><span class="small dim">Csak erre az edzésre</span></div>
       <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
+      ${noteSegment('day', fromPlayer)}
       <textarea id="noteTa" rows="3" style="width:100%;margin-top:12px;resize:vertical" placeholder="Pl. fáradt voltam, jobb váll kicsit húz">${esc(cur)}</textarea>
       <button class="btn pri" style="margin-top:12px" onclick="saveNote('day','')">Mentés</button>`;
     document.getElementById('sheetIn').innerHTML=h;
