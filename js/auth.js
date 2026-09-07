@@ -81,7 +81,7 @@
   // A felhő és a helyi napló UNIÓJA: egyetlen rögzített edzés sem veszik
   // el. Az edzéseket azonosító (t + day) szerint egyesítjük; ütközésnél a
   // logot gyakorlatonként a gazdagabb (több rögzített szett) verzió nyeri.
-  // A skalár preferenciák (injury, activeProgram, hidePlan, active) és a
+  // A skalár preferenciák (injury, activeProgram, hidePlan, rdy, active) és a
   // kulcsolt mezők per-kulcs az ÚJABB állapotból jönnek (a legutóbbi edzés
   // időbélyege a frisseség-proxy) – az edzéslistát ez sosem csonkítja.
   function _filled(L){ return (L&&L.sets||[]).filter(x=>x!=null).length; }

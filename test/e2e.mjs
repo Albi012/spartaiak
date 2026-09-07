@@ -264,6 +264,76 @@ ok('14 idő-alapú gyakorlatnál is van kézi mező', await page.evaluate(()=>{
   const h=repKbSheet({id:'plank',n:'Plank',r:'45 mp',time:1},0,45);
   return h.includes('id="repMan"') && h.includes('mp'); }));
 
+// 15. Készenlét (readiness)
+ok('15 üres naplónál NINCS kitalált szám', await page.evaluate(()=>{
+  const bak={s:S.sessions,b:S.bw,sl:S.sleep};
+  S.sessions=[]; S.bw={}; S.sleep={}; rdyInvalidate();
+  const r=readiness(), card=rdyHomeCard();
+  S.sessions=bak.s; S.bw=bak.b; S.sleep=bak.sl; rdyInvalidate();
+  return r===null && card===''; }));
+// Dús adat: 21 nap alvás + testsúly a meglévő edzések mellé
+await page.evaluate(()=>{
+  const D=864e5, now=Date.now();
+  const k=t=>bwKey(t);
+  S.bw={}; S.sleep={};
+  for(let i=20;i>=0;i--){ const t=now-i*D;
+    S.bw[k(t)]=Math.round((78.2+Math.sin(i/3)*0.3)*10)/10;
+    S.sleep[k(t)]={min: i===0?450:410+Math.round(Math.sin(i/2)*30), q:4}; }
+  rdyInvalidate();
+});
+ok('15 van pontszám és 0..100 közé esik', await page.evaluate(()=>{ const r=readiness();
+  return !!r && Number.isInteger(r.score) && r.score>=0 && r.score<=100; }));
+ok('15 a pontszám = alap + a bekapcsolt tényezők összege', await page.evaluate(()=>{ const r=readiness();
+  const sum=r.factors.filter(f=>f.on&&f.ok).reduce((a,f)=>a+f.delta,0);
+  return r.score===Math.max(0,Math.min(100,RDY_BASE+sum)); }));
+ok('15 a kikapcsolt tényező nem számít bele', await page.evaluate(()=>{
+  const a=readiness().score; rdyToggle('sleep'); const b=readiness().score;
+  const sl=readiness().factors.find(f=>f.id==='sleep');
+  rdyToggle('sleep'); rdyInvalidate();
+  return sl.on===false && (sl.delta===0 ? a===b : a!==b); }));
+ok('15 a kapcsoló a naplóadatot nem érinti', await page.evaluate(async ()=>{
+  const before=JSON.stringify(S.sessions); rdyToggle('rest'); rdyToggle('rest');
+  return JSON.stringify(S.sessions)===before && S.rdy && typeof S.rdy==='object'; }));
+ok('15 rdy a mentett JSON-ban', await page.evaluate(async ()=>{ const raw=await readKey('gymlog_v1'); return raw.includes('"rdy"'); }));
+ok('15 múltbeli napra is számol (napló/grafikon)', await page.evaluate(()=>{
+  const h=rdyHistory(14); return h.length===14 && h.filter(x=>x.v!=null).length>=3; }));
+ok('15 a jövőbeli adat nem szivárog vissza', await page.evaluate(()=>{
+  // egy régi napra a MAI alvás nem számíthat bele
+  const old=Date.now()-40*864e5; const r=readiness(old);
+  const sl=r? r.factors.find(f=>f.id==='sleep') : null;
+  return !r || !sl.ok; }));
+ok('15 sávok: 82 jó / 70 közepes / 50 alacsony', await page.evaluate(()=>
+  rdyBand(82).band==='jo' && rdyBand(70).band==='kozep' && rdyBand(50).band==='alacsony'));
+// A 14. szekció aktív edzést hagyott futni – a lejátszó elfedné a füleket.
+await page.evaluate(()=>{ S.active=null; playing=false; closeSheet(); tab='home'; render(); }); await wait(300);
+ok('15 főoldali kártya + gyűrű', await page.evaluate(()=>{
+  const c=document.querySelector('#app .rdycard');
+  return !!c && !!c.querySelector('.rdyring .rdy-fg') && c.textContent.includes('készenlét'); }));
+await page.evaluate(()=>openRdySheet()); await wait(250);
+ok('15 részletek-lap: tényezőnkénti hozzájárulás + kapcsolók', await page.evaluate(()=>{
+  const t=document.getElementById('sheetIn').textContent;
+  return t.includes('Miből jön') && t.includes('Mi számítson bele') && t.includes('SAJÁT'); }));
+await page.evaluate(()=>closeSheet());
+await nav('prog'); await wait(250);
+ok('15 Haladás: készenlét-trend', await page.evaluate(()=>
+  document.getElementById('app').textContent.includes('Készenlét · 30 nap')));
+await nav('log'); await wait(250);
+ok('15 Napló: pihenőnap sor + készenlét', await page.evaluate(()=>{
+  const t=document.getElementById('app').textContent;
+  return t.includes('Pihenő') && t.includes('készenlét'); }));
+ok('15 Napló szűrő: csak edzés / csak pihenő', await page.evaluate(()=>{
+  setLogKind('rest'); const only=document.getElementById('app').textContent;
+  setLogKind('ex');   const ex=document.getElementById('app').textContent;
+  setLogKind(null);
+  return !only.includes('szett ·') && ex.includes('szett'); }));
+await page.evaluate(()=>{ window.uiConfirm=()=>Promise.resolve(true); startDay('pa'); }); await wait(300);
+ok('15 lejátszó: készenlét-sáv (csak tanács, a súlyt nem állítja)', await page.evaluate(()=>{
+  const st=document.querySelector('.player .rdystrip');
+  const e=dayDef(S.active.day).ex.filter(x=>S.active.log[x.id])[0];
+  const w=S.active.log[e.id].w; render();
+  return !!st && S.active.log[e.id].w===w; }));
+await page.evaluate(()=>{ S.active=null; playing=false; tab='home'; render(); }); await wait(200);
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));

@@ -79,6 +79,11 @@ alapértéket kapnak; a `save()`/`backup()`/`restore()` viszi őket):
   callback menti az `S.sleep`-be. Runbook: `docs/native-health/README.md`
   (ez leváltja a TWA-tervet, ha natív egészségadat kell). `slpFmt` a
   perc→„7ó 45p" formázó.
+- `rdy` – a **készenlét-pontszám** tényező-kapcsolói:
+  `{sleep:1, load:1, bw:1, rest:0}` alak, hiányzó kulcs = alapértelmezés
+  (`RDY_DEF`). SKALÁR preferencia: a felhő-összefésülésben az újabb állapotból
+  jön (mint az `injury`/`hidePlan`), nincs külön kezelés. Maga a PONTSZÁM
+  NEM tárolódik – mindig a naplóból számoljuk (lásd „Készenlét").
 - Session-szinten: `note` (aznapi jegyzet), `deload` (kihagyás utáni
   visszaépítés jelző), `end` (befejezés időbélyege – az időtartamhoz;
   additív, régi edzésen hiányzik, olyankor nincs időtartam). Log-szinten:
@@ -229,6 +234,55 @@ biztonságos import:
   (✓) és mi új (+); a `aiImportApply` naponta egy `r_` routine-t hoz létre
   (több nap esetén egy `p_` tervbe fűzve), majd a főoldalra visz. A PLAN
   és a meglévő routine-ok érintetlenek.
+
+## Készenlét (readiness)
+
+Egyetlen napi szám (0..100), ami az app fő tájékozódási pontja. A
+`readiness(t)` **a naplóból származtatja** – nincs elmentve, nincs hozzá új
+adatmező (a `rdy` kapcsolókon kívül), és **bármely múltbeli napra
+kiszámolható**, csak az addigi adatokból. Ezért működik visszamenőleg a
+napló-sorokon és a haladás-grafikonon is.
+
+- **Alap:** `RDY_BASE` (80) a semleges kiindulás; a tényezők ehhez adnak
+  vagy vesznek, az eredmény 0..100 közé vágva.
+- **Tényezők** (`RDY_DEF`, mind ugyanazt az alakot adja –
+  `{id,n,ok,delta,val,why,pct,tone}`):
+  - `sleep` (`rdySleep`) – a legutóbbi éjszaka a SAJÁT 14 napos mediánhoz
+    mérve (1 óra eltérés ≈ 10 pont), a bevallott minőség finomít. −20..+12.
+  - `load` (`rdyLoad`) – az utolsó 7 nap szettszáma a saját 4 hetes heti
+    átlagához: `delta = clamp(−(arány−1)·40, −20, +6)`.
+  - `bw` (`rdyBw`) – 7 napos átlag az előző héthez. **Csak a gyors fogyást
+    bünteti** (−8-ig); a stabil és a hízás nem húz le.
+  - `rest` (`rdyRest`) – eltelt napok a legutóbbi edzés óta. **Alapból KI**.
+- **Becsületesség (ezt ne rontsd el):** ha egy tényezőhöz kevés az adat,
+  `ok:false`, a delta 0, és a felület „nincs adat"-ot ír – NEM tippel és nem
+  is nulláz. Ha egyetlen bekapcsolt tényezőhöz sincs adat, a `readiness()`
+  **null**-t ad, és a felület el sem kezdi mutatni a számot. Egy kitalált
+  pontszám az egész kezdőlapot hiteltelenné tenné.
+- **Sávok** (`rdyBand`): ≥78 „jó" (`--sage`), ≥65 „közepes" (`--brass`),
+  alatta „alacsony" (`--red`). Színt mindig téma-tokenből vegyél.
+- **Memoizálás:** `_rdyCache` naponta egyszer számol (a napló sok sort kér);
+  a `save()` a `rdyInvalidate()`-tel üríti. Ha a számítást bővíted, az
+  ürítést tartsd meg.
+- **Hol jelenik meg** (a hat képernyő a `docs/`-ban hivatkozott
+  „Készenlét" tervből):
+  1. **Kezdőlap** – `rdyHomeCard()`: gyűrű + ítélet + a bekapcsolt tényezők
+     egy-egy sora + „Miből jön ez a szám?".
+  2. **Részletek-lap** – `openRdySheet()`: tényezőnkénti hozzájárulás
+     (`+6`/`−4`/`±0`) magyarázó mondattal, 14 napos trend, és a
+     **kapcsolók** (`rdyToggle`). Nem fekete doboz.
+  3. **Lejátszó** – `.rdystrip` a fejléc alatt: a készenlét tanácsot ad a
+     súlyra. **CSAK tájékoztat – a súlyt soha nem állítja el.** Ezt tartsd meg.
+  4. **Összegző** – `rdyForecastCard()`: mit csinál a mai terhelés a HOLNAPI
+     készenléttel. Előrejelzésként jelöljük, mert a holnapi alvás ismeretlen.
+  5. **Haladás** – „átlag készenlét" stat + 30 napos görbe (`rdySpark`,
+     a hézagokat átugorja) + `rdyTrendLabel` (egyenes-illesztés, nem
+     átlagfelezés).
+  6. **Napló** – edzés-soron a készenlét a meta-sorba fűzve
+     (`logRdyInline`), és **a pihenőnap is sor** (`logRestDays` /
+     `logRestRow`): az a nap, amin nem volt edzés, de rögzítettél testsúlyt
+     vagy alvást. A `logKind` (Mind / Edzés / Pihenő) nézet-állapot, NEM
+     tárolódik.
 
 ## Technika-animációk (GIF)
 

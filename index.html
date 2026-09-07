@@ -271,6 +271,29 @@ textarea:focus{outline:2px solid var(--brass);outline-offset:2px}
 .exgif figcaption{margin-top:4px;text-align:center;font-size:11px;color:var(--dim)}
 .exgif figcaption a{color:var(--dim)}
 .exgift{width:44px;height:44px;flex:none;border-radius:9px;border:1px solid var(--line);background:#fff;object-fit:cover;filter:var(--gif-filter)}
+/* Készenlét (readiness): gyűrű, ítélet, tényező-sorok. */
+.rdycard{border-color:var(--line)}
+.rdyhero{position:relative;display:inline-flex;align-items:center;justify-content:center;margin:10px auto 0}
+.rdy-fg{transition:stroke-dashoffset .45s ease}
+.rdycard .eyebrow{display:block}
+.rdyring{display:block;transform:rotate(-90deg)}
+.rdyval{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1}
+.rdyval .num{font-size:58px;font-weight:700;line-height:1}
+.rdylbl{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);font-weight:600;margin-top:3px}
+.rdyverdict{font-size:17px;margin-top:12px}
+.rdyrows{margin-top:16px}
+.rdyrow{display:flex;align-items:center;gap:12px;padding:11px 0}
+.rdyrow+.rdyrow{border-top:1px solid var(--line)}
+.rdyname{flex:0 0 78px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);font-weight:600;line-height:1.2}
+.rdybar{flex:1;display:block;height:8px;border-radius:5px;background:var(--card2);overflow:hidden}
+.rdybar>span{display:block;height:100%;border-radius:5px;transition:width .5s ease}
+.rdynum{flex:0 0 76px;text-align:right;font-size:17px;font-weight:700}
+.rdysep{height:1px;background:var(--line)}
+.rdyspark{width:100%;display:block}
+/* Lejátszó-sáv: a készenlét tanácsa a súlyra – csak tájékoztat, nem állít. */
+.rdystrip{display:flex;align-items:center;gap:11px;margin:6px 18px 0;padding:11px 14px;border-radius:14px;border:1px solid;width:auto}
+.rdystrip .num{font-size:22px;font-weight:700;flex:none}
+.rdystrip span.t{flex:1;font-size:13px;line-height:1.35}
 
 /* Terv kontra valóság / sérülés – választható címkék */
 .whyrow{display:flex;flex-wrap:wrap;gap:8px}
@@ -494,12 +517,53 @@ const ICON={
 
 let S = {sessions:[], active:null, weights:{}, notes:{}, photos:{}, injury:null, lastBackup:0,
          customEx:{}, routines:[], programs:[], hidePlan:false, activeProgram:null,
-         deleted:[], activeT:0, prog:{}, bw:{}, sleep:{}};
+         deleted:[], activeT:0, prog:{}, bw:{}, sleep:{}, rdy:null};
 let tab='home', playing=false, curEx=0, tInt=null, tEnd=0, tLen=0, wl=null, nagOff=false;
 let logFilter=null;   // Napló szűrő edzéstípusra (day id) – null = mind
+// Napló-nézet: nap-típus szűrő (null = minden nap, 'ex' = csak edzés,
+// 'rest' = csak pihenőnap). Nézet-állapot, NEM tárolódik a naplóban.
+let logKind=null;
+function setLogKind(k){ logKind=(logKind===k?null:k); if(logKind) logFilter=null; render(); }
+// Pihenőnapok: az a nap, amin nem volt edzés, de rögzítettél testsúlyt vagy
+// alvást. Csak az első edzés és a mai nap közti tartományban.
+function logRestDays(){
+  if(!S.sessions.length) return [];
+  const busy=new Set(S.sessions.map(s=>bwKey(s.t)));
+  const from=rdyDayStart(Math.min(...S.sessions.map(s=>s.t))), to=rdyDayStart(Date.now());
+  const keys=new Set([...Object.keys(S.bw||{}), ...Object.keys(S.sleep||{})]);
+  const out=[];
+  keys.forEach(k=>{ if(busy.has(k)) return;
+    const t=new Date(k+'T12:00:00').getTime(); if(isNaN(t)) return;
+    const day=rdyDayStart(t); if(day<from || day>to) return;
+    out.push({t:day+12*36e5, k}); });
+  return out.sort((a,b)=>b.t-a.t);
+}
+// Egy pihenőnap sora: mi lett aznap rögzítve, plusz a napi készenlét.
+function logRestRow(it){
+  const bits=[];
+  const kg=(S.bw||{})[it.k]; if(kg>0) bits.push('testsúly '+bwNum(kg));
+  const sl=(S.sleep||{})[it.k]; if(sl&&sl.min>0) bits.push('alvás '+slpFmt(sl.min));
+  return `<div class="card"><div class="pad row" style="align-items:center;gap:12px">
+    <span class="grow"><span class="cond" style="font-size:19px;font-weight:600;color:var(--mut)">Pihenő</span>
+      <div class="small dim">${fmtDate(it.t)}${bits.length?' · '+esc(bits.join(' · ')):''}</div></span>
+    ${logRdyBadge(it.t)}</div></div>`;
+}
+// Edzés-soron a készenlét a meta-sorba fűzve (a fejlécben nincs rá hely a
+// Törlés gomb mellett). Üres, ha az adott napra nem számolható.
+function logRdyInline(t){
+  const r=readiness(t); if(!r) return '';
+  return ` · készenlét <b class="num" style="color:${r.color}">${r.score}</b>`;
+}
+// Pihenőnap-soron a készenlét kis jelvényként (üres, ha nem számolható).
+function logRdyBadge(t){
+  const r=readiness(t); if(!r) return '';
+  return `<button style="text-align:right;padding:4px 2px" onclick="openRdySheet()" aria-label="Készenlét ${r.score}">
+    <span class="num" style="display:block;font-size:19px;font-weight:700;color:${r.color}">${r.score}</span>
+    <span style="font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)">készenlét</span></button>`;
+}
 let physioRegion='';  // Gyógytorna oldal aktív testtáj (üres = első)
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v81';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v82';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -546,10 +610,11 @@ async function load(){
   render();
 }
 async function save(){
+  rdyInvalidate();                      // a készenlét a naplóból származik
   const v=JSON.stringify({sessions:S.sessions,active:S.active,weights:S.weights,
     notes:S.notes,photos:S.photos,injury:S.injury,lastBackup:S.lastBackup,
     customEx:S.customEx,routines:S.routines,programs:S.programs,hidePlan:S.hidePlan,activeProgram:S.activeProgram,
-    deleted:S.deleted,activeT:S.activeT,prog:S.prog,bw:S.bw,sleep:S.sleep});
+    deleted:S.deleted,activeT:S.activeT,prog:S.prog,bw:S.bw,sleep:S.sleep,rdy:S.rdy});
   const ok=await writeKey(KEY,v);
   if(!ok&&storeMode!=='none'){ storeMode='none'; render(); }
 }
@@ -1173,6 +1238,9 @@ function homeView(){
       <span class="small dim">${doneN}/${exN} gyakorlat kész</span></span>
       <span style="color:var(--brass);font-size:22px">›</span></button></div>`;
   }
+  // Mai készenlét – a nap fő száma. Csak akkor jelenik meg, ha van hozzá
+  // valódi adat (lásd `readiness()`); üres naplónál nincs kitalált szám.
+  h+=rdyHomeCard();
   // „Mit edzek ma?" – a heti hiányokat lefedő nap ajánlása (ha nem edzett ma
   // és nincs folyamatban lévő edzés).
   if(!S.active && daysSince!==0){
@@ -1943,6 +2011,13 @@ function playerView(){
   const missed=L.sets.some(x=>x!=null&&x<t);
   const isLast=curEx===exs.length-1;
 
+  // Készenlét-tanács: CSAK tájékoztat, a súlyt nem állítja el.
+  let rdyBar='';
+  if(!isPhysioActive()){ const r=readiness();
+    if(r) rdyBar=`<button class="rdystrip" style="border-color:${r.color};background:color-mix(in srgb, ${r.color} 12%, transparent)" onclick="openRdySheet()">
+      <span class="num" style="color:${r.color}">${r.score}</span>
+      <span class="t" style="color:${r.color}">${esc(r.label[0].toUpperCase()+r.label.slice(1))} készenlét — <b>${esc(r.hint)}</b>.</span></button>`; }
+
   let dots='';
   exs.forEach((x,i)=>{ const done=exDone(x,S.active.log[x.id]);
     dots+=`<button class="pdot ${i===curEx?'cur':(done?'done':'')}" onclick="exNav(${i})" aria-label="gyakorlat ${i+1}"></button>`; });
@@ -2014,6 +2089,7 @@ function playerView(){
       <div class="pmid"><div class="d">${d.name}${S.active.deload?' · visszaépítés':''}</div><div class="c">gyakorlat ${curEx+1} / ${exs.length}</div></div>
       <button class="iconbtn" onclick="finish()" aria-label="Edzés lezárása" title="Edzés lezárása" style="color:var(--sage)">${ICON.check}</button>
     </div>
+    ${rdyBar}
     <div class="pdots">${dots}</div>
     <div class="pmain">
       ${deloadBanner}
@@ -2388,6 +2464,10 @@ function openFinishSummary(sess){
       ${mmLegend()}
       ${mgChips(mgSets)}
     </div></div>`;
+  // A kör bezárása: a mai terhelés mit csinál a HOLNAPI készenléttel.
+  // Előrejelzés – a holnapi alvást még nem tudjuk, ezért csak a terhelés
+  // (és a pihenőnap) mozdul; ezt ki is írjuk, hogy ne tűnjön jóslatnak.
+  h+=rdyForecastCard(sess, mgSets);
   if(prs.length){
     h+=`<div class="card" style="margin-top:14px;border-color:var(--brass)"><div class="pad">
       <span class="eyebrow" style="color:var(--brass)">Új csúcs${prs.length>1?'ok':''}</span>`;
@@ -2411,7 +2491,7 @@ function openFinishSummary(sess){
 }
 function closeFinish(){ closeSheet(); }
 
-function setLogFilter(id){ logFilter=(id===logFilter?null:id); render(); window.scrollTo(0,0); }
+function setLogFilter(id){ logKind=null; logFilter=(id===logFilter?null:id); render(); window.scrollTo(0,0); }
 const HU_MONTHS=['január','február','március','április','május','június','július','augusztus','szeptember','október','november','december'];
 function monthLabel(t){ const d=new Date(t); return d.getFullYear()+'. '+HU_MONTHS[d.getMonth()]; }
 function logView(){
@@ -2431,6 +2511,16 @@ function logView(){
     <div class="stat"><span class="num" data-cu="${st.month}">${st.month}</span><span class="statlbl">e hónap</span></div>
     <div class="stat"><span class="num" data-cu="${st.streak}">${st.streak}</span><span class="statlbl">hetes sorozat</span></div>
   </div></div></div>`;
+  // Nap-típus szűrő: minden nap / csak edzés / csak pihenő. A pihenőnap az,
+  // amin nem volt edzés, de rögzítettél testsúlyt vagy alvást – az a nap is
+  // számít, ezért kap sort.
+  const restAll=logRestDays();
+  if(restAll.length){
+    h+=`<div class="whyrow" style="margin-bottom:10px">`+
+      [[null,'Mind'],['ex','Edzés'],['rest','Pihenő']].map(([k,lab])=>
+        `<button class="whyc ${logKind===k?'on':''}" onclick="setLogKind(${k?`'${k}'`:'null'})">${lab}</button>`).join('')
+      +`</div>`;
+  }
   // Szűrő edzéstípusra (day id). Csak akkor, ha többféle típus van.
   const dayIds=[...new Set(S.sessions.map(s=>s.day))];
   if(dayIds.length>1){
@@ -2444,15 +2534,21 @@ function logView(){
   const avg=loads.reduce((a,b)=>a+b,0)/(loads.length||1);
   const WHY={busy:'gép foglalt',heavy:'túl nehéz',time:'kevés idő'};
   let curMonth=null;
-  [...S.sessions].reverse().filter(s=>!logFilter||s.day===logFilter).forEach(s=>{
-    const mk=monthLabel(s.t); if(mk!==curMonth){ curMonth=mk;
+  const items=[];
+  if(logKind!=='rest') [...S.sessions].filter(s=>!logFilter||s.day===logFilter).forEach(s=>items.push({t:s.t,kind:'ex',s}));
+  if(logKind!=='ex' && !logFilter) restAll.forEach(r=>items.push(Object.assign({kind:'rest'},r)));
+  items.sort((a,b)=>b.t-a.t);
+  items.forEach(it=>{
+    const mk=monthLabel(it.t); if(mk!==curMonth){ curMonth=mk;
       h+=`<div class="top" style="padding:14px 0 6px"><span class="eyebrow">${mk}</span></div>`; }
+    if(it.kind==='rest'){ h+=logRestRow(it); return; }
+    const s=it.s;
     const d=dayDef(s.day)||{ex:[]}; const dn=dayName(s); const idx=S.sessions.indexOf(s);
     const tot=Object.values(s.log).reduce((a,l)=>a+l.sets.filter(x=>x!=null).length,0);
     const load=loads[idx], hi=avg>0 && load>avg*1.3; const dur=sessionDur(s);
     h+=`<div class="card"><div class="pad" style="border-bottom:1px solid var(--line)">
       <div class="row"><div class="grow"><span class="cond" style="font-size:20px;font-weight:600">${esc(dn)}</span>
-      <div class="small dim">${fmtDate(s.t)}${dur?' · '+fmtDur(dur):''} · ${tot} szett · <span class="num">${load.toLocaleString('hu')}</span> kg${hi?' <span style="color:var(--red);font-weight:600">· kiugró</span>':''}</div></div>
+      <div class="small dim">${fmtDate(s.t)}${dur?' · '+fmtDur(dur):''} · ${tot} szett · <span class="num">${load.toLocaleString('hu')}</span> kg${hi?' <span style="color:var(--red);font-weight:600">· kiugró</span>':''}${logRdyInline(s.t)}</div></div>
       <button onclick="del(${idx})" class="small dim" style="padding:8px">Törlés</button></div>
       ${s.note?`<div class="small mut" style="padding:0 16px 10px">Jegyzet: ${esc(s.note)}</div>`:''}</div>`;
     const seen=new Set();
@@ -2476,7 +2572,7 @@ function logView(){
 }
 function backup(){
   const v=JSON.stringify({sessions:S.sessions,weights:S.weights,notes:S.notes,photos:S.photos,
-    customEx:S.customEx,routines:S.routines,programs:S.programs,bw:S.bw,sleep:S.sleep});
+    customEx:S.customEx,routines:S.routines,programs:S.programs,bw:S.bw,sleep:S.sleep,rdy:S.rdy});
   const b=new Blob([v],{type:'application/json'}), u=URL.createObjectURL(b);
   const a=document.createElement('a'); a.href=u;
   a.download='edzesnaplo-'+fmtDate(Date.now()).replace(/\./g,'')+'.json';
@@ -2932,6 +3028,290 @@ function sleepSheetHtml(){
     <button class="btn pri" style="margin-top:14px" onclick="slpSave()">Mentés</button>`;
 }
 
+/* ---- Készenlét (readiness) ------------------------------------------
+ * Egyetlen napi szám (0..100), ami a NAPLÓBÓL SZÁRMAZTATOTT – nincs
+ * elmentve, nincs új adatmező (a beállítás-kapcsolókon kívül). Bármely
+ * múltbeli napra kiszámolható, csak az addigi adatokból: így a napló és a
+ * haladás-grafikon visszamenőleg is helyes.
+ *
+ * A pontszám a felhasználó SAJÁT alapvonalához mér, nem általános normához:
+ * az alvás a saját előző napjaihoz, a heti terhelés a saját 4 hetes
+ * átlagához, a testsúly az előző hetéhez. Ezért ha egy tényezőhöz kevés az
+ * adat, az NEM nulláz és nem is tippel – kimarad („nincs elég adat"), és a
+ * szám a maradékból számol. Ha egyik tényezőhöz sincs adat, NINCS pontszám
+ * (a `readiness()` null-t ad, a felület pedig el sem kezdi mutatni) – egy
+ * kitalált szám hiteltelenné tenné az egész kezdőlapot.
+ */
+const RDY_BASE=80;                       // semleges kiindulás; a tényezők ehhez adnak/vesznek
+const RDY_DEF=[
+  {id:'sleep', n:'Alvás',           s:'Alvás',    on:1},
+  {id:'load',  n:'Heti terhelés',   s:'Terhelés', on:1},
+  {id:'bw',    n:'Testsúly-trend',  s:'Testsúly', on:1},
+  {id:'rest',  n:'Pihenőnapok',     s:'Pihenő',   on:0}
+];
+function rdyShort(id){ const d=RDY_DEF.find(f=>f.id===id); return (d&&d.s)||id; }
+function rdyEnabled(id){ const r=S.rdy||{}, d=RDY_DEF.find(f=>f.id===id);
+  return (r && Object.prototype.hasOwnProperty.call(r,id)) ? !!r[id] : !!(d&&d.on); }
+function rdyToggle(id){ if(!S.rdy) S.rdy={};
+  S.rdy[id]=!rdyEnabled(id); save(); openRdySheet(); render(); }
+const rdyClamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
+function rdyDayStart(t){ const d=new Date(t); d.setHours(0,0,0,0); return d.getTime(); }
+
+// -- Tényezők. Mind ugyanazt az alakot adja:
+//    {id, n, ok, delta, val, why, pct, tone}
+//    ok=false → nincs elég adat, delta=0, és a felület „nincs elég adat"-ot ír.
+function rdySleep(t){
+  const out={id:'sleep',n:'Alvás',ok:false,delta:0,val:'–',why:'Rögzíts pár éjszakát, és ez is beleszámít.',pct:0,tone:'dim'};
+  const all=slpEntries(); if(!all.length) return out;
+  const today=bwKey(t), yest=bwKey(t-864e5);
+  const cur=all.filter(e=>e.d<=today).slice(-1)[0];
+  if(!cur || (cur.d!==today && cur.d!==yest)) return out;      // csak friss éjszaka számít
+  const prev=all.filter(e=>e.d<cur.d).slice(-14);
+  if(prev.length<3) return out;                                 // saját alapvonal nélkül nem mérünk
+  const sorted=prev.map(e=>e.min).sort((a,b)=>a-b);
+  const base=sorted.length%2 ? sorted[(sorted.length-1)/2] : (sorted[sorted.length/2-1]+sorted[sorted.length/2])/2;
+  let d=(cur.min-base)/60*10;                                   // 1 órányi eltérés ≈ 10 pont
+  if(cur.q) d+=(cur.q-3)*2;                                     // a bevallott minőség finomít
+  d=rdyClamp(d,-20,12);
+  const diff=Math.round(cur.min-base);
+  out.ok=true; out.delta=Math.round(d); out.val=slpFmt(cur.min);
+  out.pct=rdyClamp(cur.min/540,0,1);
+  out.tone = d>=3?'sage' : d<=-3?'red' : 'mut';
+  out.why = diff>=10 ? `A szokásos ${slpFmt(base)} helyett ${slpFmt(cur.min)} – ez pluszban van.`
+          : diff<=-10 ? `A szokásos ${slpFmt(base)} helyett ${slpFmt(cur.min)} – ennyivel kevesebb.`
+          : `A saját ${slpFmt(base)}-os szintedhez képest ez szokásos éjszaka.`;
+  return out;
+}
+function rdyLoad(t){
+  const out={id:'load',n:'Heti terhelés',ok:false,delta:0,val:'–',why:'Pár hét edzés után lesz mihez mérni.',pct:0,tone:'dim'};
+  const day=rdyDayStart(t)+864e5;                    // az adott nap VÉGÉIG
+  const setsIn=(from,to)=>S.sessions.reduce((a,s)=>
+    (s.t>=from && s.t<to) ? a+Object.values(s.log||{}).reduce((b,L)=>b+(L.sets||[]).filter(x=>x!=null).length,0) : a, 0);
+  const week=setsIn(day-7*864e5, day);
+  const back=setsIn(day-35*864e5, day-7*864e5);      // 4 hét a megelőző időszakból
+  const hist=S.sessions.filter(s=>s.t<day-7*864e5).length;
+  if(hist<2 || back<=0) return out;
+  const avg=back/4;
+  const ratio=week/avg;
+  const d=rdyClamp(-(ratio-1)*40, -20, 6);
+  out.ok=true; out.delta=Math.round(d); out.val=week+' szett';
+  out.pct=rdyClamp(ratio/1.6,0,1);
+  out.tone = d>=3?'sage' : d<=-3?'brass' : 'mut';
+  out.why = ratio>=1.5  ? `Az átlagod ${Math.round(avg)} szett – ez jóval a szokásos fölött van.`
+          : ratio>=1.15 ? `Az átlagod ${Math.round(avg)} szett. A többlet még belefér, de már fog.`
+          : ratio<=0.6  ? `Az átlagod ${Math.round(avg)} szett – most jóval alatta vagy, bőven van hely.`
+          : ratio<=0.85 ? `Az átlagod ${Math.round(avg)} szett – most alatta vagy, van hely.`
+          : `Az átlagod ${Math.round(avg)} szett – a héten pont a szokásos tempóban vagy.`;
+  return out;
+}
+function rdyBw(t){
+  const out={id:'bw',n:'Testsúly-trend',ok:false,delta:0,val:'–',why:'Néhány napi méréssel indul a trend.',pct:0,tone:'dim'};
+  const all=bwEntries(); if(!all.length) return out;
+  const end=rdyDayStart(t)+864e5;
+  const mean=(from,to)=>{ const v=all.filter(e=>{ const x=new Date(e.d+'T00:00:00').getTime(); return x>=from&&x<to; }).map(e=>e.kg);
+    return v.length ? {m:v.reduce((a,b)=>a+b,0)/v.length, n:v.length} : null; };
+  const cur=mean(end-7*864e5,end), prev=mean(end-14*864e5,end-7*864e5);
+  if(!cur || !prev || cur.n<2 || prev.n<2) return out;
+  const pct=(cur.m-prev.m)/prev.m*100;
+  // Csak a GYORS fogyást büntetjük (alultápláltság jele); a stabil és a lassú
+  // változás nem húz le – a hízás sem, mert az önmagában nem készenlét-kérdés.
+  let d=0;
+  if(pct<=-1.5) d=-8; else if(pct<-0.6) d=-8*((-pct)-0.6)/0.9;
+  out.ok=true; out.delta=Math.round(d); out.val=bwNum(cur.m)+' kg';
+  out.pct=rdyClamp(0.5+pct/6,0,1);
+  out.tone = d<=-3?'red':'mut';
+  const dk=Math.abs(cur.m-prev.m);
+  out.why = d<=-3 ? `Egy hét alatt ${bwNum(dk)} kg-ot fogytál – ez a regenerációt is viszi.`
+          : dk<=0.4 ? `Két hete stabil ${bwNum(dk)} kg-on belül – ez nem húz le.`
+          : `Heti ${bwNum(dk)} kg elmozdulás – normál ingadozás.`;
+  return out;
+}
+function rdyRest(t){
+  const out={id:'rest',n:'Pihenőnapok',ok:false,delta:0,val:'–',why:'Az első edzés után számolható.',pct:0,tone:'dim'};
+  const day=rdyDayStart(t);
+  const prev=S.sessions.filter(s=>s.t<day+864e5).map(s=>s.t);
+  if(!prev.length) return out;
+  const days=Math.floor((day-rdyDayStart(Math.max(...prev)))/864e5);
+  let d;
+  if(days<=0) d=-5; else if(days===1) d=0; else if(days<=2) d=4; else if(days<=5) d=6; else if(days<=9) d=2; else d=-6;
+  out.ok=true; out.delta=d; out.val=days<=0?'ma is':days+' nap';
+  out.pct=rdyClamp(days/5,0,1);
+  out.tone = d>=3?'sage' : d<=-3?'red' : 'mut';
+  out.why = days<=0 ? 'Ma már volt edzés – két kemény nap egymás után ritkán jön be.'
+          : days>=10 ? `${days} napja nem edzettél – a visszaépítés is terhelés.`
+          : days>=3 ? `${days} napja pihensz – kipihentnek számítasz.`
+          : `${days} nap telt el a legutóbbi edzés óta.`;
+  return out;
+}
+const RDY_FN={sleep:rdySleep, load:rdyLoad, bw:rdyBw, rest:rdyRest};
+
+// A nap készenléte. `t` bármely időpont lehet (múltbeli napokra is jó).
+// Visszatérés: null, ha egyetlen bekapcsolt tényezőhöz sincs adat.
+let _rdyCache=new Map();
+function rdyInvalidate(){ _rdyCache=new Map(); }
+function readiness(t){
+  t = t || Date.now();
+  const ck=rdyDayStart(t)+'|'+JSON.stringify(S.rdy||null);
+  if(_rdyCache.has(ck)) return _rdyCache.get(ck);
+  const r=_readiness(t); _rdyCache.set(ck,r); return r;
+}
+function _readiness(t){
+  const factors = RDY_DEF.map(f=>{ const r=RDY_FN[f.id](t); r.on=rdyEnabled(f.id); return r; });
+  const live = factors.filter(f=>f.on && f.ok);
+  if(!live.length) return null;
+  const score = rdyClamp(Math.round(RDY_BASE + live.reduce((a,f)=>a+f.delta,0)), 0, 100);
+  return { score, factors, live:live.length, ...rdyBand(score) };
+}
+// Sávok. A színek téma-tokenek, nem fix hexek.
+function rdyBand(s){
+  if(s>=78) return {band:'jo',   label:'jó',       color:'var(--sage)',
+    verdict:'Ma mehet <b>nehéz nap</b>.', hint:'tartsd a tervezett súlyt' };
+  if(s>=65) return {band:'kozep',label:'közepes',  color:'var(--brass)',
+    verdict:'Ma <b>a tervezett</b> terhelés fér bele.', hint:'tartsd a súlyt, de ne hajszold a plusz ismétlést' };
+  return       {band:'alacsony',label:'alacsony', color:'var(--red)',
+    verdict:'Ma inkább <b>könnyű nap</b>.', hint:'vegyél vissza a súlyból, vagy csak technikázz' };
+}
+// Készenlét-gyűrű (SVG). `size` px, `v` a pontszám.
+function rdyRing(v, color, size, thick){
+  size=size||150; thick=thick||9;
+  const R=52, C=2*Math.PI*R, off=(C*(1-rdyClamp(v,0,100)/100)).toFixed(1);
+  return `<svg viewBox="0 0 120 120" class="rdyring" style="width:${size}px;height:${size}px" aria-hidden="true">
+    <circle cx="60" cy="60" r="${R}" fill="none" stroke="var(--card2)" stroke-width="${thick}"/>
+    <circle class="rdy-fg" cx="60" cy="60" r="${R}" fill="none" stroke="${color}" stroke-width="${thick}"
+      stroke-linecap="round" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${off}"/></svg>`;
+}
+const RDY_TONE={sage:'var(--sage)',brass:'var(--brass)',red:'var(--red)',mut:'var(--mut)',dim:'var(--dim)'};
+function rdySign(d){ return (d>0?'+':d<0?'−':'±')+Math.abs(d); }
+
+// Főoldali kártya: a gyűrű, az ítélet és a bekapcsolt tényezők egy sorral.
+function rdyHomeCard(){
+  const r=readiness(); if(!r) return '';
+  return `<div class="card rdycard"><div class="pad">
+    <div style="text-align:center">
+      <span class="eyebrow">Mai készenlét</span>
+      <div class="rdyhero">${rdyRing(r.score, r.color, 168)}
+        <span class="rdyval"><span class="num" data-cu="${r.score}" style="color:${r.color}">${r.score}</span>
+          <span class="rdylbl">${r.label}</span></span></div>
+      <div class="rdyverdict">${r.verdict}</div>
+    </div>
+    <div class="rdyrows">${r.factors.filter(f=>f.on).map(f=>`
+      <div class="rdyrow"><span class="rdyname">${esc(rdyShort(f.id))}</span>
+        <span class="rdybar"><span style="width:${Math.round((f.ok?f.pct:0)*100)}%;background:${RDY_TONE[f.tone]}"></span></span>
+        <span class="num rdynum">${f.ok?esc(f.val):'–'}</span></div>`).join('')}</div>
+    <button class="btn" style="margin-top:12px;color:var(--mut)" onclick="openRdySheet()">Miből jön ez a szám?</button>
+  </div></div>`;
+}
+
+// Részletek-lap: tényezőnkénti hozzájárulás, 14 napos trend, kapcsolók.
+function openRdySheet(){
+  const r=readiness();
+  let h=`<div class="grabber"></div>
+    <div class="row"><div class="grow"><span class="eyebrow">Készenlét</span>
+      <h2 style="font-size:24px">Miből jön a szám?</h2></div>
+      <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>`;
+  if(!r){
+    h+=`<div class="empty">Még nincs elég adat. Rögzíts pár éjszaka alvást vagy edz egy-két hetet – utána megjelenik.</div>`;
+  } else {
+    h+=`<div style="text-align:center;margin-top:10px">
+      <div class="rdyhero" style="--rdy-size:132px">${rdyRing(r.score, r.color, 132)}
+        <span class="rdyval"><span class="num" style="font-size:46px;color:${r.color}">${r.score}</span>
+          <span class="rdylbl">${r.label}</span></span></div>
+      <p class="small mut" style="margin:10px 4px 0">A pontszám a SAJÁT alapvonaladhoz mér – nem egy általános normához. ${RDY_BASE} a semleges kiindulás, a tényezők ehhez adnak vagy vesznek.</p></div>
+      <div class="card" style="margin-top:14px"><div class="pad" style="padding:2px 16px">`;
+    r.factors.filter(f=>f.on).forEach((f,i)=>{
+      h+=`${i?'<div class="rdysep"></div>':''}<div style="padding:14px 0">
+        <div class="row" style="align-items:baseline;gap:10px">
+          <span class="eyebrow grow">${esc(f.n)}</span>
+          <span class="num" style="font-size:19px;font-weight:700">${f.ok?esc(f.val):'nincs adat'}</span>
+          <span class="num" style="font-size:15px;font-weight:700;width:36px;text-align:right;color:${f.ok?RDY_TONE[f.tone]:'var(--dim)'}">${f.ok?rdySign(f.delta):'–'}</span></div>
+        <span class="rdybar" style="margin-top:9px"><span style="width:${Math.round((f.ok?f.pct:0)*100)}%;background:${RDY_TONE[f.tone]}"></span></span>
+        <div class="small mut" style="margin-top:7px">${esc(f.why)}</div></div>`;
+    });
+    h+=`</div></div>`;
+    const hist=rdyHistory(14);
+    if(hist.filter(x=>x.v!=null).length>=3){
+      const vals=hist.filter(x=>x.v!=null).map(x=>x.v);
+      const avg=Math.round(vals.reduce((a,b)=>a+b,0)/vals.length);
+      h+=`<div class="top" style="padding:16px 0 6px"><div class="row">
+        <span class="eyebrow grow">Utolsó 14 nap</span>
+        <span class="small mut">átlag <b class="num" style="color:var(--ink)">${avg}</b></span></div></div>
+        <div class="card"><div class="pad">${rdySpark(hist, 92)}
+        <div class="row small dim" style="margin-top:8px"><span class="grow">2 hete</span><span>ma</span></div></div></div>`;
+    }
+  }
+  h+=`<div class="top" style="padding:16px 0 6px"><span class="eyebrow">Mi számítson bele?</span></div>
+    <div class="whyrow" style="flex-wrap:wrap">`+
+    RDY_DEF.map(f=>`<button class="whyc ${rdyEnabled(f.id)?'on':''}" onclick="rdyToggle('${f.id}')">${esc(f.n)}</button>`).join('')
+    +`</div>
+    <p class="small dim" style="margin:10px 2px 0">Kikapcsolhatod bármelyiket – a szám akkor a maradékból számol. Ez csak a pontszámot érinti, a naplóadatot soha.</p>`;
+  document.getElementById('sheetIn').innerHTML=h;
+  document.getElementById('sheet').classList.add('on');
+}
+
+// Holnapi előrejelzés az edzés-összegzőhöz. A mai edzés már a naplóban van,
+// ezért a `readiness(holnap)` automatikusan beleszámolja a heti terhelésbe.
+// Az alvás holnapra ismeretlen – ezt jelezzük is, nem tesszük úgy, mintha
+// tudnánk. A leginkább terhelt izomcsoportot pihenő-javaslattal kísérjük.
+function rdyForecastCard(sess, mgSets){
+  const r=readiness(Date.now()+864e5); if(!r) return '';
+  const top=Object.keys(mgSets||{}).sort((a,b)=>mgSets[b]-mgSets[a])[0];
+  const n=top?mgSets[top]:0;
+  const rest = n>=12 ? '2 nap' : n>=6 ? '1 nap' : null;
+  const tip = rest ? `A mai ${n} szett után a <b>${esc(top)}</b> ${rest} pihenőt kér.` : '';
+  const next = r.band==='jo' ? 'Holnap is belefér egy teljes edzés.'
+             : r.band==='kozep' ? 'Holnap egy másik izomcsoport a jó választás.'
+             : 'Holnap inkább pihenő vagy könnyű nap.';
+  return `<div class="card" style="margin-top:14px;border-color:var(--brass)"><div class="pad">
+    <span class="eyebrow" style="color:var(--brass)">Holnapi készenlét — előrejelzés</span>
+    <div class="row" style="align-items:center;gap:14px;margin-top:10px">
+      <span class="rdyhero" style="flex:none">${rdyRing(r.score, r.color, 84, 10)}
+        <span class="rdyval"><span class="num" style="font-size:30px;color:${r.color}">${r.score}</span></span></span>
+      <span class="small mut grow">${tip} ${next}<br><span class="dim">${esc(r.label)} készenlét</span></span></div>
+    <div class="small dim" style="margin-top:8px">A holnapi alvás még nem ismert – ez a mai terhelésből számolt becslés.</div>
+  </div></div>`;
+}
+
+// Trend-felirat a készenlét-görbéhez. Egyenes illesztése (legkisebb négyzetek)
+// a NAPOKRA – így a görbe közepén lévő gödör nem billenti meg a feliratot úgy,
+// ahogy az átlag-felezés tenné.
+function rdyTrendLabel(rows){
+  const pts=rows.map((r,i)=>({x:i,y:r.v})).filter(p=>p.y!=null);
+  if(pts.length<5) return '';
+  const n=pts.length, mx=pts.reduce((a,p)=>a+p.x,0)/n, my=pts.reduce((a,p)=>a+p.y,0)/n;
+  let num=0, den=0;
+  pts.forEach(p=>{ num+=(p.x-mx)*(p.y-my); den+=(p.x-mx)*(p.x-mx); });
+  if(!den) return 'nagyjából egyenletes';
+  const total=(num/den)*(pts[n-1].x-pts[0].x);      // a teljes szakaszra vetített változás
+  return total>=4 ? 'lassan emelkedik' : total<=-4 ? 'lassan csökken' : 'nagyjából egyenletes';
+}
+
+// Az elmúlt n nap készenléte (null ott, ahol nem számolható).
+function rdyHistory(n){
+  const out=[], today=rdyDayStart(Date.now());
+  for(let i=n-1;i>=0;i--){ const t=today-i*864e5+12*36e5; const r=readiness(t);
+    out.push({t, v:r?r.score:null}); }
+  return out;
+}
+// Készenlét-vonal. A hézagokat (null) átugorja, nem húz rajtuk keresztül.
+function rdySpark(rows, hgt){
+  hgt=hgt||92;
+  const pts=rows.map((x,i)=>({i, v:x.v}));
+  const vals=pts.filter(p=>p.v!=null).map(p=>p.v);
+  if(vals.length<2) return '';
+  const mn=Math.min(...vals), mx=Math.max(...vals), rng=(mx-mn)||1;
+  const X=i=>(pts.length>1 ? i/(pts.length-1)*100 : 50);
+  const Y=v=>84-(v-mn)/rng*70;
+  let d='', open=false;
+  pts.forEach(p=>{ if(p.v==null){ open=false; return; }
+    d+=(open?'L':'M')+X(p.i).toFixed(1)+' '+Y(p.v).toFixed(1)+' '; open=true; });
+  const last=[...pts].reverse().find(p=>p.v!=null);
+  const col=rdyBand(last.v).color;
+  return `<svg viewBox="0 0 100 94" preserveAspectRatio="none" class="rdyspark" style="height:${hgt}px">
+    <path d="${d.trim()}" fill="none" stroke="${col}" stroke-width="2" stroke-linecap="round"
+      stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+    <circle cx="${X(last.i).toFixed(1)}" cy="${Y(last.v).toFixed(1)}" r="2.4" fill="${col}" vector-effect="non-scaling-stroke"/></svg>`;
+}
+
 function progView(){
   const ids=[]; const seen=new Set();
   PLAN.forEach(d=>d.ex.forEach(e=>{ seen.add(e.id);
@@ -2942,13 +3322,28 @@ function progView(){
   if(!ids.length) return `<div class="wrap"><div class="top"><h1 style="font-size:34px">Haladás</h1></div>
     <div class="empty">Két-három edzés után lesz mit mutatni.</div></div>`;
   const st=progStats();
+  // Készenlét-trend: 30 nap. Csak akkor kerül ki, ha legalább néhány napra
+  // számolható – a hézagokat a `rdySpark` átugorja, nem hamisítja ki.
+  const rHist=rdyHistory(30), rVals=rHist.filter(x=>x.v!=null).map(x=>x.v);
+  const rAvg=rVals.length?Math.round(rVals.reduce((a,b)=>a+b,0)/rVals.length):null;
+  const rNow=readiness();
   let h=`<div class="wrap"><div class="top"><h1 style="font-size:34px">Haladás</h1></div>
     <div class="card"><div class="pad"><div class="statgrid">
+      ${rAvg!=null?`<div class="stat"><span class="num" data-cu="${rAvg}">${rAvg}</span><span class="statlbl">átlag készenlét</span></div>`:''}
       <div class="stat"><span class="num" data-cu="${st.total}">${st.total}</span><span class="statlbl">edzés</span></div>
-      <div class="stat"><span class="num" data-cu="${st.month}">${st.month}</span><span class="statlbl">e hónap</span></div>
       <div class="stat"><span class="num" data-cu="${st.streak}">${st.streak}</span><span class="statlbl">hetes sorozat</span></div>
       <div class="stat"><span class="num">${fmtTon(st.tonnage)}</span><span class="statlbl">össztömeg</span></div>
+      ${rAvg==null?`<div class="stat"><span class="num" data-cu="${st.month}">${st.month}</span><span class="statlbl">e hónap</span></div>`:''}
     </div></div></div>`;
+  if(rVals.length>=5){
+    const trend = rVals.length>=10 ? rdyTrendLabel(rHist) : '';
+    h+=`<div class="card"><div class="pad">
+      <div class="row" style="align-items:baseline"><span class="eyebrow grow">Készenlét · 30 nap</span>
+        ${rNow?`<span class="num" style="font-size:17px;font-weight:700;color:${rNow.color}">${rNow.score} ma</span>`:''}</div>
+      ${rdySpark(rHist,88)}
+      <div class="row small dim" style="justify-content:space-between;margin-top:8px"><span>30 napja</span>${trend?`<span>${trend}</span>`:''}<span>ma</span></div>
+      </div></div>`;
+  }
   const WEEKS=16, cols=trainingHeatmap(WEEKS);
   h+=`<div class="card"><div class="pad">
     <span class="eyebrow">Edzésnaptár · utolsó ${WEEKS} hét</span>
