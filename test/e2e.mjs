@@ -302,6 +302,27 @@ ok('15 a jövőbeli adat nem szivárog vissza', await page.evaluate(()=>{
   const old=Date.now()-40*864e5; const r=readiness(old);
   const sl=r? r.factors.find(f=>f.id==='sleep') : null;
   return !r || !sl.ok; }));
+// A ma rögzített érték akkor is látszik, ha még nem tud pontozni – „nincs
+// adat" hazugság volna, ha épp most vitte be.
+ok('15 a ma rögzített érték látszik, akkor is, ha még nem pontoz', await page.evaluate(()=>{
+  const bak={b:S.bw, sl:S.sleep};
+  const k=bwKey(Date.now());
+  S.bw={[k]:78.4}; S.sleep={[k]:{min:440,q:4}}; rdyInvalidate();
+  const r=readiness();
+  const sl=r.factors.find(f=>f.id==='sleep'), bw=r.factors.find(f=>f.id==='bw');
+  const good = !sl.ok && sl.val==='7ó 20p' && /alapvonalad/.test(sl.why)
+            && !bw.ok && bw.val==='78,4 kg' && /mérés kell/.test(bw.why)
+            && !/nincs adat/i.test(rdyHomeCard());
+  S.bw=bak.b; S.sleep=bak.sl; rdyInvalidate();
+  return good; }));
+ok('15 a nem pontozó tényező deltája 0 (a szám nem torzul)', await page.evaluate(()=>{
+  const bak={b:S.bw, sl:S.sleep};
+  const k=bwKey(Date.now());
+  S.bw={[k]:78.4}; S.sleep={[k]:{min:440,q:4}}; rdyInvalidate();
+  const r=readiness();
+  const good = r.factors.filter(f=>!f.ok).every(f=>f.delta===0);
+  S.bw=bak.b; S.sleep=bak.sl; rdyInvalidate();
+  return good; }));
 ok('15 sávok: 82 jó / 70 közepes / 50 alacsony', await page.evaluate(()=>
   rdyBand(82).band==='jo' && rdyBand(70).band==='kozep' && rdyBand(50).band==='alacsony'));
 // A 14. szekció aktív edzést hagyott futni – a lejátszó elfedné a füleket.

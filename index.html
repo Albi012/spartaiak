@@ -563,7 +563,7 @@ function logRdyBadge(t){
 }
 let physioRegion='';  // Gyógytorna oldal aktív testtáj (üres = első)
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v82';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v83';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -3061,13 +3061,22 @@ function rdyDayStart(t){ const d=new Date(t); d.setHours(0,0,0,0); return d.getT
 //    {id, n, ok, delta, val, why, pct, tone}
 //    ok=false → nincs elég adat, delta=0, és a felület „nincs elég adat"-ot ír.
 function rdySleep(t){
-  const out={id:'sleep',n:'Alvás',ok:false,delta:0,val:'–',why:'Rögzíts pár éjszakát, és ez is beleszámít.',pct:0,tone:'dim'};
+  const out={id:'sleep',n:'Alvás',ok:false,delta:0,val:'–',why:'Rögzíts néhány éjszakát, és ez is beleszámít.',pct:0,tone:'dim'};
   const all=slpEntries(); if(!all.length) return out;
   const today=bwKey(t), yest=bwKey(t-864e5);
   const cur=all.filter(e=>e.d<=today).slice(-1)[0];
-  if(!cur || (cur.d!==today && cur.d!==yest)) return out;      // csak friss éjszaka számít
+  if(!cur) return out;
+  // A rögzített értéket AKKOR IS megmutatjuk, ha még nem tud pontozni – a
+  // „nincs adat" hazugság volna, ha ma épp bevitted. Azt írjuk meg, mi hiányzik.
+  out.val=slpFmt(cur.min); out.pct=rdyClamp(cur.min/540,0,1);
+  if(cur.d!==today && cur.d!==yest){                            // csak friss éjszaka számít
+    out.why=`A legutóbbi rögzített éjszakád ${bwDaysAgo(cur.d)} volt – a készenléthez a tegnapi kell.`;
+    return out; }
   const prev=all.filter(e=>e.d<cur.d).slice(-14);
-  if(prev.length<3) return out;                                 // saját alapvonal nélkül nem mérünk
+  if(prev.length<3){                                            // saját alapvonal nélkül nem mérünk
+    const kell=3-prev.length;
+    out.why=`Megvan a mai ${slpFmt(cur.min)}. A saját alapvonaladhoz még ${kell} éjszaka kell – addig ez nem mozdítja a pontszámot.`;
+    return out; }
   const sorted=prev.map(e=>e.min).sort((a,b)=>a-b);
   const base=sorted.length%2 ? sorted[(sorted.length-1)/2] : (sorted[sorted.length/2-1]+sorted[sorted.length/2])/2;
   let d=(cur.min-base)/60*10;                                   // 1 órányi eltérés ≈ 10 pont
@@ -3090,7 +3099,12 @@ function rdyLoad(t){
   const week=setsIn(day-7*864e5, day);
   const back=setsIn(day-35*864e5, day-7*864e5);      // 4 hét a megelőző időszakból
   const hist=S.sessions.filter(s=>s.t<day-7*864e5).length;
-  if(hist<2 || back<=0) return out;
+  // A heti szettszám akkor is látszik, ha még nincs mihez mérni.
+  if(week>0){ out.val=week+' szett'; out.pct=0.5; }
+  if(hist<2 || back<=0){
+    out.why = week>0 ? `Ezen a héten ${week} szett. Az összehasonlításhoz pár hét előzmény kell – addig ez nem mozdítja a pontszámot.`
+                     : 'Pár hét edzés után lesz mihez mérni.';
+    return out; }
   const avg=back/4;
   const ratio=week/avg;
   const d=rdyClamp(-(ratio-1)*40, -20, 6);
@@ -3111,7 +3125,14 @@ function rdyBw(t){
   const mean=(from,to)=>{ const v=all.filter(e=>{ const x=new Date(e.d+'T00:00:00').getTime(); return x>=from&&x<to; }).map(e=>e.kg);
     return v.length ? {m:v.reduce((a,b)=>a+b,0)/v.length, n:v.length} : null; };
   const cur=mean(end-7*864e5,end), prev=mean(end-14*864e5,end-7*864e5);
-  if(!cur || !prev || cur.n<2 || prev.n<2) return out;
+  // A legutóbbi mért súlyt akkor is kiírjuk, ha a TRENDHEZ még kevés a mérés.
+  const lastE=all.filter(e=>new Date(e.d+'T00:00:00').getTime()<end).slice(-1)[0];
+  if(lastE){ out.val=bwNum(lastE.kg)+' kg'; out.pct=0.5; }
+  if(!cur || !prev || cur.n<2 || prev.n<2){
+    out.why = !cur ? 'Ezen a héten még nincs mérés – a trendhez hetente legalább kettő kell.'
+      : (cur.n<2 ? `Megvan ${lastE?bwNum(lastE.kg)+' kg':'a mérés'}. A trendhez ezen a héten még legalább egy mérés kell.`
+                 : 'A trendhez az előző hétről is legalább két mérés kell – pár nap, és összeáll.');
+    return out; }
   const pct=(cur.m-prev.m)/prev.m*100;
   // Csak a GYORS fogyást büntetjük (alultápláltság jele); a stabil és a lassú
   // változás nem húz le – a hízás sem, mert az önmagában nem készenlét-kérdés.
@@ -3197,7 +3218,7 @@ function rdyHomeCard(){
     <div class="rdyrows">${r.factors.filter(f=>f.on).map(f=>`
       <div class="rdyrow"><span class="rdyname">${esc(rdyShort(f.id))}</span>
         <span class="rdybar"><span style="width:${Math.round((f.ok?f.pct:0)*100)}%;background:${RDY_TONE[f.tone]}"></span></span>
-        <span class="num rdynum">${f.ok?esc(f.val):'–'}</span></div>`).join('')}</div>
+        <span class="num rdynum"${f.ok?'':' style="color:var(--dim)"'}>${esc(f.val)}</span></div>`).join('')}</div>
     <button class="btn" style="margin-top:12px;color:var(--mut)" onclick="openRdySheet()">Miből jön ez a szám?</button>
   </div></div>`;
 }
@@ -3222,10 +3243,10 @@ function openRdySheet(){
       h+=`${i?'<div class="rdysep"></div>':''}<div style="padding:14px 0">
         <div class="row" style="align-items:baseline;gap:10px">
           <span class="eyebrow grow">${esc(f.n)}</span>
-          <span class="num" style="font-size:19px;font-weight:700">${f.ok?esc(f.val):'nincs adat'}</span>
+          <span class="num" style="font-size:19px;font-weight:700${f.ok?'':';color:var(--dim)'}">${esc(f.val)}</span>
           <span class="num" style="font-size:15px;font-weight:700;width:36px;text-align:right;color:${f.ok?RDY_TONE[f.tone]:'var(--dim)'}">${f.ok?rdySign(f.delta):'–'}</span></div>
         <span class="rdybar" style="margin-top:9px"><span style="width:${Math.round((f.ok?f.pct:0)*100)}%;background:${RDY_TONE[f.tone]}"></span></span>
-        <div class="small mut" style="margin-top:7px">${esc(f.why)}</div></div>`;
+        <div class="small mut" style="margin-top:7px">${f.ok?'':'<b style="color:var(--dim)">Még nem számít bele.</b> '}${esc(f.why)}</div></div>`;
     });
     h+=`</div></div>`;
     const hist=rdyHistory(14);

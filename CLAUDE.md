@@ -254,11 +254,17 @@ napló-sorokon és a haladás-grafikonon is.
   - `bw` (`rdyBw`) – 7 napos átlag az előző héthez. **Csak a gyors fogyást
     bünteti** (−8-ig); a stabil és a hízás nem húz le.
   - `rest` (`rdyRest`) – eltelt napok a legutóbbi edzés óta. **Alapból KI**.
-- **Becsületesség (ezt ne rontsd el):** ha egy tényezőhöz kevés az adat,
-  `ok:false`, a delta 0, és a felület „nincs adat"-ot ír – NEM tippel és nem
-  is nulláz. Ha egyetlen bekapcsolt tényezőhöz sincs adat, a `readiness()`
-  **null**-t ad, és a felület el sem kezdi mutatni a számot. Egy kitalált
-  pontszám az egész kezdőlapot hiteltelenné tenné.
+- **Becsületesség (ezt ne rontsd el):** ha egy tényező még nem tud
+  pontozni, `ok:false` és a delta 0 – NEM tippel és nem is nulláz. Ha
+  egyetlen bekapcsolt tényezőhöz sincs adat, a `readiness()` **null**-t ad,
+  és a felület el sem kezdi mutatni a számot. Egy kitalált pontszám az egész
+  kezdőlapot hiteltelenné tenné.
+- **„Nincs adat" ≠ „nem tud még pontozni".** Ha a felhasználó MA rögzített
+  testsúlyt vagy alvást, azt a `val` mezőben ki KELL írni (halványan), a
+  delta-oszlopban `–`, a `why`-ban pedig azt, hogy pontosan mi hiányzik
+  (pl. „még 3 éjszaka kell", „ezen a héten még egy mérés kell"). „Nincs
+  adat"-ot írni olyasmire, amit épp most vitt be, hazugság – ne vezesd
+  vissza.
 - **Sávok** (`rdyBand`): ≥78 „jó" (`--sage`), ≥65 „közepes" (`--brass`),
   alatta „alacsony" (`--red`). Színt mindig téma-tokenből vegyél.
 - **Memoizálás:** `_rdyCache` naponta egyszer számol (a napló sok sort kér);
