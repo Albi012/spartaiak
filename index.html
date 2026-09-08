@@ -563,7 +563,7 @@ function logRdyBadge(t){
 }
 let physioRegion='';  // Gyógytorna oldal aktív testtáj (üres = első)
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v89';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v90';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -1565,8 +1565,26 @@ NAP: Push A
 - Fekvenyomás | 4x5 | 70 | 180
 - Tolódzkodás | 4x8 | testsúly | 150
 - Oldalemelés | 3x15 | 8 | 60
+NAP: Pull A
+- Húzódzkodás | 4x6 | +10 | 180
+- Hasalva kézisúlyzós evezés | 4x10 | 30 | 120
 
-Magyar gyakorlatneveket használj (lehetőleg ismert, elterjedt neveket), a súlyt kg-ban, a pihenőt másodpercben.`;
+Szabályok:
+- Magyar gyakorlatneveket használj, lehetőleg elterjedt alakban – így az app
+  összekapcsolja a meglévő súlytörténetemmel.
+- Soronként EGY gyakorlat, mind a négy mező kitöltve, "|" elválasztóval.
+  Ne tegyél a sorokba magyarázatot, sorszámot, félkövért vagy zárójeles
+  megjegyzést – azok a nevet is elrontják.
+- SÚLY: szám kg-ban (pl. 70). Ne írj tartományt ("60-70"), "kb."-t vagy
+  százalékot – egy konkrét munkasúlyt adj.
+- TESTSÚLYOS gyakorlatnál (húzódzkodás, tolódzkodás, fekvőtámasz, plank...)
+  a súly-mező a PLUSZ terhelést jelenti, NEM a testsúlyomat:
+  - ha nincs plusz teher, ezt írd: testsúly
+  - ha van plusz teher, csak a pluszt írd: +10
+  Soha ne írd a súly-mezőbe a saját testsúlyomat.
+- PIHENŐ: másodpercben, csak szám (pl. 180).
+- Idő-alapú gyakorlatnál (pl. plank) az ismétlés helyére a másodpercet írd:
+  3x45.`;
 
 // Izomcsoport-terhelés az elmúlt 28 napban (szett/izomcsoport).
 function aiMgBalance(){ const now=Date.now(), acc={};
@@ -1584,9 +1602,18 @@ function aiUserContext(){
     L.push(`Jelenlegi terv: ${act.name}${days?' ('+days+')':''}.`); }
   if((S.sessions||[]).length){ const recent=S.sessions.filter(s=>now-s.t<28*864e5).length;
     L.push(`Edzések az elmúlt 4 hétben: ${recent} (összesen ${S.sessions.length}).`); }
-  const ws=Object.keys(S.weights||{}).filter(id=>S.weights[id]>0)
-    .map(id=>({n:exDef(id).n, w:S.weights[id]})).sort((a,b)=>b.w-a.w).slice(0,8);
-  if(ws.length) L.push('Jelenlegi munkasúlyok: '+ws.map(x=>`${x.n} ${x.w} kg`).join(', ')+'.');
+  // A testsúlyos gyakorlatnál a tárolt szám a PLUSZ teher – ezt jelöljük is,
+  // különben az edző azt hihetné, hogy ennyi a gyakorlat munkasúlya.
+  // Név szerint dedupláljuk: több ID viselheti ugyanazt a nevet (pl. `row`
+  // és `tbar` is „Hasalva kézisúlyzós evezés") – az edzőnek ugyanaz a
+  // gyakorlat két különböző súllyal zavaró volna. A nagyobbat tartjuk meg.
+  const wmap=new Map();
+  Object.keys(S.weights||{}).filter(id=>S.weights[id]>0).forEach(id=>{
+    const e=exDef(id), cur=wmap.get(e.n);
+    if(!cur || S.weights[id]>cur.w) wmap.set(e.n, {n:e.n, w:S.weights[id], bw:!!e.bw}); });
+  const ws=[...wmap.values()].sort((a,b)=>b.w-a.w).slice(0,8);
+  if(ws.length) L.push('Jelenlegi munkasúlyok: '
+    +ws.map(x=>`${x.n} ${x.bw?'+'+x.w+' kg plusz teher (testsúlyos)':x.w+' kg'}`).join(', ')+'.');
   const mg=aiMgBalance(), keys=Object.keys(mg);
   if(keys.length){ const sorted=keys.sort((a,b)=>mg[b]-mg[a]);
     const under=MGS.filter(m=>!mg[m]);
@@ -1613,7 +1640,8 @@ function buildAiPrompt(){
     + `- Heti edzésszám: [pl. 3–4]\n`
     + `- Elérhető felszerelés: [pl. teljes terem / otthon kézisúlyzókkal]\n`
     + `- Tapasztalat: [kezdő / haladó]\n\n`
-    + `Szempontok: a jelenlegi munkasúlyaimból haladj tovább; pótold az elhanyagolt izomcsoportokat; kerüld a kímélendő területet; adj reális ismétléstartományt és pihenőidőt.\n\n`
+    + `Szempontok: a jelenlegi munkasúlyaimból haladj tovább; pótold az elhanyagolt izomcsoportokat; kerüld a kímélendő területet; adj reális ismétléstartományt és pihenőidőt.\n`
+    + `Fontos: az app a megadott számokat SZÓ SZERINT átveszi – az első edzésen pontosan ezzel a súllyal, szett- és ismétlésszámmal indulok, utána a saját haladásom viszi tovább. Ezért olyan súlyt adj, amivel tényleg el tudom kezdeni.\n\n`
     + AI_FORMAT_BLOCK;
 }
 

@@ -549,6 +549,43 @@ ok('19 percben megadott pihenő másodpercre vált', await page.evaluate(()=>
   && aiParseExLine("X | 4x8 | testsúly | 3'").rest===180));
 await page.evaluate(()=>{ S.active=null; playing=false; closeSheet(); tab='home'; render(); }); await wait(200);
 
+// 20. Az edzőnek szóló prompt és a parser összhangja
+// A legfontosabb: a promptban lévő PÉLDÁT az importőrnek hibátlanul vissza
+// kell tudnia olvasnia – így a formátum-blokk és az `aiParsePlan` nem
+// csúszhat szét (a CLAUDE.md is ezt köti ki).
+ok('20 a prompt saját példája hibátlanul visszaparseolható', await page.evaluate(()=>{
+  const pelda=AI_FORMAT_BLOCK.split('Példa:')[1].split('Szabályok:')[0].trim();
+  const days=aiParsePlan(pelda);
+  if(days.length!==2) return false;
+  const all=days.flatMap(d=>d.ex);
+  return all.length===5 && all.every(x=>aiMatchEx(x.name));      // mind ismert gyakorlat
+}));
+ok('20 a példa súlyai/pihenői pontosan jönnek át', await page.evaluate(()=>{
+  const pelda=AI_FORMAT_BLOCK.split('Példa:')[1].split('Szabályok:')[0].trim();
+  const ex=aiParsePlan(pelda).flatMap(d=>d.ex);
+  const fek=ex.find(x=>/Fekvenyomás/.test(x.name));
+  const tol=ex.find(x=>/Tolódzkodás/.test(x.name));
+  const huz=ex.find(x=>/Húzódzkodás/.test(x.name));
+  return fek.w===70 && fek.rest===180 && fek.s===4
+      && tol.bw===1 && tol.hasW===false                          // „testsúly"
+      && huz.hasW===true && huz.w===10 && huz.rest===180;         // „+10" plusz teher
+}));
+ok('20 a prompt kimondja a testsúlyos szabályt', await page.evaluate(()=>{
+  const t=AI_FORMAT_BLOCK;
+  return /PLUSZ terhelést jelenti/.test(t) && /ha nincs plusz teher/.test(t)
+      && /Soha ne írd a súly-mezőbe a saját testsúlyomat/.test(t); }));
+ok('20 a prompt jelzi, hogy a számokat szó szerint vesszük', await page.evaluate(()=>
+  /SZÓ SZERINT átveszi/.test(buildAiPrompt())));
+ok('20 a munkasúly-lista jelöli a testsúlyos plusz terhet', await page.evaluate(()=>{
+  S.weights=Object.assign({}, S.weights, {pull:70});
+  return /Húzódzkodás \+70 kg plusz teher \(testsúlyos\)/.test(aiUserContext().find(x=>/munkasúly/.test(x))); }));
+ok('20 a munkasúly-lista nem duplázza az azonos nevű gyakorlatot', await page.evaluate(()=>{
+  S.weights=Object.assign({}, S.weights, {row:65, tbar:45});     // azonos nevű ID-k
+  const sor=aiUserContext().find(x=>/munkasúly/.test(x));
+  const nevek=sor.replace('Jelenlegi munkasúlyok: ','').split(', ')
+    .map(x=>x.replace(/\s[+\d].*$/,''));
+  return new Set(nevek).size===nevek.length; }));
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));

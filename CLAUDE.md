@@ -228,7 +228,20 @@ biztonságos import:
   (`AI_FORMAT_BLOCK`: `NAP: <név>` sorok, alattuk
   `- <gyakorlat> | <s>x<r> | <súly/testsúly> | <pihenő>`). A pihenő
   másodpercben értendő, de a „2 perc" / „3'" alak is átjön (60-nal szoroz) –
-  e nélkül a 2 a minimumra (10 mp) csúszna. A kontextus csak
+  e nélkül a 2 a minimumra (10 mp) csúszna.
+  A blokk **kimondott szabályokat** ad az edzőnek: soronként egy gyakorlat,
+  mind a négy mező, konkrét szám (nem tartomány), a pihenő másodpercben, és
+  külön a **testsúlyos eset** – ott a súly-mező a PLUSZ terhelés
+  („testsúly", vagy „+10"), soha nem a felhasználó testsúlya. A prompt azt
+  is kimondja, hogy az app a számokat SZÓ SZERINT átveszi (lásd `exOv`), így
+  az edző reális kezdősúlyt ad.
+  **A blokkban lévő PÉLDÁT az `aiParsePlan`-nak hibátlanul vissza kell tudnia
+  olvasnia** – erre E2E-teszt van (20. szekció), ez tartja szinkronban a
+  formátumot és a parsert. Ha a példát bővíted, csak olyan sorral, ami
+  átmegy rajta.
+  Az `aiUserContext` munkasúly-listája **név szerint deduplikál** (több ID
+  viselheti ugyanazt a nevet, pl. `row`/`tbar`) és jelöli a testsúlyos plusz
+  terhet, hogy az edző ne gondolja munkasúlynak. A kontextus csak
   származtatott összefoglaló (nincs nyers napló-export). Az
   `AI_FORMAT_BLOCK` alakját ne változtasd az `aiParsePlan` igazítása nélkül.
 - `aiParsePlan(text)` toleráns parser (pipe-formátum ÉS szabad szöveg is);
