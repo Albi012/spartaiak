@@ -207,6 +207,23 @@
     await cloudRead();
   }
 
+  // -- Fiók végleges törlése ------------------------------------------
+  // A kliensből nem lehet auth.users sort törölni (ahhoz service_role kell,
+  // ami sosem kerülhet a böngészőbe), ezért a szerveroldali
+  // `delete_my_account()` SECURITY DEFINER függvényt hívjuk – az KIZÁRÓLAG a
+  // hívó saját fiókját törli. A táblák `on delete cascade`-je viszi a
+  // naplót, a profilt, a barát-kapcsolatokat és a megosztott terveket.
+  // Siker után azonnal kijelentkezünk (a JWT amúgy is érvénytelen lesz).
+  // Visszatérés: {ok:true} vagy {ok:false, error:'...'}.
+  async function deleteAccount(){
+    const c = await ensureClient();
+    if(!c || !cloudUser) return { ok:false, error:'Nincs bejelentkezett fiók.' };
+    const { error } = await c.rpc('delete_my_account');
+    if(error) return { ok:false, error: error.message || 'A törlés nem sikerült.' };
+    try{ await signOut(); }catch(e){}
+    return { ok:true };
+  }
+
   // -- Profil + barátok (2. fázis) -----------------------------------
   function randCode(){ // 6 jegyű, félreérthető karakterek nélkül
     const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s='';
@@ -301,7 +318,7 @@
     cloudRead, cloudWrite, maybeImport, mergeGym,
     getProfile, saveDisplayName, requestFriend, listFriendships,
     respondFriend, removeFriend, friendStats, publishStats,
-    sharePlan, listSharedPlans, deleteSharedPlan,
+    sharePlan, listSharedPlans, deleteSharedPlan, deleteAccount,
     isLoggedIn: () => !!cloudUser
   };
 })();

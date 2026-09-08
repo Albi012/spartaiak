@@ -501,6 +501,31 @@ Minden törlés a mentés után `flushCloud()`-dal AZONNAL a felhőbe írja a
 síremléket (nem várja a debounce-t). Új törlésnél mindig hívd a
 `tombstone()`-t.
 
+## Fiók végleges törlése
+
+Az **App Store (5.1.1(v))** és a **Google Play** is megköveteli, hogy ha az
+app fiókot tud létrehozni, a fiók **appon belül** törölhető legyen. A Fiók
+lapon a piros „Fiók végleges törlése" nyitja (`openDeleteAccount`).
+
+- **Szerveroldal:** `supabase/schema-delete-account.sql` →
+  `public.delete_my_account()` SECURITY DEFINER függvény. A kliens NEM tud
+  `auth.users` sort törölni (ahhoz `service_role` kellene, ami sosem kerülhet
+  a böngészőbe), ezért RPC-vel hívjuk; a függvény KIZÁRÓLAG az `auth.uid()`
+  saját sorát törli. Minden tábla `on delete cascade` az `auth.users`-re –
+  **új táblán is legyen**, különben árva sor marad a törölt fiók után.
+- **Kliens:** `Auth.deleteAccount()` → `{ok:true}` vagy `{ok:false,error}`;
+  siker után azonnal kijelentkeztet.
+- **Két külön dolog, és a lap ezt ki is mondja:** a FELHŐ-fiók + szerveroldali
+  adat (ez megy), és a TELEFONON lévő napló (ez **alapból MARAD** – az a
+  felhasználó saját edzésnaplója, nem a fiók adata; külön jelölőnégyzet kéri
+  a törlését). A lapon ott a „Biztonsági mentés letöltése" is.
+- **A sorrend garancia:** előbb a szerveroldali törlés, és a helyi napló CSAK
+  sikeres törlés után – így egy hibás hívás nem semmisít meg élő adatot.
+  Ezt E2E-teszt őrzi (21. szekció). Ha átírod, tartsd meg.
+- A `privacy.html` mindkét nyelven leírja a folyamatot
+  (`#fiok-torles` / `#account-deletion`) – ez adja a **Google Play által
+  megkövetelt nyilvános törlés-URL-t** is, ezért ne vedd ki.
+
 ## Téma (világos / sötét)
 
 Az app követi a rendszer beállítását, és a felső sávban lévő gombbal

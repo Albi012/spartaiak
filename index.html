@@ -563,7 +563,7 @@ function logRdyBadge(t){
 }
 let physioRegion='';  // Gyógytorna oldal aktív testtáj (üres = első)
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v90';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v91';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -3884,7 +3884,8 @@ function openAuthSheet(){
         <button class="btn" style="width:auto;margin:0;padding:12px 16px" onclick="saveDispName()">Mentés</button>
       </div>
       <button class="btn pri" style="margin-top:14px" onclick="closeSheet();tab='friends';render();refreshFriends();">Barátok</button>
-      <button class="btn" style="margin-top:8px;color:var(--mut)" onclick="doSignOut()">Kijelentkezés</button>`;
+      <button class="btn" style="margin-top:8px;color:var(--mut)" onclick="doSignOut()">Kijelentkezés</button>
+      <button class="btn" style="margin-top:8px;color:var(--red)" onclick="openDeleteAccount()">Fiók végleges törlése</button>`;
   } else {
     h+=`<input id="authEmail" type="email" inputmode="email" autocomplete="email" placeholder="e-mail"
         style="width:100%;margin-top:12px">
@@ -3922,6 +3923,83 @@ async function doAuth(kind){
   }catch(e){ authErr('Nem sikerült – ellenőrizd a hálózatot / a beállítást.'); }
 }
 async function doSignOut(){ await Auth.signOut(); myProfile=null; closeSheet(); }
+
+/* ---- Fiók végleges törlése ----------------------------------------- *
+ * Az App Store (5.1.1(v)) és a Google Play is megköveteli, hogy a fiók
+ * APPON BELÜL törölhető legyen, ne csak e-mailben kérhető.
+ *
+ * Két külön dologról van szó, és ezt a lap ki is mondja:
+ *  - a FELHŐ-fiók és a hozzá tartozó szerveroldali adat (ez megy),
+ *  - a TELEFONON lévő napló (ez alapból MARAD – az a te edzésnaplód,
+ *    nem a fiók adata; külön jelölőnégyzettel kérhető a törlése).
+ * A sorrend fontos: előbb a fiók törlődik, és a helyi napló CSAK sikeres
+ * szerveroldali törlés után – így egy hibás hívás nem semmisít meg semmit.
+ */
+let delWipeLocal=false;
+function openDeleteAccount(){
+  delWipeLocal=false;
+  const mail=(Auth.currentUser&&Auth.currentUser()&&Auth.currentUser().email)||'';
+  document.getElementById('sheetIn').innerHTML=`<div class="grabber"></div>
+    <div class="row"><div class="grow"><span class="eyebrow" style="color:var(--red)">Végleges</span>
+      <h2 style="font-size:22px">Fiók törlése</h2>
+      <span class="small dim">${esc(mail)}</span></div>
+      <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
+
+    <div class="card" style="margin-top:14px;border-color:var(--red)"><div class="pad">
+      <span class="eyebrow" style="color:var(--red)">Ez törlődik a felhőből</span>
+      <ul class="small mut" style="margin:8px 0 0;padding-left:18px;line-height:1.7">
+        <li>a fiókod és a belépésed</li>
+        <li>a felhőbe szinkronizált edzésnaplód</li>
+        <li>a profilod és a megjelenítendő neved</li>
+        <li>a barát-kapcsolataid (a másik félnél is)</li>
+        <li>a megosztott összefoglalód és a megosztott edzésterveid</li>
+      </ul>
+      <div class="small dim" style="margin-top:10px">Nem visszavonható, és a fiók nem állítható helyre.</div>
+    </div></div>
+
+    <div class="card" style="margin-top:10px"><div class="pad">
+      <span class="eyebrow">Ez a telefonon marad</span>
+      <div class="small mut" style="margin-top:6px">A készüléken tárolt edzésnaplód – ez a te adatod, nem a fiókhoz tartozik. Az app fiók nélkül is működik tovább vele.</div>
+      <button class="btn" style="margin-top:10px" onclick="backup()">Biztonsági mentés letöltése</button>
+      <button id="delWipe" class="btn" style="margin-top:8px;text-align:left" onclick="toggleDelWipe()">
+        <span class="dim">☐</span>&nbsp; A telefonon lévő napló is törlődjön</button>
+    </div></div>
+
+    <button class="btn danger" style="margin-top:14px" onclick="confirmDeleteAccount()">Fiók végleges törlése</button>
+    <button class="btn" style="margin-top:8px;color:var(--mut)" onclick="closeSheet()">Mégse</button>`;
+  document.getElementById('sheet').classList.add('on');
+}
+function toggleDelWipe(){
+  delWipeLocal=!delWipeLocal;
+  const b=document.getElementById('delWipe'); if(!b) return;
+  b.innerHTML=`<span style="color:${delWipeLocal?'var(--red)':'var(--dim)'}">${delWipeLocal?'☑':'☐'}</span>&nbsp; A telefonon lévő napló is törlődjön`;
+  b.style.borderColor = delWipeLocal ? 'var(--red)' : '';
+}
+async function confirmDeleteAccount(){
+  const extra = delWipeLocal
+    ? '\n\nA telefonon lévő naplód IS törlődni fog (' + S.sessions.length + ' edzés).'
+    : '\n\nA telefonon lévő naplód megmarad.';
+  if(!(await uiConfirm('Biztosan törlöd a fiókodat? Ez nem vonható vissza.'+extra,
+      {ok:'Törlés', cancel:'Mégse', danger:true}))) return;
+  const res = await Auth.deleteAccount();
+  if(!res || !res.ok){
+    await uiAlert('A törlés nem sikerült: '+((res&&res.error)||'ismeretlen hiba')+
+      '\n\nA fiókod érintetlen. Próbáld újra, vagy írj a tájékoztatóban megadott címre.');
+    return;
+  }
+  // CSAK sikeres szerveroldali törlés után nyúlunk a helyi adathoz.
+  if(delWipeLocal){
+    S={sessions:[], active:null, weights:{}, notes:{}, photos:{}, injury:null, lastBackup:0,
+       customEx:{}, routines:[], programs:[], hidePlan:false, activeProgram:null,
+       deleted:[], activeT:0, prog:{}, bw:{}, sleep:{}, rdy:null};
+    playing=false; curEx=0; rdyInvalidate(); await save();
+  }
+  myProfile=null; friendsData=null; sharedPlansData=null;
+  closeSheet(); updateAuthBtn(); updateFriendsBadge(); tab='home'; render(); window.scrollTo(0,0);
+  await uiAlert(delWipeLocal
+    ? 'A fiókod és a naplód törölve.'
+    : 'A fiókod törölve. A telefonon lévő naplód megmaradt – az app fiók nélkül is működik.');
+}
 
 /* ---- Barátok (2. fázis) -------------------------------------------- */
 let myProfile=null;

@@ -586,6 +586,54 @@ ok('20 a munkasúly-lista nem duplázza az azonos nevű gyakorlatot', await page
     .map(x=>x.replace(/\s[+\d].*$/,''));
   return new Set(nevek).size===nevek.length; }));
 
+// 21. Fiók végleges törlése (App Store 5.1.1(v) / Google Play követelmény)
+await page.evaluate(()=>{ S.active=null; playing=false; closeSheet(); tab='home'; render();
+  window.__rpc=0;
+  window.Auth=Object.assign(window.Auth||{}, {
+    isLoggedIn:()=>true, currentUser:()=>({email:'teszt@pelda.hu'}),
+    signOut:async()=>{}, deleteAccount:async()=>{ window.__rpc++; return {ok:true}; } }); });
+await wait(200);
+ok('21 a lap kimondja, mi törlődik és mi marad', await page.evaluate(()=>{
+  openDeleteAccount(); const t=document.getElementById('sheetIn').textContent;
+  return /teszt@pelda\.hu/.test(t) && /barát-kapcsolataid/.test(t)
+      && /telefonon marad/.test(t) && /Biztonsági mentés/.test(t)
+      && /Nem visszavonható/.test(t); }));
+ok('21 a helyi napló törlése alapból KI van kapcsolva', await page.evaluate(()=>delWipeLocal===false));
+ok('21 törlés: a fiók megy, a helyi napló marad', await page.evaluate(async ()=>{
+  window.uiConfirm=()=>Promise.resolve(true); window.uiAlert=m=>{window.__u=m;return Promise.resolve();};
+  const elotte=S.sessions.length; window.__rpc=0;
+  openDeleteAccount(); await confirmDeleteAccount();
+  return window.__rpc===1 && S.sessions.length===elotte && /naplód megmaradt/.test(window.__u); }));
+ok('21 megerősítés nélkül NEM töröl', await page.evaluate(async ()=>{
+  window.uiConfirm=()=>Promise.resolve(false); window.__rpc=0;
+  openDeleteAccount(); await confirmDeleteAccount();
+  window.uiConfirm=()=>Promise.resolve(true);
+  return window.__rpc===0; }));
+ok('21 szerveroldali HIBA esetén a helyi napló érintetlen', await page.evaluate(async ()=>{
+  window.Auth.deleteAccount=async()=>({ok:false,error:'hálózati hiba'});
+  openDeleteAccount(); toggleDelWipe();                    // helyi törlést IS kérünk
+  const elotte=S.sessions.length;
+  await confirmDeleteAccount();
+  const jo = S.sessions.length===elotte && /nem sikerült/.test(window.__u) && /érintetlen/.test(window.__u);
+  window.Auth.deleteAccount=async()=>({ok:true});
+  return jo; }));
+ok('21 bejelölve a helyi napló is törlődik', await page.evaluate(async ()=>{
+  openDeleteAccount(); toggleDelWipe();
+  await confirmDeleteAccount();
+  const raw=JSON.parse(await readKey('gymlog_v1'));
+  return S.sessions.length===0 && raw.sessions.length===0
+      && S.routines.length===0 && Object.keys(S.customEx).length===0; }));
+ok('21 az adatvédelmi tájékoztató leírja a törlést (Play-hez kell URL is)', await page.evaluate(async ()=>{
+  const t=await (await fetch('privacy.html')).text();
+  return /id="fiok-torles"/.test(t) && /id="account-deletion"/.test(t)
+      && /Fiók végleges törlése/.test(t) && /Delete account permanently/.test(t); }));
+ok('21 a szerveroldali függvény csak a SAJÁT fiókot törli', await page.evaluate(async ()=>{
+  const sql=await (await fetch('supabase/schema-delete-account.sql')).text();
+  return /security definer/i.test(sql) && /auth\.uid\(\)/.test(sql)
+      && /delete from auth\.users where id = uid/i.test(sql)
+      && /grant execute .* to authenticated/i.test(sql)
+      && /revoke all on function/i.test(sql); }));
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));

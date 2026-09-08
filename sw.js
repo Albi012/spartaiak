@@ -3,7 +3,7 @@
  * azt a böngésző kezeli – a service worker csak a statikus fájlokat
  * cache-eli, az éles edzésadatot nem érinti.
  */
-const VERSION = 'v90';
+const VERSION = 'v91';
 const APP_CACHE = 'edzesnaplo-app-' + VERSION;
 const FONT_CACHE = 'edzesnaplo-fonts';
 
