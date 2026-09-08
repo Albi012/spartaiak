@@ -448,6 +448,44 @@ ok('17 a lap leírása is a hetet ígéri', await page.evaluate(()=>{
   openWeeklyExport(); const t=document.getElementById('sheetIn').textContent; closeSheet();
   return /e heti/.test(t) && !/elmúlt 7 nap/.test(t); }));
 
+// 18. Két bejelentett hiba: AI-import láthatósága + fotó/jegyzet törlése
+await page.evaluate(()=>{ S.active=null; playing=false; closeSheet(); tab='home'; render(); }); await wait(200);
+ok('18 többnapos AI-import AKTÍV tervvé válik (nem tűnik el)', await page.evaluate(async ()=>{
+  window.uiAlert=m=>{ window.__a=m; return Promise.resolve(); };
+  const terv='NAP: AI Push\n- Fekvenyomás | 4x6 | 60 | 180\nNAP: AI Pull\n- Húzódzkodás | 4x8 | testsúly | 150';
+  aiResolved = aiParsePlan(terv).map(d=>({name:d.name, ex:d.ex.map(x=>({parsed:x, match:aiMatchEx(x.name)}))}));
+  await aiImportApply();
+  const p=S.programs[S.programs.length-1];
+  return S.activeProgram===p.id && (activeProg()||{}).name==='AI edzésterv'; }));
+ok('18 az importált napok LÁTSZANAK a főoldalon', await page.evaluate(()=>{
+  tab='home'; render();
+  const t=document.getElementById('app').textContent;
+  return /AI Push/.test(t) && /AI Pull/.test(t); }));
+ok('18 a régi terv nem veszett el, visszaválasztható', await page.evaluate(()=>
+  programsList().some(p=>p.builtin) && /Alapterv/.test(document.getElementById('app').textContent)));
+ok('18 fotó törlése síremléket kap', await page.evaluate(async ()=>{
+  S.photos={bench:'FOTO'}; S.deleted=[]; await removePhoto('bench');
+  return S.photos.bench===undefined && (S.deleted||[]).some(d=>d.k==='photo:bench' && !d.alive); }));
+ok('18 a törölt fotó felhő-kör után sem tér vissza', await page.evaluate(async ()=>{
+  S.photos={bench:'FOTO'}; S.notes={bench:'JEGYZET'}; S.weights=Object.assign({},S.weights,{bench:80});
+  S.deleted=[]; await save();
+  const felho=await readKey('gymlog_v1');
+  await removePhoto('bench');
+  const m=JSON.parse(Auth.mergeGym(await readKey('gymlog_v1'), felho));
+  return m.photos.bench===undefined && m.notes.bench==='JEGYZET' && m.weights.bench===80; }));
+ok('18 új fotó ugyanoda túléli a régi síremléket', await page.evaluate(async ()=>{
+  const felho=await readKey('gymlog_v1');            // ebben a síremlék
+  S.photos.bench='UJ'; untomb('photo:bench'); await save();
+  const m=JSON.parse(Auth.mergeGym(await readKey('gymlog_v1'), felho));
+  return m.photos.bench==='UJ'; }));
+ok('18 kiürített gyakorlat-jegyzet sem tér vissza', await page.evaluate(async ()=>{
+  S.notes={bench:'valami'}; S.deleted=[]; await save();
+  const felho=await readKey('gymlog_v1');
+  document.getElementById('sheetIn').innerHTML='<textarea id="noteTa"></textarea>';
+  saveNote('ex','bench'); await save();
+  const m=JSON.parse(Auth.mergeGym(await readKey('gymlog_v1'), felho));
+  return m.notes.bench===undefined; }));
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));

@@ -237,6 +237,13 @@ biztonságos import:
   (✓) és mi új (+); a `aiImportApply` naponta egy `r_` routine-t hoz létre
   (több nap esetén egy `p_` tervbe fűzve), majd a főoldalra visz. A PLAN
   és a meglévő routine-ok érintetlenek.
+- **Több nap esetén az új terv AKTÍVVÁ is válik** (`S.activeProgram`).
+  Ez nem szépészeti: a főoldal csak az aktív terv napjait mutatja, a „Saját
+  edzések" szekció pedig kihagyja azokat a routine-okat, amik tervhez
+  tartoznak – aktiválás nélkül tehát az importált napok SEHOL nem
+  látszanának, és a felhasználó úgy élné meg, hogy az import „felülíródott".
+  A régi terv nem vész el: egy koppintás a főoldali „Aktív edzésterv"
+  választóban. Ha ezt átírod, a láthatóságot biztosítsd máshogy.
 
 ## Heti összefoglaló edzőnek
 
@@ -438,6 +445,23 @@ az edzésekre:
   `r_…`/`p_…` id; a `routines`/`programs` id-unióból kizárva.
 - **saját gyakorlat** (`deleteCustomEx`): kulcs = `cx_…` id; a `customEx`
   és a hozzá tartozó kulcsolt mezők (súly/jegyzet/fotó/prog) is kimaradnak.
+- **gépbeállítás-fotó** (`removePhoto`): kulcs = `photo:<exId>`.
+- **gyakorlat-jegyzet ürítése** (`saveNote('ex')` üres mezővel): kulcs =
+  `note:<exId>`.
+
+**Szűk hatókörű síremlék.** A `photo:`/`note:` előtagú kulcs CSAK a saját
+mezőjére hat (`SCOPE` az `auth.js`-ben) – egy törölt fotó nem viszi magával
+a gyakorlat súlyát és jegyzetét. A csupasz id (`cx_…`) továbbra is mindent
+kizár.
+
+**Újra létrehozás – `untomb(k)`.** A helyi síremlék törlése NEM elég: a
+másik eszközön/felhőben lévő bejegyzés az unióban visszatérne, és megölné a
+frisset (pl. a törölt fotó helyére tett új képet). Ezért az `untomb` egy
+`{k, at:most, alive:1}` jelölést ír ugyanarra a kulcsra. A `mergeGym`
+kulcsonként a LEGFRISSEBB jelölést nézi (`dead(k)`): ha az `alive`, az elem
+él; ha síremlék, törölt. A régi, `alive` nélküli bejegyzések változatlanul
+törlést jelentenek. Új fotónál/jegyzetnél mindig hívd az `untomb`-ot.
+
 Minden törlés a mentés után `flushCloud()`-dal AZONNAL a felhőbe írja a
 síremléket (nem várja a debounce-t). Új törlésnél mindig hívd a
 `tombstone()`-t.

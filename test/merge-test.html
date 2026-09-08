@@ -83,6 +83,43 @@ const sess = (t,day,log)=>({t,day,log:log||{}});
   const b=S({sessions:[], deleted:[{k:'9|pa',at:200}]});
   ok('tombstone: frissebb at', parse(M(a,b)).deleted[0].at===200);
 }
+// 7) Szűk hatókörű síremlék: fotó / jegyzet törlése ne térjen vissza,
+//    de a gyakorlat többi adatát (súly, másik mező) NE vigye magával.
+{
+  const felho=S({sessions:[sess(1000,'pa',{})], photos:{bench:'REGI'}, notes:{bench:'JEGYZET'}, weights:{bench:80}});
+  const helyi=S({sessions:[sess(1000,'pa',{})], photos:{},              notes:{bench:'JEGYZET'}, weights:{bench:80},
+                 deleted:[{k:'photo:bench',at:500}]});
+  const m=parse(M(helyi,felho));
+  ok('síremlék: törölt fotó nem tér vissza', m.photos.bench===undefined);
+  ok('síremlék: a fotó törlése nem viszi a jegyzetet', m.notes.bench==='JEGYZET');
+  ok('síremlék: a fotó törlése nem viszi a súlyt', m.weights.bench===80);
+  ok('síremlék: a másik irányból is', parse(M(felho,helyi)).photos.bench===undefined);
+
+  const nFelho=S({sessions:[sess(1000,'pa',{})], notes:{bench:'REGI JEGYZET'}, photos:{bench:'FOTO'}});
+  const nHelyi=S({sessions:[sess(1000,'pa',{})], notes:{}, photos:{bench:'FOTO'}, deleted:[{k:'note:bench',at:500}]});
+  const nm=parse(M(nHelyi,nFelho));
+  ok('síremlék: ürített jegyzet nem tér vissza', nm.notes.bench===undefined);
+  ok('síremlék: a jegyzet ürítése nem viszi a fotót', nm.photos.bench==='FOTO');
+}
+// 7b) Újra létrehozás: az „élő" jelölés feloldja a RÉGEBBI síremléket
+{
+  const felho=S({sessions:[sess(1000,'pa',{})], photos:{}, deleted:[{k:'photo:bench',at:500}]});
+  const helyi=S({sessions:[sess(1000,'pa',{})], photos:{bench:'UJ'}, deleted:[{k:'photo:bench',at:900,alive:1}]});
+  ok('újra létrehozás: az új fotó túléli a régi síremléket',
+     parse(M(helyi,felho)).photos.bench==='UJ');
+  ok('újra létrehozás: irányfüggetlen',
+     parse(M(felho,helyi)).photos.bench==='UJ');
+  // …de egy KÉSŐBBI törlés újra érvényes
+  const ujabbTorles=S({sessions:[sess(1000,'pa',{})], photos:{}, deleted:[{k:'photo:bench',at:1200}]});
+  ok('újra létrehozás után a későbbi törlés megint hat',
+     parse(M(ujabbTorles,helyi)).photos.bench===undefined);
+  // a csupasz id (törölt saját gyakorlat) továbbra is MINDENT kizár
+  const cxFelho=S({sessions:[], customEx:{cx_1:{id:'cx_1',n:'X'}}, notes:{cx_1:'n'}, photos:{cx_1:'f'}, weights:{cx_1:20}});
+  const cxHelyi=S({sessions:[], customEx:{}, notes:{}, photos:{}, weights:{}, deleted:[{k:'cx_1',at:500}]});
+  const cm=parse(M(cxHelyi,cxFelho));
+  ok('csupasz id-síremlék továbbra is mindent kizár',
+     cm.customEx.cx_1===undefined && cm.notes.cx_1===undefined && cm.photos.cx_1===undefined && cm.weights.cx_1===undefined);
+}
 // 8) Aktív edzés: activeT dönt
 {
   const W=sess(5,'pb',{ohp:{w:30,sets:[8]}});

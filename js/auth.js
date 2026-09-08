@@ -111,11 +111,16 @@
     (a.deleted||[]).concat(b.deleted||[]).forEach(d=>{ if(d&&d.k){
       const ex=tomb.get(d.k); if(!ex||(d.at||0)>(ex.at||0)) tomb.set(d.k, d); }});
     out.deleted = [...tomb.values()];
+    // Egy kulcs akkor TÖRÖLT, ha a rá vonatkozó LEGFRISSEBB jelölés síremlék.
+    // Az `alive:1` jelölés (újra létrehozás, lásd `untomb`) feloldja – így egy
+    // törölt fotó helyére tett új kép nem esik áldozatul a régi síremléknek.
+    // A régi, `alive` nélküli bejegyzések változatlanul törlést jelentenek.
+    const dead = k => { const d = tomb.get(k); return !!d && !d.alive; };
     // Edzések: unió azonosító szerint, ütközésnél log-szintű összefésülés.
     // A síremlékkel jelölt edzések kimaradnak.
     const map = new Map(), key = s => (s.t||0)+'|'+(s.day||'');
     (a.sessions||[]).concat(b.sessions||[]).forEach(s=>{
-      const k = key(s); if(tomb.has(k)) return;
+      const k = key(s); if(dead(k)) return;
       const ex = map.get(k);
       map.set(k, ex ? _mergeSession(ex, s) : s);
     });
@@ -123,16 +128,22 @@
     // Kulcsolt mezők: unió (per-kulcs az újabb nyer, a régi kulcsok maradnak).
     // A síremlékkel jelölt kulcsokat (pl. törölt saját gyakorlat cx_… és a
     // hozzá tartozó súly/jegyzet/fotó/progr.) kizárjuk.
+    // A szűk hatókörű síremlékek (`photo:<exId>`, `note:<exId>`) csak a saját
+    // mezőjükre hatnak – egy törölt FOTÓ nem viszi magával a gyakorlat súlyát
+    // és jegyzetét. A csupasz id (pl. `cx_…`) továbbra is mindent kizár.
+    const SCOPE = { photos:'photo', notes:'note' };
     ['weights','notes','photos','customEx','prog','bw','sleep'].forEach(f=>{
       if(a[f]||b[f]){ const merged = Object.assign({}, older[f]||{}, newer[f]||{});
-        Object.keys(merged).forEach(k=>{ if(tomb.has(k)) delete merged[k]; });
+        const sc = SCOPE[f];
+        Object.keys(merged).forEach(k=>{
+          if(dead(k) || (sc && dead(sc+':'+k))) delete merged[k]; });
         out[f] = merged; }
     });
     // Id-kulcsolt tömbök: unió id szerint; a síremlékes id-ket (törölt saját
     // edzés r_… / edzésterv p_…) kizárjuk – így törlés után nem térnek vissza.
     ['routines','programs'].forEach(f=>{
       const m = new Map();
-      (older[f]||[]).concat(newer[f]||[]).forEach(it=>{ if(it&&it.id && !tomb.has(it.id)) m.set(it.id, it); });
+      (older[f]||[]).concat(newer[f]||[]).forEach(it=>{ if(it&&it.id && !dead(it.id)) m.set(it.id, it); });
       if(a[f]||b[f]) out[f] = [...m.values()];
     });
     out.lastBackup = Math.max(a.lastBackup||0, b.lastBackup||0) || null;

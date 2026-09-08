@@ -563,7 +563,7 @@ function logRdyBadge(t){
 }
 let physioRegion='';  // Gyógytorna oldal aktív testtáj (üres = első)
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v86';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v87';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -1743,9 +1743,19 @@ async function aiImportApply(){
     S.routines.push({ id:rid, name:d.name||'AI edzés', sub:exIds.length+' gyakorlat', ex:exIds });
     dayIds.push(rid);
   });
-  if(dayIds.length>1) S.programs.push({ id:uid('p_'), name:'AI edzésterv', days:dayIds });
+  // Több nap → közös terv. Ezt AKTÍVVÁ is tesszük, különben a napjai sehol
+  // nem látszanak a főoldalon: az aktív terv csak a sajátját mutatja, a
+  // „Saját edzések" szekció pedig kihagyja azokat, amik tervhez tartoznak.
+  // Így az import „eltűnne", pedig ott van. A régi terv nem vész el – egy
+  // koppintás az „Aktív edzésterv" választóban.
+  let progName='';
+  if(dayIds.length>1){ const pid=uid('p_');
+    S.programs.push({ id:pid, name:'AI edzésterv', days:dayIds });
+    progName='AI edzésterv'; S.activeProgram=pid; }
   save(); closeSheet(); tab='home'; render(); window.scrollTo(0,0);
-  await uiAlert(`Kész: ${dayIds.length} edzés${dayIds.length>1?' + terv':''}, ${newEx} új gyakorlat. Megtalálod a főoldaladon és a Tervek fülön.`);
+  await uiAlert(progName
+    ? `Kész: ${dayIds.length} edzés a(z) „${progName}" tervben, ${newEx} új gyakorlat. Ez lett az aktív terved – a régire egy koppintással visszaválthatsz a főoldali választóban.`
+    : `Kész: ${dayIds.length} edzés, ${newEx} új gyakorlat. Megtalálod a főoldalon a „Saját edzések" alatt és a Tervek fülön.`);
 }
 
 /* ================= Edzés-összeállító (saját edzések) ================ */
@@ -2609,7 +2619,19 @@ async function loadBundled(){
 // Síremlék (tombstone) rögzítése: törölt entitás kulcsa (edzés t+day, vagy
 // saját edzés/terv/gyakorlat id). A mergeGym ezeket kizárja, így a felhő sem
 // hozza vissza a törölt elemet.
-function tombstone(k){ if(!S.deleted) S.deleted=[]; S.deleted.push({k, at:Date.now()}); }
+// Síremlék. Kulcsonként EGY bejegyzés marad (a legfrissebb) – így a lista
+// nem hízik, és az összefésülés is kulcsonként a frissebbet nézi.
+function tombstone(k){ if(!S.deleted) S.deleted=[];
+  S.deleted=S.deleted.filter(d=>!d || d.k!==k);
+  S.deleted.push({k, at:Date.now()}); }
+// Síremlék visszavonása – ha egy törölt dolgot ÚJRA létrehozol (új fotó
+// ugyanahhoz a gyakorlathoz). A helyi bejegyzés törlése NEM elég: a másik
+// eszközön/felhőben lévő síremlék az unióban visszatérne, és megölné a
+// frisset. Ezért „élő" jelölést írunk ugyanarra a kulcsra, FRISSEBB
+// időbélyeggel – a merge kulcsonként a legutolsó jelölést veszi figyelembe.
+function untomb(k){ if(!S.deleted) S.deleted=[];
+  S.deleted=S.deleted.filter(d=>!d || d.k!==k);
+  S.deleted.push({k, at:Date.now(), alive:1}); }
 async function del(i){ if(await uiConfirm('Törlöd ezt az edzést?', {ok:'Törlés', danger:true})){
   const s=S.sessions[i];
   if(s) tombstone((s.t||0)+'|'+(s.day||''));
@@ -3692,7 +3714,12 @@ function openNoteSheet(kind,id,fromPlayer){
 }
 function saveNote(kind,id){
   const v=document.getElementById('noteTa').value.trim();
-  if(kind==='ex'){ if(v) S.notes[id]=v; else delete S.notes[id]; }
+  if(kind==='ex'){
+    // Ugyanaz a minta, mint a fotónál: az ÜRÍTÉS síremléket kap, különben a
+    // felhő-unió visszahozná a törölt jegyzetet.
+    if(v){ S.notes[id]=v; untomb('note:'+id); }
+    else { delete S.notes[id]; tombstone('note:'+id); }
+  }
   else if(S.active){
     if(v){
       S.active.note=v;
@@ -3713,15 +3740,19 @@ function addPhoto(id,file){
     const c=document.createElement('canvas'); c.width=Math.round(img.width*sc); c.height=Math.round(img.height*sc);
     c.getContext('2d').drawImage(img,0,0,c.width,c.height);
     let data; try{ data=c.toDataURL('image/jpeg',0.6); }catch(e){ uiAlert('A kép feldolgozása nem sikerült.'); return; }
-    S.photos[id]=data; save();
+    S.photos[id]=data; untomb('photo:'+id); save();   // új kép → a régi síremlék elévül
     if(storeMode==='none'){ delete S.photos[id]; uiAlert('A kép nem fért el a tárolóban – törölj néhány fotót.'); }
     openNoteSheet('ex',id);
     const ta2=document.getElementById('noteTa'); if(ta2&&keep) ta2.value=keep;
   }; img.src=rd.result; };
   rd.readAsDataURL(file);
 }
-function removePhoto(id){ const ta=document.getElementById('noteTa'); const keep=ta?ta.value:'';
-  delete S.photos[id]; save(); openNoteSheet('ex',id);
+// A fotó törlése SÍREMLÉKET kap (`photo:<exId>`), különben a felhő-unió
+// visszahozná: a törlés önmagában csak „adat hiánya". A hatóköre szűk – a
+// gyakorlat súlyát/jegyzetét nem érinti, csak a fotót.
+async function removePhoto(id){ const ta=document.getElementById('noteTa'); const keep=ta?ta.value:'';
+  delete S.photos[id]; tombstone('photo:'+id); await save(); flushCloud();
+  openNoteSheet('ex',id);
   const ta2=document.getElementById('noteTa'); if(ta2&&keep) ta2.value=keep; }
 function viewPhoto(id){ const ph=S.photos[id]; if(!ph) return;
   document.getElementById('photoImg').src=ph; document.getElementById('photo').classList.add('on'); }
