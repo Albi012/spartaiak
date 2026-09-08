@@ -522,12 +522,31 @@ ok('19 miután leedzed, a SAJÁT haladásod viszi tovább', await page.evaluate(
 ok('19 a beépített PLAN napokat nem érinti', await page.evaluate(()=>{
   const e=dayDef('pa').ex.find(x=>x.id==='bench');
   return e.s===4 && e.r==='5' && !e.ovW; }));
-ok('19 testsúlyos gyakorlatra nem ír elő súlyt', await page.evaluate(async ()=>{
+// Testsúlyos gyakorlatnál a súly a PLUSZ terhelés – ott is van értelme az
+// előírásnak, mindkét irányban.
+ok('19 „testsúly" előírás = NINCS plusz teher (nem a régi plusz súlyod)', await page.evaluate(async ()=>{
+  S.active=null; playing=false;
+  S.weights.pull=7.5;                                     // korábban plusz súllyal húzódzkodtál
   aiResolved=aiParsePlan('NAP: AI Pull\n- Húzódzkodás | 4x8 | testsúly | 150')
     .map(d=>({name:d.name, ex:d.ex.map(x=>({parsed:x, match:aiMatchEx(x.name)}))}));
   await aiImportApply();
   const r=S.routines[S.routines.length-1];
-  return r.exOv.pull.w===undefined && r.exOv.pull.s===4 && r.exOv.pull.rest===150; }));
+  await startDay(r.id);
+  return r.exOv.pull.w===0 && r.exOv.pull.s===4 && r.exOv.pull.rest===150
+      && S.active.log.pull.w===0 && wLabel(exDef('pull'),0)==='testsúly'; }));
+ok('19 előírt PLUSZ súly testsúlyos gyakorlatra érvényesül', await page.evaluate(async ()=>{
+  S.active=null; playing=false;
+  aiResolved=aiParsePlan('NAP: AI Pull2\n- Húzódzkodás | 4x6 | 12.5 | 180')
+    .map(d=>({name:d.name, ex:d.ex.map(x=>({parsed:x, match:aiMatchEx(x.name)}))}));
+  await aiImportApply();
+  const r=S.routines[S.routines.length-1];
+  await startDay(r.id);
+  return r.exOv.pull.w===12.5 && S.active.log.pull.w===12.5; }));
+ok('19 percben megadott pihenő másodpercre vált', await page.evaluate(()=>
+  aiParseExLine('X | 4x8 | testsúly | 2 perc').rest===120
+  && aiParseExLine('X | 4x8 | testsúly | 150').rest===150
+  && aiParseExLine('X | 4x8 | testsúly | 90 mp').rest===90
+  && aiParseExLine("X | 4x8 | testsúly | 3'").rest===180));
 await page.evaluate(()=>{ S.active=null; playing=false; closeSheet(); tab='home'; render(); }); await wait(200);
 
 console.log('\n==== ÖSSZEGZÉS ====');

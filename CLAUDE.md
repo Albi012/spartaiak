@@ -226,7 +226,9 @@ biztonságos import:
   átlagos alvás, sérülés-mód), majd kitöltendő célok (cél / heti edzésszám
   / felszerelés / tapasztalat), végül a KÖTÖTT kimeneti formátum
   (`AI_FORMAT_BLOCK`: `NAP: <név>` sorok, alattuk
-  `- <gyakorlat> | <s>x<r> | <súly/testsúly> | <pihenő>`). A kontextus csak
+  `- <gyakorlat> | <s>x<r> | <súly/testsúly> | <pihenő>`). A pihenő
+  másodpercben értendő, de a „2 perc" / „3'" alak is átjön (60-nal szoroz) –
+  e nélkül a 2 a minimumra (10 mp) csúszna. A kontextus csak
   származtatott összefoglaló (nincs nyers napló-export). Az
   `AI_FORMAT_BLOCK` alakját ne változtasd az `aiParsePlan` igazítása nélkül.
 - `aiParsePlan(text)` toleráns parser (pipe-formátum ÉS szabad szöveg is);
@@ -251,7 +253,12 @@ biztonságos import:
   (`lastForT(id) <= at`) – utána a saját haladásod viszi tovább, miközben a
   szett/ismétlés/pihenő marad az előírás. A lejátszó ki is írja
   („Az edzésterv előírása: …"), hogy a szám ne legyen megmagyarázatlan.
-  Testsúlyos gyakorlatra nem írunk elő súlyt.
+  **Testsúlyos gyakorlatnál a súly a PLUSZ terhelés**, tehát ott is van
+  értelme az előírásnak, mindkét irányban: explicit szám → `w` (pl. +12,5 kg
+  húzódzkodásra), „testsúly" pedig `w:0` (= NINCS plusz teher) – e nélkül a
+  korábbi plusz súlyod jönne fel, pedig az edző nem azt kérte. A „testsúly"
+  csak akkor ad `w:0`-t, ha a feloldott gyakorlat maga is testsúlyos
+  (`base.bw`); egyébként nem nyúlunk a súlyhoz.
 - **Több nap esetén az új terv AKTÍVVÁ is válik** (`S.activeProgram`).
   Ez nem szépészeti: a főoldal csak az aktív terv napjait mutatja, a „Saját
   edzések" szekció pedig kihagyja azokat a routine-okat, amik tervhez

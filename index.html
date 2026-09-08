@@ -563,7 +563,7 @@ function logRdyBadge(t){
 }
 let physioRegion='';  // Gyógytorna oldal aktív testtáj (üres = első)
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v88';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v89';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -1631,7 +1631,10 @@ function aiParseExLine(body){
     if(p[2]!=null && p[2]!==''){ const wt=p[2].toLowerCase();
       if(/tests|testsuly|bodyweight|\bbw\b|sajat/.test(aiNorm(wt))){ bw=1; w=0; }
       else { const f=parseFloat(p[2].replace(',','.')); if(!isNaN(f)){ w=f; hasW=true; } } }
-    if(p[3]){ const rs=p[3].match(/\d+/); if(rs) rest=parseInt(rs[0]); }
+    if(p[3]){ const rs=p[3].match(/\d+/);
+      // Percben megadott pihenő („2 perc") → másodperc. E nélkül a 2 a
+      // minimumra (10 mp) csúszna, vagyis 2 perc helyett 10 másodperc lenne.
+      if(rs) rest=parseInt(rs[0]) * (/perc|min\b|'/i.test(p[3]) ? 60 : 1); }
   } else {
     sr(body);
     const wm=body.match(/(\d+(?:[.,]\d+)?)\s*kg/i); if(wm){ w=parseFloat(wm[1].replace(',','.')); hasW=true; }
@@ -1757,7 +1760,12 @@ async function aiImportApply(){
         // megőrizzük a routine-on, különben a gyakorlat alap-paraméterei
         // (szett/ism./pihenő) és a saját munkasúlyod írnák felül.
         const base=exDef(item.match.id), o={ s:p.s, r:p.r, rest:p.rest };
-        if(p.hasW && !base.bw) o.w=p.w;              // testsúlyosnál nincs értelme
+        // Testsúlyos gyakorlatnál a súly a PLUSZ terhelés, tehát ott is
+        // értelmes előírás. Ha az edző „testsúly"-t írt egy testsúlyos
+        // gyakorlatra, az azt jelenti: NINCS plusz súly (w=0) – e nélkül a
+        // saját, korábbi plusz súlyod jönne fel, pedig az edző nem azt kérte.
+        if(p.hasW) o.w=p.w;
+        else if(p.bw && base.bw) o.w=0;
         ov[item.match.id]=o;
         return item.match.id;
       }
