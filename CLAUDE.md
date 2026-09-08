@@ -188,7 +188,9 @@ MÁSOLJA őket friss `r_`/`p_` ID-vel (`addStarterRoutine`/`addStarterProgram`) 
 - **Saját gyakorlat** (`customEx`): a felhasználó által létrehozott
   gyakorlat, `cx_…` előtagú, ütközésmentes ID-vel. Az `exDef(id)` a
   PLAN → customEx → ARCHIVE sorrendben old fel.
-- **Saját edzés** (`routines`): `{id:'r_…', name, sub, ex:[exId,…]}`, ahol
+- **Saját edzés** (`routines`): `{id:'r_…', name, sub, ex:[exId,…]}` +
+  opcionális `exOv` (gyakorlatonkénti előírás, lásd „AI-terv importálása")
+  és `at` (létrehozás ideje), ahol
   az `ex` beépített VAGY saját gyakorlat-ID-kat hivatkoz. A `dayDef(id)`
   egységes `{id,name,sub,ex:[def,…]}` alakot ad vissza PLAN-ra és
   routine-ra is; a hívók ezt használják (nem `PLAN.find`-ot).
@@ -237,6 +239,19 @@ biztonságos import:
   (✓) és mi új (+); a `aiImportApply` naponta egy `r_` routine-t hoz létre
   (több nap esetén egy `p_` tervbe fűzve), majd a főoldalra visz. A PLAN
   és a meglévő routine-ok érintetlenek.
+- **Az edző ELŐÍRÁSA megmarad** (`routines[i].exOv`, additív):
+  `{ exId:{s, r, rest, w?} }` – a meglévő ID-re párosított gyakorlatoknál is.
+  E nélkül a routine csak ID-ket tárolna, és a nap a gyakorlat SAJÁT
+  alapértékeivel + a te munkasúlyoddal jelenne meg – vagyis az edző 5×3 @
+  80 kg / 240 mp előírásából 4×5 @ 62,5 kg / 180 mp lenne. A `dayDef`
+  olvasztja rá a defre (`ovW:1` jelzi az előírt SÚLYT); a gyakorlat-ID és a
+  `weights` érintetlen, a súlytörténet tehát összekötve marad.
+  A routine `at` mezője az import ideje. A `startDay` az előírt súlyt addig
+  használja, amíg az adott gyakorlatot az import ÓTA nem edzetted le
+  (`lastForT(id) <= at`) – utána a saját haladásod viszi tovább, miközben a
+  szett/ismétlés/pihenő marad az előírás. A lejátszó ki is írja
+  („Az edzésterv előírása: …"), hogy a szám ne legyen megmagyarázatlan.
+  Testsúlyos gyakorlatra nem írunk elő súlyt.
 - **Több nap esetén az új terv AKTÍVVÁ is válik** (`S.activeProgram`).
   Ez nem szépészeti: a főoldal csak az aktív terv napjait mutatja, a „Saját
   edzések" szekció pedig kihagyja azokat a routine-okat, amik tervhez

@@ -563,7 +563,7 @@ function logRdyBadge(t){
 }
 let physioRegion='';  // Gyógytorna oldal aktív testtáj (üres = első)
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v87';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v88';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -976,7 +976,16 @@ function exDef(id){ for(const d of PLAN) for(const e of d.ex) if(e.id===id) retu
 function dayDef(id){
   const p=PLAN.find(d=>d.id===id); if(p) return p;
   const r=(S.routines||[]).find(x=>x.id===id);
-  if(r) return {id:r.id, name:r.name, sub:r.sub||'', custom:true, ex:r.ex.map(exDef), ssLinks:(r.ssLinks||[]).slice()};
+  if(r) return {id:r.id, name:r.name, sub:r.sub||'', custom:true, at:r.at||0,
+    // `exOv`: a routine-hoz kötött ELŐÍRÁS (szett/ism./pihenő/súly), pl. amit
+    // az AI edző adott. A gyakorlat-ID és a súlytörténet érintetlen marad –
+    // csak ennek a napnak a paraméterei jönnek az előírásból.
+    ex:r.ex.map(x=>{ const base=exDef(x), o=(r.exOv||{})[x];
+      if(!o) return base;
+      const m=Object.assign({}, base, o);
+      if(o.w!=null) m.ovW=1;                       // előírt SÚLY jelölése
+      return m; }),
+    ssLinks:(r.ssLinks||[]).slice()};
   if(id && id.indexOf('physio_')===0){ const reg=REHAB.find(x=>x.id===id.slice(7));
     if(reg) return {id, name:'Mobilitás – '+reg.name, sub:'5 perces rutin', custom:true, physio:1, ex:reg.ex.map(e=>physioExDef(e.id))}; }
   return null;
@@ -1018,6 +1027,11 @@ function exLibrary(){
 }
 function uid(p){ return p+Date.now().toString(36).slice(-4)+Math.random().toString(36).slice(2,6); }
 function lastFor(id){ for(let i=S.sessions.length-1;i>=0;i--){ const s=S.sessions[i]; if(s.log[id]) return s.log[id]; } return null; }
+// Mikor edzetted utoljára ezt a gyakorlatot (rögzített szettel)? 0 = soha.
+// Ebből dől el, hogy az edző előírt súlya még érvényes-e, vagy már a saját
+// haladásod viszi tovább.
+function lastForT(id){ for(let i=S.sessions.length-1;i>=0;i--){ const s=S.sessions[i];
+  const L=s.log[id]; if(L && (L.sets||[]).some(x=>x!=null)) return s.t||0; } return 0; }
 // Okos súlyugrás: ha minden szett megvolt, a cél feletti túlteljesítés
 // arányában nagyobbat lép (nem fix +inc). Pl. 5-ös célnál 11 ismétlés
 // → ~4× lépés.
@@ -1426,7 +1440,9 @@ async function startDay(id){
   S.active={day:id,t:Date.now(),log:{},deload:deload,dayName:d.name}; S.activeT=Date.now();
   d.ex.forEach(e=>{
     if(exAffected(e)) return;                 // sérülés-mód: érintett gyakorlat kimarad
-    let w=startW(e.id);
+    // Előírt súly (edzőterv): addig érvényes, amíg ezt a gyakorlatot az
+    // előírás ÓTA nem edzetted le – onnantól a saját haladásod viszi.
+    let w = (e.ovW && lastForT(e.id) <= (d.at||0)) ? e.w : startW(e.id);
     if(deload && !e.bw) w=roundTo(w*0.85, e.inc);
     S.active.log[e.id]={w:w,sets:new Array(e.s).fill(null)};
   });
@@ -1723,7 +1739,8 @@ function aiPreviewHtml(){
       if(item.match){ matched++; h+=`<div class="small" style="margin-top:5px"><span style="color:var(--sage)">✓</span> ${esc(item.match.n)} <span class="dim">${meta}</span></div>`; }
       else { neu++; h+=`<div class="small" style="margin-top:5px"><span style="color:var(--brass)">+</span> ${esc(p.name)} <span class="dim">(új) ${meta}</span></div>`; } });
     h+=`</div></div>`; });
-  h+=`<div class="small mut" style="margin-top:8px">${matched} meglévő gyakorlat összekötve (a súlytörténeteddel), ${neu} új létrehozva. A meglévő terved érintetlen.</div>
+  h+=`<div class="small mut" style="margin-top:8px">${matched} meglévő gyakorlat összekötve (a súlytörténeteddel), ${neu} új létrehozva. A meglévő terved érintetlen.
+    A fenti szettek, ismétlések és súlyok pontosan így kerülnek be – az első alkalommal ezekkel indul az edzés, utána a saját haladásod viszi tovább.</div>
     <button class="btn pri" style="margin-top:10px" onclick="aiImportApply()">Hozzáadás az edzéseimhez</button></div>`;
   return h;
 }
@@ -1732,15 +1749,27 @@ async function aiImportApply(){
   if(!S.customEx)S.customEx={}; if(!S.routines)S.routines=[]; if(!S.programs)S.programs=[];
   let newEx=0; const dayIds=[];
   aiResolved.forEach(d=>{
+    const ov={};
     const exIds=d.ex.map(item=>{
-      if(item.match) return item.match.id;                 // meglévő ID – történet összekötve
-      const id=uid('cx_'), p=item.parsed;
+      const p=item.parsed;
+      if(item.match){
+        // Meglévő ID → a súlytörténet összekötve. Az edző ELŐÍRÁSÁT viszont
+        // megőrizzük a routine-on, különben a gyakorlat alap-paraméterei
+        // (szett/ism./pihenő) és a saját munkasúlyod írnák felül.
+        const base=exDef(item.match.id), o={ s:p.s, r:p.r, rest:p.rest };
+        if(p.hasW && !base.bw) o.w=p.w;              // testsúlyosnál nincs értelme
+        ov[item.match.id]=o;
+        return item.match.id;
+      }
+      const id=uid('cx_');
       const def={ id, n:p.name, mg:aiGuessMg(p.name), s:p.s, r:p.r, w:p.w, inc:2.5, rest:p.rest };
       if(p.bw) def.bw=1;
       S.customEx[id]=def; newEx++; return id;
     });
     const rid=uid('r_');
-    S.routines.push({ id:rid, name:d.name||'AI edzés', sub:exIds.length+' gyakorlat', ex:exIds });
+    const rt={ id:rid, name:d.name||'AI edzés', sub:exIds.length+' gyakorlat', ex:exIds, at:Date.now() };
+    if(Object.keys(ov).length) rt.exOv=ov;
+    S.routines.push(rt);
     dayIds.push(rid);
   });
   // Több nap → közös terv. Ezt AKTÍVVÁ is tesszük, különben a napjai sehol
@@ -2060,6 +2089,10 @@ function playerView(){
   let note='';
   if(last) note=`<div class="prev">Előző: ${wLabel(e,last.w)}${e.bw&&last.w<=0?'':' kg'} × ${last.sets.map(x=>x==null?'–':x).join(', ')}</div>`;
   else note=`<div class="prev dim">Első alkalom – a technika a cél, ne a súly.</div>`;
+  // Ha a súly az edzőterv ELŐÍRÁSÁBÓL jön (és nem a saját haladásodból),
+  // mondjuk is meg – különben megmagyarázatlanul ugrana a szám.
+  if(e.ovW && lastForT(e.id) <= ((dayDef(S.active.day)||{}).at||0))
+    note+=`<div class="prev" style="color:var(--brass)">Az edzésterv előírása: ${wLabel(e,e.w)}${e.bw?'':' kg'} × ${e.s}×${esc(e.r)}</div>`;
   // Következő edzés súlyjavaslata a választott progressziós szabály szerint,
   // indoklással (auditálható). Csak akkor, ha van már rögzített szett.
   let hint='';

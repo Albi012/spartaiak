@@ -486,6 +486,50 @@ ok('18 kiürített gyakorlat-jegyzet sem tér vissza', await page.evaluate(async
   const m=JSON.parse(Auth.mergeGym(await readKey('gymlog_v1'), felho));
   return m.notes.bench===undefined; }));
 
+// 19. Az AI-terv ELŐÍRÁSA (szett/ism./pihenő/súly) nem vész el
+await page.evaluate(()=>{ S.active=null; playing=false; closeSheet();
+  window.uiConfirm=()=>Promise.resolve(false); window.uiAlert=()=>Promise.resolve();
+  // friss dátumok, hogy ne a visszaépítés (deload) fusson
+  const D=864e5, now=Date.now();
+  S.sessions.forEach((s,i)=>{ s.t=now-(S.sessions.length-i)*2*D; });
+  tab='home'; render(); }); await wait(300);
+const sajat = await page.evaluate(()=>startW('bench'));
+ok('19 az előírás a routine-on tárolódik (exOv), az ID-k érintetlenek', await page.evaluate(async ()=>{
+  const terv='NAP: AI Push\n- Fekvenyomás | 5x3 | 80 | 240';
+  aiResolved=aiParsePlan(terv).map(d=>({name:d.name, ex:d.ex.map(x=>({parsed:x, match:aiMatchEx(x.name)}))}));
+  await aiImportApply();
+  const r=S.routines[S.routines.length-1]; window.__rid=r.id;
+  return r.ex[0]==='bench' && r.exOv && r.exOv.bench.s===5 && r.exOv.bench.r==='3'
+      && r.exOv.bench.rest===240 && r.exOv.bench.w===80 && r.at>0; }));
+ok('19 a nap az ELŐÍRÁST mutatja, nem a gyakorlat alapértékeit', await page.evaluate(()=>{
+  const e=dayDef(window.__rid).ex.find(x=>x.id==='bench');
+  return e.s===5 && e.r==='3' && e.rest===240 && e.w===80 && e.ovW===1; }));
+ok('19 az első indítás az előírt súllyal indul (nem a saját munkasúllyal)', await page.evaluate(async ()=>{
+  await startDay(window.__rid); return S.active.log.bench.w; })===80 && sajat!==80);
+await wait(400);   // a render View Transitionön át is fusson le
+ok('19 a lejátszó megmondja, hogy ez az edzésterv előírása', await page.evaluate(()=>{
+  const pl=document.querySelector('.player');
+  return !!pl && /edzésterv előírása/.test(pl.textContent); }));
+ok('19 miután leedzed, a SAJÁT haladásod viszi tovább', await page.evaluate(async ()=>{
+  const ex=dayDef(S.active.day).ex.filter(x=>S.active.log[x.id]);
+  ex.forEach(e=>{ S.active.log[e.id].sets=S.active.log[e.id].sets.map(()=>3); });
+  S.active.log.bench.w=82.5; finish(); if(window.closeFinish) closeFinish();
+  await new Promise(r=>setTimeout(r,200));
+  await startDay(window.__rid);
+  const e=dayDef(S.active.day).ex.find(x=>x.id==='bench');
+  // a súly már a naplóból jön, a szett/ism./pihenő viszont marad az előírás
+  return S.active.log.bench.w>=82.5 && e.s===5 && e.r==='3' && e.rest===240; }));
+ok('19 a beépített PLAN napokat nem érinti', await page.evaluate(()=>{
+  const e=dayDef('pa').ex.find(x=>x.id==='bench');
+  return e.s===4 && e.r==='5' && !e.ovW; }));
+ok('19 testsúlyos gyakorlatra nem ír elő súlyt', await page.evaluate(async ()=>{
+  aiResolved=aiParsePlan('NAP: AI Pull\n- Húzódzkodás | 4x8 | testsúly | 150')
+    .map(d=>({name:d.name, ex:d.ex.map(x=>({parsed:x, match:aiMatchEx(x.name)}))}));
+  await aiImportApply();
+  const r=S.routines[S.routines.length-1];
+  return r.exOv.pull.w===undefined && r.exOv.pull.s===4 && r.exOv.pull.rest===150; }));
+await page.evaluate(()=>{ S.active=null; playing=false; closeSheet(); tab='home'; render(); }); await wait(200);
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));
