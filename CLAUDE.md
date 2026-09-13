@@ -294,6 +294,16 @@ A Napló fül „Heti összefoglaló edzőnek" gombja (`openWeeklyExport` →
 `weeklyReport`) másolható/megosztható szöveget ad egy AI vagy valódi
 edzőnek: az edzések a szettekkel, az eltérés-okokkal és a jegyzetekkel.
 
+**Az alvás és a testsúly is benne van**, két helyen: az EDZÉS NAPJÁN mért
+érték a nap fejléce alá kerül („alvás: 7ó 20p (jó) · testsúly: 78,4 kg"), a
+végén pedig egy **Regeneráció-blokk** (`reportRecovery`) összesíti az ablak
+alvását (átlag / éj, éjszakák száma, átlagos minőség) és testsúlyát (átlag +
+irány az ELŐZŐ 7 nap átlagához), napi bontással. A szettek önmagukban
+féligazságot adnának – az edző nem tudja megítélni a terhelést a regeneráció
+nélkül. **Csak a ténylegesen rögzített napok mennek el** (nincs interpoláció,
+nincs tippelés); ha egyik sincs, a blokk el sem készül, ha csak az egyik van,
+a másikról kimondja, hogy nincs rögzítve – nem hallgatja el.
+
 **Az időablak az AKTUÁLIS NAPTÁRI HÉT** (`weekStart(Date.now())`-tól, hétfő
 00:00), NEM gördülő 7 nap – a szöveg „heti összefoglalót" ígér, és egy
 vasárnapi edzés nem tartozik a hétfőn kezdődő héthez. Ugyanazt a

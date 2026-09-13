@@ -477,6 +477,43 @@ ok('17 üres héten az utolsó edzésekre esik vissza, és ezt ki is mondja', aw
 ok('17 a lap leírása is a hetet ígéri', await page.evaluate(()=>{
   openWeeklyExport(); const t=document.getElementById('sheetIn').textContent; closeSheet();
   return /e heti/.test(t) && !/elmúlt 7 nap/.test(t); }));
+// A szettek önmagukban féligazság – az alvás és a testsúly is menjen el.
+ok('17 az edzés napján mért alvás és testsúly a napra kerül', await page.evaluate(()=>{
+  const bak={s:S.sessions,b:S.bw,sl:S.sleep}, ws=weekStart(Date.now());
+  const nap=ws+10*36e5, k=bwKey(nap);
+  S.sessions=[{t:nap, day:'pa', log:{bench:{w:60,sets:[5,5,5]}}}];
+  S.bw={[k]:78.4}; S.sleep={[k]:{min:440,q:4}};
+  const t=weeklyReport(); S.sessions=bak.s; S.bw=bak.b; S.sleep=bak.sl;
+  const blokk=t.split('—')[2]||'';
+  return /alvás: 7ó 20p \(jó\)/.test(blokk) && /testsúly: 78,4 kg/.test(blokk); }));
+ok('17 a regeneráció-blokk összesíti a hét alvását és testsúlyát', await page.evaluate(()=>{
+  const bak={s:S.sessions,b:S.bw,sl:S.sleep}, ws=weekStart(Date.now());
+  S.sessions=[{t:ws+10*36e5, day:'pa', log:{bench:{w:60,sets:[5,5,5]}}}];
+  S.bw={}; S.sleep={};
+  for(let i=0;i<3;i++){ const k=bwKey(ws+i*864e5);
+    S.bw[k]=78+i*0.2; S.sleep[k]={min:420+i*30,q:4}; }
+  const t=weeklyReport(); S.sessions=bak.s; S.bw=bak.b; S.sleep=bak.sl;
+  return /Regeneráció \(ezen a héten\)/.test(t)
+      && /Alvás: átlag 7ó 30p \/ éj \(3 éjszaka, átlagos minőség 4\/5\)/.test(t)
+      && /Testsúly: átlag 78,2 kg/.test(t); }));
+ok('17 a testsúly iránya az előző héthez képest is megy', await page.evaluate(()=>{
+  const bak={s:S.sessions,b:S.bw,sl:S.sleep}, ws=weekStart(Date.now());
+  S.sessions=[{t:ws+10*36e5, day:'pa', log:{bench:{w:60,sets:[5,5,5]}}}];
+  S.bw={[bwKey(ws+864e5)]:79, [bwKey(ws-3*864e5)]:78}; S.sleep={};
+  const t=weeklyReport(); S.sessions=bak.s; S.bw=bak.b; S.sleep=bak.sl;
+  return /\+1,0 kg az előző héthez/.test(t); }));
+ok('17 rögzítés nélkül NEM talál ki adatot', await page.evaluate(()=>{
+  const bak={s:S.sessions,b:S.bw,sl:S.sleep}, ws=weekStart(Date.now());
+  S.sessions=[{t:ws+10*36e5, day:'pa', log:{bench:{w:60,sets:[5,5,5]}}}];
+  S.bw={}; S.sleep={};
+  const t=weeklyReport(); S.sessions=bak.s; S.bw=bak.b; S.sleep=bak.sl;
+  return !/Regeneráció/.test(t) && !/Alvás:/.test(t) && !/Testsúly:/.test(t); }));
+ok('17 csak alvás van: a testsúlyról megmondja, hogy nincs (nem hallgatja el)', await page.evaluate(()=>{
+  const bak={s:S.sessions,b:S.bw,sl:S.sleep}, ws=weekStart(Date.now());
+  S.sessions=[{t:ws+10*36e5, day:'pa', log:{bench:{w:60,sets:[5,5,5]}}}];
+  S.bw={}; S.sleep={[bwKey(ws+864e5)]:{min:450,q:5}};
+  const t=weeklyReport(); S.sessions=bak.s; S.bw=bak.b; S.sleep=bak.sl;
+  return /Alvás: átlag 7ó 30p/.test(t) && /Testsúly: ebben az időszakban nincs rögzítve/.test(t); }));
 
 // 18. Két bejelentett hiba: AI-import láthatósága + fotó/jegyzet törlése
 await page.evaluate(()=>{ S.active=null; playing=false; closeSheet(); tab='home'; render(); }); await wait(200);
