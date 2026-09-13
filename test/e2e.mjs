@@ -36,6 +36,8 @@ const seed=async d=>{ await page.evaluate(x=>localStorage.setItem('gymlog_v1', J
 const nav=async t=>{ await page.evaluate(()=>{['modal','sheet'].forEach(id=>{const el=document.getElementById(id); if(el) el.classList.remove('on');});});
   await page.evaluate(x=>{ tab=x; render(); if(x==='friends'&&window.refreshFriends) refreshFriends(); }, t); await wait(250); };
 
+// A vágólapos beillesztéshez engedély kell (az egykoppintásos import útja).
+try{ await page.context().grantPermissions(['clipboard-read','clipboard-write'], {origin:BASE}); }catch(e){}
 await page.goto(BASE+'/index.html'); await wait(300);
 await seed(backup);
 
@@ -700,6 +702,66 @@ ok('21 a szerveroldali függvény csak a SAJÁT fiókot törli', await page.eval
       && /delete from auth\.users where id = uid/i.test(sql)
       && /grant execute .* to authenticated/i.test(sql)
       && /revoke all on function/i.test(sql); }));
+
+// 22. AI-import: három lépés, egykoppintásos beillesztés, szerkeszthető előnézet
+const AITERV='NAP: AI Push\n- Fekvenyomás | 5x3 | 80 | 240\n- Vállból nyomás | 3x10 | 16 | 90\nNAP: AI Pull\n- Húzódzkodás | 4x6 | testsúly | 2 perc';
+await page.evaluate(()=>{ S.active=null; playing=false; closeSheet(); tab='plans'; render(); }); await wait(200);
+ok('22 az import az 1. lépésen nyílik (prompt)', await page.evaluate(()=>{
+  openAiImport(); const t=document.getElementById('sheetIn').textContent;
+  return aiStep===1 && /Kérd el a tervet/.test(t) && /Prompt másolása/.test(t)
+      && !/Feldolgozás/.test(t); }));          // a külön Feldolgozás-gomb megszűnt
+ok('22 a prompt másolása magától a 2. lépésre visz', await page.evaluate(async ()=>{
+  aiCopyTpl(); await new Promise(r=>setTimeout(r,120));
+  const t=document.getElementById('sheetIn').textContent;
+  const vagolap=await navigator.clipboard.readText();
+  return aiStep===2 && /Illeszd be a választ/.test(t) && vagolap.includes('NAP:'); }));
+ok('22 gépelés után magától felismeri az edzéseket', await page.evaluate(async (terv)=>{
+  aiTextInput(terv); await new Promise(r=>setTimeout(r,500));
+  const t=document.getElementById('aiStat').textContent;
+  return aiStep===2 && aiResolved && aiResolved.length===2 && /2 edzés · 3 gyakorlat/.test(t); }, AITERV));
+ok('22 vágólapról EGY koppintás elvisz az előnézetig', await page.evaluate(async (terv)=>{
+  openAiImport(); aiGo(2);
+  await navigator.clipboard.writeText(terv);
+  await aiPasteClip();
+  const t=document.getElementById('sheetIn').textContent;
+  return aiStep===3 && /Fekvenyomás/.test(t) && /Hozzáadás az edzéseimhez/.test(t); }, AITERV));
+ok('22 az előnézet mutatja az előírt súlyt és pihenőt is', await page.evaluate(()=>{
+  const t=document.getElementById('sheetIn').textContent;
+  return /5×3/.test(t) && /80 kg/.test(t) && /240 mp pihenő/.test(t) && /120 mp pihenő/.test(t); }));
+ok('22 a párosítás átköthető másik gyakorlatra', await page.evaluate(()=>{
+  const nev=aiResolved[0].ex[0].parsed.name;
+  aiEditItem(0,0);                                   // választó „ai" módban
+  const pt=document.getElementById('sheetIn').textContent;
+  const elokeszitett = pickerQ===nev;                // a kereső már ki van töltve
+  aiBindPick('ohp');
+  return /Melyikhez kösse/.test(pt) && elokeszitett && aiStep===3
+      && aiResolved[0].ex[0].match.id==='ohp'; }));
+ok('22 vissza is köthető ÚJ gyakorlatra', await page.evaluate(()=>{
+  aiEditItem(0,0); aiBindNew();
+  return aiStep===3 && aiResolved[0].ex[0].match===null; }));
+ok('22 felesleges sor és nap elhagyható', await page.evaluate(()=>{
+  const elotte=aiResolved[0].ex.length;
+  aiRemoveItem(0,1); const sor=aiResolved[0].ex.length===elotte-1;
+  aiRemoveDay(1); return sor && aiResolved.length===1; }));
+ok('22 a SZERKESZTETT előnézet szerint importál', await page.evaluate(async ()=>{
+  window.uiAlert=m=>{ window.__a=m; return Promise.resolve(); };
+  const rElotte=(S.routines||[]).length;
+  await aiImportApply();
+  const r=S.routines[S.routines.length-1];
+  return S.routines.length===rElotte+1 && r.ex.length===1
+      && Object.keys(S.customEx).some(k=>S.customEx[k].n==='Fekvenyomás'); }));
+ok('22 az utolsó sor elhagyása visszavisz a beillesztéshez', await page.evaluate(async (terv)=>{
+  openAiImport(); aiTextInput(terv); await new Promise(r=>setTimeout(r,500)); aiGo(3);
+  aiRemoveDay(0); aiRemoveDay(0);
+  return aiStep===2 && aiResolved===null; }, AITERV));
+ok('22 felismerhetetlen szövegnél formátum-emlékeztetőt kínál', await page.evaluate(async ()=>{
+  openAiImport(); aiGo(2); aiTextInput('Szia! Jövő héten pihenj sokat, aztán beszéljük meg.');
+  await new Promise(r=>setTimeout(r,500));
+  const t=document.getElementById('aiStat').textContent;
+  return !aiResolved && /Formátum-emlékeztető másolása/.test(t); }));
+ok('22 a lépéssáv nem enged előre feldolgozatlan előnézetre', await page.evaluate(()=>{
+  aiGo(3); return aiStep===2; }));
+await page.evaluate(()=>closeSheet());
 
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);

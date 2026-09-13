@@ -225,7 +225,40 @@ MÁSOLJA őket friss `r_`/`p_` ID-vel (`addStarterRoutine`/`addStarterProgram`) 
 A Tervek fül „AI-terv importálása" gombja (`openAiImport`) egy külső AI
 edzőtől kapott edzéstervet alakít saját edzéssé/tervvé. **NEM hív LLM-et**
 (offline, kulcs nélkül) és **NEM írja felül** a meglévő tervet – additív,
-biztonságos import:
+biztonságos import.
+
+**A lap három lépés, egyszerre egy képernyő** (`aiStep` 1..3, `aiRender`,
+`aiStepBar`; a lépéssáv visszafelé szabadon enged, előre a 3-ra csak
+feldolgozott terv esetén). Korábban minden egy lapon volt – telefonon hosszú
+görgetés, amiben nem látszott, hol tart az ember. A lépések:
+
+1. **Prompt** – „Prompt másolása" (`aiCopyTpl`), natív burokban „Küldés az AI
+   edződnek…" (`aiSharePrompt`, `navigator.share`). A sikeres másolás MAGA a
+   visszajelzés: automatikusan a 2. lépésre lép (`aiCopied` jelzi, hogy a
+   szöveg a vágólapon van).
+2. **Beillesztés** – „Beillesztés a vágólapról" (`aiPasteClip`,
+   `navigator.clipboard.readText`): egy koppintás, és sikeres felismerésnél
+   rögtön az előnézeten áll. Kézi gépelésnél `aiTextInput` 350 ms-os
+   késleltetéssel MAGÁTÓL feldolgoz (nincs külön „Feldolgozás" gomb); csak az
+   `#aiStat` doboz frissül, hogy a textarea fókusza és kurzora megmaradjon.
+   Felismerhetetlen szövegnél „Formátum-emlékeztető másolása" (`aiCopyFormat`
+   → `AI_FORMAT_BLOCK`) – az edzőnek visszaküldve ez az egyetlen kiút.
+3. **Előnézet – SZERKESZTHETŐ.** Sorra koppintva a párosítás átköthető másik
+   gyakorlatra (`aiEditItem` → a választó `pickerMode==='ai'` módban, a
+   keresőben már ott az edző által írt név → `aiBindPick`), vagy vissza „új
+   gyakorlatra" (`aiBindNew`); a felesleges sor/nap elhagyható
+   (`aiRemoveItem`/`aiRemoveDay`, az utolsó elhagyása visszavisz a 2. lépésre).
+   E nélkül egyetlen rossz találat miatt az egész importot újra kellett
+   kezdeni. Minden sor kiírja a szettet, ismétlést, súlyt ÉS a pihenőt, hogy
+   az előnézet ugyanazt mutassa, ami be fog kerülni.
+
+A gyakorlatválasztó két gazdát szolgál (`pickerMode`: `'draft'` |
+`'ai'`), a sorok a `pickerChoose(id)`-n mennek át. AI-módban a „+ Új saját
+gyakorlat" helyett „Maradjon új gyakorlat" áll, és a × az előnézetbe visz
+vissza, nem zárja be a lapot. Ezt a kétgazdás elágazást tartsd meg, ha a
+választón változtatsz.
+
+Az import működése:
 
 - A lap egy **személyre szabott, másolható promptot** ad (`buildAiPrompt`),
   ami a naplóból összeállított „rólam" kontextussal indul (`aiUserContext`:

@@ -563,7 +563,7 @@ function logRdyBadge(t){
 }
 let physioRegion='';  // Gyógytorna oldal aktív testtáj (üres = első)
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v93';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v94';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -1720,61 +1720,149 @@ function aiGuessMg(name){
   return 'törzs';
 }
 
-let aiResolved=null, aiPromptText='';
+// Az import HÁROM LÉPÉS, egyszerre egy képernyő. Korábban minden egy lapon
+// volt (bevezető + prompt + másolás + mező + feldolgozás + előnézet): telefonon
+// ez egy hosszú görgetés volt, amiben nem látszott, hol tart az ember. A
+// beillesztés egy koppintás (vágólap), a feldolgozás magától fut, az előnézet
+// pedig SZERKESZTHETŐ – rossz párosítás miatt nem kell elölről kezdeni.
+let aiResolved=null, aiPromptText='', aiStep=1, aiText='', aiCopied=false, aiEditRef=null, _aiTimer=null;
+const AI_TITLES=['','Kérd el a tervet','Illeszd be a választ','Nézd át és add hozzá'];
+
 function openAiImport(){
-  aiResolved=null;
+  aiResolved=null; aiText=''; aiStep=1; aiCopied=false; aiEditRef=null;
   aiPromptText=buildAiPrompt();          // a naplóból személyre szabott prompt
-  document.getElementById('sheetIn').innerHTML=aiImportHtml();
+  aiRender();
   document.getElementById('sheet').classList.add('on');
+}
+// Csak a lap TARTALMÁT cseréljük – így a választóból visszatérve nem csukódik
+// be és nem indul újra a lap-animáció.
+function aiRender(){ const el=document.getElementById('sheetIn'); if(el) el.innerHTML=aiImportHtml(); }
+function aiGo(n){ if(n===3 && !(aiResolved&&aiResolved.length)) return; aiStep=n; aiRender(); }
+function aiParsed(){ return !!(aiResolved && aiResolved.length); }
+
+function aiStepBar(){
+  return `<div class="whyrow" style="margin:10px 0 2px">`+['Prompt','Beillesztés','Előnézet'].map((n,i)=>{
+    const st=i+1, can = st<=aiStep || st===2 || (st===3 && aiParsed());
+    return `<button class="whyc ${st===aiStep?'on':''}" ${can?`onclick="aiGo(${st})"`:'disabled'}>${st}. ${n}</button>`;
+  }).join('')+`</div>`;
 }
 function aiImportHtml(){
   return `<div class="grabber"></div>
     <div class="row"><div class="grow"><span class="eyebrow">AI-terv importálása</span>
-      <h2 style="font-size:24px">Edzésterv beillesztése</h2></div>
+      <h2 style="font-size:24px">${AI_TITLES[aiStep]}</h2></div>
       <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
-    <p class="small mut" style="margin:6px 0 0">1) Másold a promptot az AI edződnek – már tartalmazza a naplód összefoglalóját. 2) Illeszd be a válaszát. 3) Feldolgozás. A meglévő terved NEM változik – új edzés jön létre.</p>
+    ${aiStepBar()}`
+    + (aiStep===1 ? aiStep1Html() : aiStep===2 ? aiStep2Html() : aiStep3Html());
+}
+function aiStep1Html(){
+  return `<p class="small mut" style="margin:10px 0 0">A prompt már tartalmazza a naplód összefoglalóját, így az edző a te számaidból indul. A meglévő terved NEM változik – az import új edzést hoz létre.</p>
+    <button class="btn pri" style="margin-top:12px" onclick="aiCopyTpl()">Prompt másolása</button>
+    ${navigator.share?`<button class="btn" style="margin-top:8px" onclick="aiSharePrompt()">Küldés az AI edzőnek…</button>`:''}
     <details class="mmfold" style="margin-top:12px;border:1px solid var(--line);border-radius:12px;overflow:hidden">
       <summary style="border-top:none">A prompt tartalma (a naplód alapján)</summary>
       <div class="exnote" style="margin:0;border:none;border-radius:0"><div class="exnote-t" style="white-space:pre-wrap;font-size:13px">${esc(aiPromptText)}</div></div>
     </details>
-    <button class="btn" style="margin-top:8px" onclick="aiCopyTpl()">Prompt másolása</button>
-    <textarea id="aiText" rows="7" style="width:100%;margin-top:12px" placeholder="Ide illeszd be az AI válaszát…"></textarea>
-    <button class="btn pri" style="margin-top:10px" onclick="aiProcess()">Feldolgozás</button>
-    <div id="aiPreview"></div>`;
+    <button class="btn ghost" style="margin-top:8px" onclick="aiGo(2)">Már megvan a terv – beillesztés ›</button>`;
+}
+function aiStep2Html(){
+  const canPaste = !!(navigator.clipboard && navigator.clipboard.readText);
+  return `<p class="small mut" style="margin:10px 0 0">${aiCopied?'A prompt a vágólapon van. Add oda az AI edződnek, a válaszát pedig illeszd be ide – ':'Illeszd be az edző válaszát – '}úgy, ahogy van, a magyarázó szöveggel együtt. Az edzéseket magától kiolvassa belőle.</p>
+    ${canPaste?`<button class="btn pri" style="margin-top:12px" onclick="aiPasteClip()">Beillesztés a vágólapról</button>`:''}
+    <textarea id="aiText" rows="8" style="width:100%;margin-top:10px" placeholder="Ide illeszd be az AI válaszát…" oninput="aiTextInput(this.value)">${esc(aiText)}</textarea>
+    <div id="aiStat">${aiStatHtml()}</div>`;
+}
+// Csak ez a doboz frissül gépelés közben – a textarea DOM-eleme nem épül újra,
+// így nem ugrik el a fókusz és a kurzor.
+function aiStatHtml(){
+  if(!aiText.trim()) return `<p class="small dim" style="margin-top:8px">Beillesztés után itt jelenik meg, mit ismert fel.</p>`;
+  if(!aiParsed()) return `<div class="banner" style="margin-top:10px">Ebből még nem sikerült edzést kiolvasni. Kérd meg az edzőt, hogy a megadott formátumban adja vissza – az emlékeztetőt egy koppintással elküldheted neki.</div>
+    <button class="btn" style="margin-top:8px" onclick="aiCopyFormat()">Formátum-emlékeztető másolása</button>`;
+  const n=aiResolved.reduce((a,d)=>a+d.ex.length,0);
+  return `<div class="small" style="margin-top:10px;color:var(--sage)">✓ ${aiResolved.length} edzés · ${n} gyakorlat felismerve</div>
+    <button class="btn pri" style="margin-top:8px" onclick="aiGo(3)">Előnézet ›</button>`;
+}
+function aiTextInput(v){
+  aiText=v; clearTimeout(_aiTimer);
+  _aiTimer=setTimeout(()=>{ aiParseNow(); const el=document.getElementById('aiStat'); if(el) el.innerHTML=aiStatHtml(); }, 350);
+}
+function aiParseNow(){
+  const days=aiParsePlan(aiText);
+  aiResolved = days.length ? days.map(d=>({ name:d.name, ex:d.ex.map(x=>({ parsed:x, match:aiMatchEx(x.name) })) })) : null;
+}
+// Egy koppintás: vágólap → felismerés → előnézet. Sikeres olvasásnál rögtön a
+// 3. lépésre viszünk, mert a felhasználó épp ezt kérte.
+async function aiPasteClip(){
+  let t='';
+  try{ t=await navigator.clipboard.readText(); }
+  catch(e){ uiAlert('A böngésző nem engedte a beillesztést. Illeszd be kézzel a mezőbe.');
+    const ta=document.getElementById('aiText'); if(ta) ta.focus(); return; }
+  if(!t || !t.trim()){ uiAlert('A vágólap üres – másold ki az AI válaszát, aztán próbáld újra.'); return; }
+  aiText=t; aiParseNow(); if(aiParsed()) aiStep=3; aiRender();
 }
 function aiCopyTpl(){
   const t=aiPromptText||buildAiPrompt();
-  const done=()=>uiAlert('A prompt a vágólapon – illeszd be az AI edződnek.');
-  try{ if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(done,()=>aiCopyFallback(t)); return; } }catch(e){}
+  const done=()=>{ aiCopied=true; aiStep=2; aiRender(); };   // a lépésváltás maga a visszajelzés
+  try{ if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(done,()=>{ aiCopyFallback(t); done(); }); return; } }catch(e){}
+  aiCopyFallback(t); done();
+}
+async function aiSharePrompt(){
+  const t=aiPromptText||buildAiPrompt();
+  if(!navigator.share) return aiCopyTpl();
+  try{ await navigator.share({ title:'Edzésterv-kérés', text:t }); }
+  catch(e){ if(e&&e.name==='AbortError') return; return aiCopyTpl(); }
+  aiCopied=true; aiStep=2; aiRender();
+}
+function aiCopyFormat(){
+  const t=AI_FORMAT_BLOCK;
+  const ok=()=>uiAlert('A formátum-emlékeztető a vágólapon – küldd el az edzőnek, és kérd újra a tervet ebben az alakban.');
+  try{ if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(ok,()=>aiCopyFallback(t)); return; } }catch(e){}
   aiCopyFallback(t);
 }
 function aiCopyFallback(t){ try{ const ta=document.createElement('textarea'); ta.value=t;
   ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.select();
-  document.execCommand('copy'); document.body.removeChild(ta); uiAlert('A prompt a vágólapon.'); }
-  catch(e){ uiAlert('Másold ki kézzel a fenti promptot.'); } }
-function aiProcess(){
-  const txt=(document.getElementById('aiText')||{}).value||'';
-  const days=aiParsePlan(txt);
-  const prev=document.getElementById('aiPreview');
-  if(!days.length){ aiResolved=null;
-    prev.innerHTML=`<div class="banner" style="margin-top:12px">Nem sikerült edzést kiolvasni. Ellenőrizd a formátumot: „NAP: …", majd soronként „- gyakorlat | 4x8 | 60".</div>`; return; }
-  aiResolved=days.map(d=>({ name:d.name, ex:d.ex.map(x=>({ parsed:x, match:aiMatchEx(x.name) })) }));
-  prev.innerHTML=aiPreviewHtml();
+  document.execCommand('copy'); document.body.removeChild(ta); }
+  catch(e){ uiAlert('Másold ki kézzel a fenti szöveget.'); } }
+
+// Az előnézet SZERKESZTHETŐ: a párosítás egy koppintással átköthető másik
+// gyakorlatra (vagy vissza „újra"), a felesleges sor/nap kidobható. E nélkül
+// egyetlen rossz találat miatt az egész importot újra kellene kezdeni.
+function aiStep3Html(){
+  if(!aiParsed()) return `<div class="banner" style="margin-top:12px">Nincs feldolgozott terv – lépj vissza a beillesztéshez.</div>`;
+  let matched=0, neu=0, h='';
+  aiResolved.forEach((d,di)=>{
+    h+=`<div class="card" style="margin-top:10px"><div class="pad">
+      <div class="row" style="align-items:center">
+        <span class="grow cond" style="font-size:17px;font-weight:600">${esc(d.name)}</span>
+        <button class="iconbtn" style="color:var(--red)" onclick="aiRemoveDay(${di})" aria-label="Nap elhagyása">×</button></div>`;
+    d.ex.forEach((item,ii)=>{ const p=item.parsed;
+      const meta=`${p.s}×${esc(p.r)}${p.bw?' · testsúly':(p.hasW?' · '+p.w+' kg':'')} · ${p.rest} mp pihenő`;
+      if(item.match) matched++; else neu++;
+      h+=`<div class="row" style="align-items:flex-start;gap:8px;margin-top:8px">
+        <button class="grow" style="text-align:left;min-width:0" onclick="aiEditItem(${di},${ii})">
+          <span class="small"><span style="color:var(--${item.match?'sage':'brass'})">${item.match?'✓':'+'}</span>
+            ${esc(item.match?item.match.n:p.name)}${item.match?'':' <span class="dim">(új)</span>'}</span>
+          <span class="small dim" style="display:block;margin-top:2px">${meta} <span style="color:var(--mut)">· csere ›</span></span></button>
+        <button onclick="aiRemoveItem(${di},${ii})" aria-label="Sor elhagyása" style="color:var(--dim);font-size:20px;padding:2px 6px">×</button>
+      </div>`; });
+    h+=`</div></div>`;
+  });
+  return h+`<div class="small mut" style="margin-top:10px">${matched} meglévő gyakorlathoz kötve (a súlytörténeteddel együtt), ${neu} új jön létre. A szettek, ismétlések, súlyok és pihenők pontosan így kerülnek be – az első alkalommal ezekkel indul az edzés, utána a saját haladásod viszi tovább. A meglévő terved érintetlen.</div>
+    <button class="btn pri" style="margin-top:10px" onclick="aiImportApply()">Hozzáadás az edzéseimhez</button>`;
 }
-function aiPreviewHtml(){
-  let matched=0, neu=0, h=`<div style="margin-top:16px"><span class="eyebrow">Előnézet</span>`;
-  aiResolved.forEach(d=>{ h+=`<div class="card" style="margin-top:8px"><div class="pad">
-    <div class="cond" style="font-size:17px;font-weight:600">${esc(d.name)}</div>`;
-    d.ex.forEach(item=>{ const p=item.parsed;
-      const meta=`${p.s}×${esc(p.r)}${p.bw?' · testsúly':p.hasW?' · '+p.w+'kg':''}`;
-      if(item.match){ matched++; h+=`<div class="small" style="margin-top:5px"><span style="color:var(--sage)">✓</span> ${esc(item.match.n)} <span class="dim">${meta}</span></div>`; }
-      else { neu++; h+=`<div class="small" style="margin-top:5px"><span style="color:var(--brass)">+</span> ${esc(p.name)} <span class="dim">(új) ${meta}</span></div>`; } });
-    h+=`</div></div>`; });
-  h+=`<div class="small mut" style="margin-top:8px">${matched} meglévő gyakorlat összekötve (a súlytörténeteddel), ${neu} új létrehozva. A meglévő terved érintetlen.
-    A fenti szettek, ismétlések és súlyok pontosan így kerülnek be – az első alkalommal ezekkel indul az edzés, utána a saját haladásod viszi tovább.</div>
-    <button class="btn pri" style="margin-top:10px" onclick="aiImportApply()">Hozzáadás az edzéseimhez</button></div>`;
-  return h;
-}
+function aiRemoveItem(di,ii){ const d=aiResolved&&aiResolved[di]; if(!d) return;
+  d.ex.splice(ii,1); if(!d.ex.length) aiResolved.splice(di,1);
+  if(!aiResolved.length){ aiResolved=null; aiStep=2; } aiRender(); }
+function aiRemoveDay(di){ if(!aiResolved) return; aiResolved.splice(di,1);
+  if(!aiResolved.length){ aiResolved=null; aiStep=2; } aiRender(); }
+// A keresőt az edző által írt névvel nyitjuk – csere közben ne kelljen gépelni.
+function aiEditItem(di,ii){ aiEditRef={di,ii}; const it=aiPickTarget();
+  openExPicker('ai', it ? it.parsed.name : ''); }
+function aiPickTarget(){ if(!aiEditRef||!aiResolved) return null;
+  const d=aiResolved[aiEditRef.di]; return d ? d.ex[aiEditRef.ii] : null; }
+function aiBindPick(id){ const it=aiPickTarget(); if(it) it.match=exDef(id); aiBackToPreview(); }
+function aiBindNew(){ const it=aiPickTarget(); if(it) it.match=null; aiBackToPreview(); }
+function aiBackToPreview(){ aiEditRef=null; aiStep=3; aiRender(); }
+
 async function aiImportApply(){
   if(!aiResolved||!aiResolved.length){ uiAlert('Nincs mit importálni.'); return; }
   if(!S.customEx)S.customEx={}; if(!S.routines)S.routines=[]; if(!S.programs)S.programs=[];
@@ -1893,8 +1981,12 @@ function builderView(){
 }
 
 /* Gyakorlat-választó lap */
-let pickerQ='', pickerMg='';
-function openExPicker(){ pickerQ=''; pickerMg=''; renderPicker(); document.getElementById('sheet').classList.add('on'); }
+// A választó két gazdát szolgál: az edzés-összeállítót (`draft`) és az
+// AI-import előnézetét (`ai`), ahol egy rossz párosítást kötünk át. A sorok
+// ezért a `pickerChoose`-on mennek át, nem közvetlenül az `addToDraft`-on.
+let pickerQ='', pickerMg='', pickerMode='draft';
+function openExPicker(mode,q){ pickerQ=q||''; pickerMg=''; pickerMode=mode||'draft'; renderPicker(); document.getElementById('sheet').classList.add('on'); }
+function pickerChoose(id){ return pickerMode==='ai' ? aiBindPick(id) : addToDraft(id); }
 // A találati listát és a chipeket külön frissítjük, hogy a kereső input
 // DOM-eleme gépelés közben ne épüljön újra (megmaradjon a fókusz + kurzor).
 function pickerRowsHtml(){
@@ -1902,7 +1994,7 @@ function pickerRowsHtml(){
   const lib=exLibrary().filter(e=>
     (!q || e.n.toLowerCase().includes(q)) &&
     (!pickerMg || (e.mg||'')===pickerMg));
-  return lib.map(e=>`<button class="btn" style="text-align:left;display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px" onclick="addToDraft('${e.id}')">
+  return lib.map(e=>`<button class="btn" style="text-align:left;display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px" onclick="pickerChoose('${e.id}')">
       ${gifThumb(e)}
       <span class="grow" style="min-width:0"><span style="font-weight:600">${esc(e.n)}</span>
       <span class="small dim" style="display:block">${e.s}×${e.r}${e.mg?' · '+e.mg:''} · ${e.src}</span></span>
@@ -1917,13 +2009,15 @@ function renderPickerRows(){ const el=document.getElementById('pickerRows'); if(
 function renderPickerChips(){ const el=document.getElementById('pickerChips'); if(el) el.innerHTML=pickerChipsHtml(); }
 function setPickerMg(m){ pickerMg=(pickerMg===m?'':m); renderPickerChips(); renderPickerRows(); }
 function renderPicker(){
+  const ai = pickerMode==='ai';
   document.getElementById('sheetIn').innerHTML=`<div class="grabber"></div>
-    <div class="row"><div class="grow"><span class="eyebrow">Gyakorlat hozzáadása</span>
-    <h2 style="font-size:22px">Válassz vagy hozz létre</h2></div>
-    <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
+    <div class="row"><div class="grow"><span class="eyebrow">${ai?'Párosítás cseréje':'Gyakorlat hozzáadása'}</span>
+    <h2 style="font-size:22px">${ai?'Melyikhez kösse?':'Válassz vagy hozz létre'}</h2></div>
+    <button onclick="${ai?'aiBackToPreview()':'closeSheet()'}" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
     <input type="text" placeholder="Keresés név szerint…" value="${esc(pickerQ)}" oninput="pickerQ=this.value;renderPickerRows()" style="width:100%;margin:12px 0 10px">
     <div class="whyrow" id="pickerChips" style="margin-bottom:12px">${pickerChipsHtml()}</div>
-    <button class="btn pri" style="margin-bottom:12px" onclick="openCustomEx()">+ Új saját gyakorlat</button>
+    ${ai?`<button class="btn" style="margin-bottom:12px" onclick="aiBindNew()">Maradjon új gyakorlat</button>`
+        :`<button class="btn pri" style="margin-bottom:12px" onclick="openCustomEx()">+ Új saját gyakorlat</button>`}
     <div id="pickerRows" style="max-height:40vh;overflow-y:auto">${pickerRowsHtml()}</div>
     <p class="small dim" style="text-align:center;margin:10px 0 0">Ábrák © <a href="https://gymvisual.com/" target="_blank" rel="noopener noreferrer" style="color:var(--dim)">Gym visual</a></p>`;
 }
