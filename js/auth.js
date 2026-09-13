@@ -87,6 +87,12 @@
   function _filled(L){ return (L&&L.sets||[]).filter(x=>x!=null).length; }
   function _mergeSession(x, y){
     const out = Object.assign({}, x, y);     // y a bázis a skalárokhoz (note, w, why…)
+    // A nap jegyzetei (dayNotes) bejegyzés-lista: időbélyeg szerinti UNIÓ,
+    // különben a két eszközön ugyanazon az edzésen írt jegyzetek közül az
+    // egyik csendben eltűnne (a skalár-összefésülés az egészet felülírná).
+    const jots = new Map();
+    (x.dayNotes||[]).concat(y.dayNotes||[]).forEach(n=>{ if(n && n.txt) jots.set(n.t, n); });
+    if(jots.size) out.dayNotes = [...jots.values()].sort((a,b)=>(a.t||0)-(b.t||0));
     out.log = Object.assign({}, x.log||{});
     Object.keys(y.log||{}).forEach(id=>{
       const cur = out.log[id], nw = y.log[id];

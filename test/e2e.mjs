@@ -74,7 +74,7 @@ await page.evaluate(()=>openPlateCalc(100)); await wait(150);
 ok('3 tárcsa-kalkulátor', (await page.$$('.plate')).length>0); await page.evaluate(()=>closeSheet());
 await page.evaluate(()=>openNoteSheet('day','')); await wait(120);
 await page.evaluate(()=>{ document.getElementById('noteTa').value='fáradt'; saveNote('day',''); }); await wait(150);
-ok('3 aznapi jegyzet', await page.evaluate(()=>S.active.note==='fáradt'));
+ok('3 aznapi jegyzet', await page.evaluate(()=>dayNotes(S.active).length===1 && dayNotes(S.active)[0].txt==='fáradt'));
 await page.evaluate(()=>{ const e=dayDef(S.active.day).ex.filter(x=>S.active.log[x.id])[0]; setWhy(e.id,'time'); }); await wait(120);
 ok('3 eltérés-ok', await page.evaluate(()=>{ const e=dayDef(S.active.day).ex.filter(x=>S.active.log[x.id])[0]; return S.active.log[e.id].why==='time'; }));
 await page.evaluate(()=>{ const e=dayDef(S.active.day).ex.filter(x=>S.active.log[x.id])[0]; setProgPolicy(e.id,'linear'); }); await wait(150);
@@ -282,6 +282,10 @@ ok('15 üres naplónál NINCS kitalált szám', await page.evaluate(()=>{
 await page.evaluate(()=>{
   const D=864e5, now=Date.now();
   const k=t=>bwKey(t);
+  // A naplót a MAI naphoz igazítjuk: a mentés dátumai fixek, enélkül a teszt
+  // a fali órától függne (idővel kiürülne a terhelés-ablak, és a readiness
+  // jogosan null-t adna).
+  S.sessions.sort((a,b)=>a.t-b.t).forEach((x,i,arr)=>{ x.t = now-(arr.length-1-i)*3*D; });
   S.bw={}; S.sleep={};
   for(let i=20;i>=0;i--){ const t=now-i*D;
     S.bw[k(t)]=Math.round((78.2+Math.sin(i/3)*0.3)*10)/10;
@@ -316,6 +320,7 @@ ok('15 a ma rögzített érték látszik, akkor is, ha még nem pontoz', await p
   const k=bwKey(Date.now());
   S.bw={[k]:78.4}; S.sleep={[k]:{min:440,q:4}}; rdyInvalidate();
   const r=readiness();
+  if(!r){ S.bw=bak.b; S.sleep=bak.sl; rdyInvalidate(); return false; }
   const sl=r.factors.find(f=>f.id==='sleep'), bw=r.factors.find(f=>f.id==='bw');
   const good = !sl.ok && sl.val==='7ó 20p' && /alapvonalad/.test(sl.why)
             && !bw.ok && bw.val==='78,4 kg' && /mérés kell/.test(bw.why)
@@ -381,44 +386,69 @@ ok('16 átváltás a mai napra, és megjegyzi', await page.evaluate(()=>{
   const t=document.getElementById('sheetIn').textContent;
   return noteDayMode()===true && /Nap jegyzete/.test(t); }));
 ok('16 a váltás nem nyeli le a begépelt szöveget', await page.evaluate(()=>{
-  // vissza gyakorlat-módba, gépelünk, majd váltunk – a nap jegyzete üres, oda kerül
+  // vissza gyakorlat-módba, gépelünk, majd váltunk – a szöveg új napi bejegyzés lesz
   setNoteMode(false); openPlayerNote();
   const id=playerExId(); const volt=S.notes[id];
   document.getElementById('noteTa').value='ezt még nem mentettem';
   setNoteMode(true);
-  const atment = S.active.note==='ezt még nem mentettem';
-  S.active.note=undefined; delete S.active.note; S.notes[id]=volt; setNoteMode(false);
+  const l=dayNotes(S.active);
+  const atment = l.length>0 && l[l.length-1].txt==='ezt még nem mentettem' && l[l.length-1].ex===id;
+  delete S.active.dayNotes; delete S.active.note; delete S.active.noteEx;
+  S.notes[id]=volt; setNoteMode(false);
   return atment; }));
 ok('16 meglévő jegyzetet a váltás soha nem ír felül', await page.evaluate(()=>{
-  const id=playerExId(); S.notes[id]='EREDETI'; S.active.note='NAPI';
+  const id=playerExId(); S.notes[id]='EREDETI';
+  delete S.active.dayNotes; S.active.note='NAPI';
   try{localStorage.setItem('gymlog_noteday','1')}catch(e){}
   openPlayerNote(); document.getElementById('noteTa').value='új szöveg'; setNoteMode(false);
-  const ok2 = S.notes[id]==='EREDETI' && S.active.note==='NAPI';
-  delete S.active.note; delete S.notes[id];
+  const l=dayNotes(S.active);
+  const ok2 = S.notes[id]==='EREDETI' && l.length===1 && l[0].txt==='NAPI';
+  delete S.active.note; delete S.active.noteEx; delete S.active.dayNotes; delete S.notes[id];
   try{localStorage.removeItem('gymlog_noteday')}catch(e){}
   return ok2; }));
 // A napi jegyzet megjegyzi, MELYIK gyakorlatnál írtad.
 ok('16 a napi jegyzet bélyeget kap az aktuális gyakorlatról', await page.evaluate(()=>{
-  delete S.active.note; delete S.active.noteEx;
+  delete S.active.note; delete S.active.noteEx; delete S.active.dayNotes;
   exNav(3); const itt=playerExId();
   openPlayerNote(); setNoteMode(true);
   const elo=document.getElementById('sheetIn').textContent.includes(exDef(itt).n);  // mentés ELŐTT is látszik
   document.getElementById('noteTa').value='bal váll kicsit húz'; saveNote('day','');
-  return elo && S.active.noteEx===itt && S.active.note==='bal váll kicsit húz'; }));
-ok('16 később, MÁS gyakorlatnál szerkesztve a bélyeg marad', await page.evaluate(()=>{
-  const eredeti=S.active.noteEx; exNav(5);
-  openPlayerNote(); document.getElementById('noteTa').value='…de elmúlt'; saveNote('day','');
-  return S.active.noteEx===eredeti && eredeti!==playerExId(); }));
-ok('16 kiürítéskor a bélyeg is megy (ne maradjon hazug nyom)', await page.evaluate(()=>{
-  openPlayerNote(); document.getElementById('noteTa').value=''; saveNote('day','');
-  return S.active.note===undefined && S.active.noteEx===undefined; }));
-ok('16 a napló kiírja, melyik gyakorlatnál íródott', await page.evaluate(()=>{
+  const l=dayNotes(S.active);
+  return elo && l.length===1 && l[0].ex===itt && l[0].txt==='bal váll kicsit húz'; }));
+// EZ a lényeg: a másik gyakorlatnál írt jegyzet ÚJ bejegyzés, saját bélyeggel –
+// nem írja felül az elsőt és nem örökli annak gyakorlatát.
+ok('16 másik gyakorlatnál írva ÚJ bejegyzés lesz, saját bélyeggel', await page.evaluate(()=>{
+  const elso=dayNotes(S.active)[0]; exNav(5); const masik=playerExId();
+  openPlayerNote(); document.getElementById('noteTa').value='a gép 4-es lyukon jó'; saveNote('day','');
+  const l=dayNotes(S.active);
+  return l.length===2 && l[0].ex===elso.ex && l[0].txt===elso.txt
+      && l[1].ex===masik && l[1].txt==='a gép 4-es lyukon jó' && masik!==elso.ex; }));
+ok('16 bejegyzés szerkeszthető (a bélyege marad)', await page.evaluate(()=>{
+  const cel=dayNotes(S.active)[0];
+  dayNoteStartEdit(cel.t);
+  document.getElementById('noteTa').value='bal váll NAGYON húz'; saveNote('day','');
+  const l=dayNotes(S.active);
+  return l.length===2 && l[0].t===cel.t && l[0].ex===cel.ex && l[0].txt==='bal váll NAGYON húz'; }));
+ok('16 bejegyzés törölhető, a többi marad', await page.evaluate(()=>{
+  const cel=dayNotes(S.active)[0]; dayNoteDelete(cel.t); closeSheet();
+  const l=dayNotes(S.active);
+  return l.length===1 && l[0].txt==='a gép 4-es lyukon jó'; }));
+ok('16 az utolsó bejegyzés törlésével a napi jegyzet is eltűnik', await page.evaluate(()=>{
+  dayNoteDelete(dayNotes(S.active)[0].t); closeSheet();
+  return dayNotes(S.active).length===0 && S.active.note===undefined && S.active.noteEx===undefined; }));
+ok('16 a napló minden bejegyzést a saját gyakorlatához ír ki', await page.evaluate(()=>{
+  const fake={t:Date.now(),day:'pa',log:{bench:{w:60,sets:[5,5,5]}},dayNotes:[
+    {t:Date.now(),ex:'ohpdb',txt:'fáradt'},{t:Date.now()+1,ex:'bench',txt:'kisebb fogás'}]};
+  S.sessions.push(fake); const h=logView(); S.sessions.pop();
+  return h.includes('Vállból nyomás ülve') && h.includes('fáradt')
+      && h.includes('Fekvenyomás') && h.includes('kisebb fogás'); }));
+ok('16 a napló kiírja, melyik gyakorlatnál íródott (régi alak)', await page.evaluate(()=>{
   const fake={t:Date.now(),day:'pa',log:{bench:{w:60,sets:[5,5,5]}},note:'fáradt',noteEx:'ohpdb'};
   S.sessions.push(fake); const h=logView(); S.sessions.pop();
-  return h.includes('Vállból nyomás ülve közben') && h.includes('fáradt'); }));
+  return h.includes('Vállból nyomás ülve') && h.includes('közben') && h.includes('fáradt'); }));
 ok('16 bélyeg nélküli régi jegyzet is rendben jelenik meg', await page.evaluate(()=>{
   const fake={t:Date.now(),day:'pa',log:{bench:{w:60,sets:[5,5,5]}},note:'régi jegyzet'};
-  S.sessions.push(fake); const h=logView(); S.sessions.pop();
+  S.sessions.push(fake); const h=logView().replace(/<[^>]*>/g,''); S.sessions.pop();
   return h.includes('Jegyzet: régi jegyzet') && !/közben/.test(h.split('régi jegyzet')[0].slice(-80)); }));
 ok('16 a lejátszón kívül nincs kapcsoló', await page.evaluate(()=>{
   openNoteSheet('ex','bench');

@@ -563,7 +563,7 @@ function logRdyBadge(t){
 }
 let physioRegion='';  // Gyógytorna oldal aktív testtáj (üres = első)
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v91';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v92';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -2632,7 +2632,10 @@ function logView(){
       <div class="row"><div class="grow"><span class="cond" style="font-size:20px;font-weight:600">${esc(dn)}</span>
       <div class="small dim">${fmtDate(s.t)}${dur?' · '+fmtDur(dur):''} · ${tot} szett · <span class="num">${load.toLocaleString('hu')}</span> kg${hi?' <span style="color:var(--red);font-weight:600">· kiugró</span>':''}${logRdyInline(s.t)}</div></div>
       <button onclick="del(${idx})" class="small dim" style="padding:8px">Törlés</button></div>
-      ${s.note?`<div class="small mut" style="padding:0 16px 10px">Jegyzet${s.noteEx?` <span class="dim">(${esc(exDef(s.noteEx).n)} közben)</span>`:''}: ${esc(s.note)}</div>`:''}</div>`;
+      ${(()=>{ const js=dayNotes(s); if(!js.length) return '';
+        return `<div style="padding:0 16px 10px">`+js.map(n=>{ const e=n.ex&&exDef(n.ex);
+          return `<div class="small mut" style="margin-top:2px">${e?`<span style="color:var(--brass)">${esc(e.n)}</span> <span class="dim">közben:</span> `:'<span class="dim">Jegyzet: </span>'}${esc(n.txt)}</div>`;
+        }).join('')+`</div>`; })()}</div>`;
     const seen=new Set();
     d.ex.forEach(e=>{ seen.add(e.id); const l=s.log[e.id]; if(!l||!l.sets.some(x=>x!=null))return;
       h+=`<div class="hrow"><span class="small grow">${esc(e.n)}${l.why?` <span class="dim" style="font-size:11px">· ${WHY[l.why]}</span>`:''}</span>
@@ -2745,7 +2748,8 @@ function weeklyReport(){
   };
   sess.forEach(s=>{ const d=dayDef(s.day)||{ex:[]};
     t+='\n— '+fmtDate(s.t)+' — '+dayName(s)+' (összterhelés: '+sessionLoad(s).toLocaleString('hu')+' kg)\n';
-    if(s.note) t+='  Aznapi jegyzet'+(s.noteEx?' ('+exDef(s.noteEx).n+' közben)':'')+': '+s.note+'\n';
+    dayNotes(s).forEach(n=>{ const e=n.ex&&exDef(n.ex);
+      t+='  Jegyzet'+(e?' ('+e.n+' közben)':'')+': '+n.txt+'\n'; });
     const seen=new Set();
     d.ex.forEach(e=>{ seen.add(e.id); const l=s.log[e.id]; if(l&&l.sets.some(x=>x!=null)) t+=line(e,l); });
     Object.keys(s.log).forEach(id=>{ if(seen.has(id))return; const l=s.log[id];
@@ -3711,7 +3715,7 @@ function playerExId(){
 // Van-e már jegyzet azon a helyen, ahová most írnánk (a gomb pöttyéhez).
 function noteHasText(){
   const id=playerExId();
-  return (!noteDayMode() && id) ? !!S.notes[id] : !!(S.active&&S.active.note);
+  return (!noteDayMode() && id) ? !!S.notes[id] : dayNotes(S.active).length>0;
 }
 function openPlayerNote(){
   const id=playerExId();
@@ -3725,13 +3729,16 @@ function setNoteMode(day){
   const id=playerExId(), wasDay=noteDayMode();
   // Amit a mező mutat, az lehet a MÁR MENTETT jegyzet is – azt nem visszük át,
   // különben a puszta mód-váltás átmásolná a régi szöveget a másik oldalra.
-  const saved=((wasDay ? (S.active&&S.active.note) : (id&&S.notes[id])) || '').trim();
+  // Napi módban a mező mindig ÚJ bejegyzés (vagy a szerkesztésre kijelölt),
+  // ezért ott a „már mentett" csak a szerkesztett tétel szövege lehet.
+  const ed = wasDay && dayNoteEdit!=null ? dayNotes(S.active).find(n=>n.t===dayNoteEdit) : null;
+  const saved=((wasDay ? (ed&&ed.txt) : (id&&S.notes[id])) || '').trim();
   try{ localStorage.setItem('gymlog_noteday', day?'1':'0'); }catch(e){}
   if(typed && typed!==saved){
-    if(day){ if(S.active && !S.active.note){ S.active.note=typed;
-      if(!S.active.noteEx && id) S.active.noteEx=id; } }      // az átvitt szöveg is kap bélyeget
+    if(day){ if(S.active) dayNoteSave(typed); }   // új bejegyzés, az aktuális gyakorlat bélyegével
     else if(id && !S.notes[id]) S.notes[id]=typed;
   }
+  if(!day) dayNoteEdit=null;   // gyakorlat-módba lépve nincs félbehagyott szerkesztés
   openPlayerNote();
   if(typeof render==='function') render();
 }
@@ -3764,20 +3771,42 @@ function openNoteSheet(kind,id,fromPlayer){
     document.getElementById('sheetIn').innerHTML=h;
     const pin=document.getElementById('photoIn'); if(pin) pin.onchange=()=>addPhoto(id,pin.files[0]);
   } else {
-    const cur=(S.active&&S.active.note)||'';
-    // A bélyeg: ha már van, azt mutatjuk (ott írtad); ha még nincs, azt,
-    // ami MOST rákerül – így mentés előtt látod, mi lesz rögzítve.
-    const stampId=(S.active&&S.active.noteEx)||playerExId();
-    const stampNew=!(S.active&&S.active.noteEx);
-    const stamp = stampId ? `<div class="small dim" style="margin-top:8px">${stampNew?'Ide kerül':'Ekkor írtad'}: <b style="color:var(--mut)">${esc(exDef(stampId).n)}</b></div>` : '';
+    // A nap jegyzete TÖBB bejegyzés. A mező mindig ÚJ bejegyzést ír (vagy a
+    // szerkesztésre kijelöltet írja felül); a korábbiak alatta listázódnak,
+    // gyakorlathoz kötve, szerkeszthetően és törölhetően.
+    const list=dayNotes(S.active);
+    const nowEx=playerExId();
+    const editing = dayNoteEdit!=null && list.some(n=>n.t===dayNoteEdit);
+    const editIt = editing ? list.find(n=>n.t===dayNoteEdit) : null;
+    const stampId = editing ? editIt.ex : nowEx;
+    const stamp = stampId
+      ? `<div class="small dim" style="margin-top:8px">${editing?'Szerkesztés':'Ide kerül'}: <b style="color:var(--mut)">${esc(exDef(stampId).n)}</b></div>`
+      : '';
+    let rows='';
+    if(list.length){
+      rows=`<div class="top" style="padding:16px 0 6px"><span class="eyebrow">Mai bejegyzések</span></div>`;
+      list.slice().reverse().forEach(n=>{
+        const e=n.ex&&exDef(n.ex);
+        rows+=`<div class="card" style="margin-bottom:8px${n.t===dayNoteEdit?';border-color:var(--brass)':''}"><div class="pad row" style="align-items:flex-start;gap:10px">
+          <button class="grow" style="text-align:left" onclick="dayNoteStartEdit(${n.t})">
+            <span class="small" style="color:var(--brass)">${e?esc(e.n):'Általános'}</span>
+            <span class="small dim"> · ${jotTime(n.t)}</span>
+            <div class="small mut" style="margin-top:3px">${esc(n.txt)}</div></button>
+          <button onclick="dayNoteDelete(${n.t})" aria-label="Törlés" style="color:var(--dim);font-size:20px;padding:2px 6px">×</button>
+        </div></div>`;
+      });
+    }
     h+=`<div class="row"><div class="grow"><span class="eyebrow">Mai jegyzet</span>
       <h2 style="font-size:22px">Nap jegyzete</h2><span class="small dim">Csak erre az edzésre</span></div>
       <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
       ${noteSegment('day', fromPlayer)}
-      <textarea id="noteTa" rows="3" style="width:100%;margin-top:12px;resize:vertical" placeholder="Pl. fáradt voltam, jobb váll kicsit húz">${esc(cur)}</textarea>
+      <textarea id="noteTa" rows="3" style="width:100%;margin-top:12px;resize:vertical" placeholder="Pl. a 3. szettnél elment a jobb váll"></textarea>
       ${stamp}
-      <button class="btn pri" style="margin-top:12px" onclick="saveNote('day','')">Mentés</button>`;
+      <button class="btn pri" style="margin-top:12px" onclick="saveNote('day','')">${editing?'Módosítás':'Hozzáadás'}</button>
+      ${editing?`<button class="btn" style="margin-top:8px;color:var(--mut)" onclick="dayNoteEdit=null;openPlayerNote()">Mégse (új bejegyzés)</button>`:''}
+      ${rows}`;
     document.getElementById('sheetIn').innerHTML=h;
+    if(editing){ const ta=document.getElementById('noteTa'); if(ta) ta.value=editIt.txt; }
   }
   document.getElementById('sheet').classList.add('on');
 }
@@ -3788,18 +3817,69 @@ function saveNote(kind,id){
     // felhő-unió visszahozná a törölt jegyzetet.
     if(v){ S.notes[id]=v; untomb('note:'+id); }
     else { delete S.notes[id]; tombstone('note:'+id); }
+    closeSheet(); save(); render(); return;
   }
-  else if(S.active){
-    if(v){
-      S.active.note=v;
-      // Melyik gyakorlatnál írtad? A bélyeg az ELSŐ írásnál rögzül, és
-      // marad – így később is tudod, mi közben jutott eszedbe. Üresre
-      // törléskor a bélyeg is megy, hogy ne maradjon hazug nyom.
-      if(!S.active.noteEx){ const ex=playerExId(); if(ex) S.active.noteEx=ex; }
-    } else { delete S.active.note; delete S.active.noteEx; }
-  }
+  if(!S.active){ closeSheet(); return; }
+  // A nap jegyzete TÖBB bejegyzés: mindegyik ahhoz a gyakorlathoz kötve,
+  // amelyiken épp álltál. Üres szöveg = nem csinálunk semmit (a meglévő
+  // bejegyzéseket a listából lehet törölni).
+  if(v) dayNoteSave(v);
   closeSheet(); save(); render();
 }
+
+/* ---- A nap jegyzetei (gyakorlathoz kötött bejegyzések) --------------- *
+ * `S.active.dayNotes = [{t, ex, txt}]` – additív, session-szintű mező.
+ * A RÉGI alak (`note` string + opcionális `noteEx`) változatlanul olvasható:
+ * a `dayNotes(sess)` egyetlen bejegyzésként adja vissza, így a régi edzések
+ * migráció nélkül jelennek meg. Új íráskor a `dayNotes` tömb az igazság, és
+ * a `note` mezőt is karbantartjuk (összefűzve), hogy a régebbi olvasók
+ * (pl. egy korábbi appverzió másik eszközön) se lássanak üres jegyzetet.
+ */
+function dayNotes(sess){
+  if(!sess) return [];
+  if(Array.isArray(sess.dayNotes)) return sess.dayNotes.filter(n=>n&&n.txt);
+  if(sess.note) return [{ t:sess.t||0, ex:sess.noteEx||null, txt:sess.note }];
+  return [];
+}
+// A `note` string szinkronban tartása a listával (visszafelé kompatibilitás).
+function dayNoteSync(){
+  if(!S.active) return;
+  const list=S.active.dayNotes||[];
+  if(!list.length){ delete S.active.note; delete S.active.noteEx; return; }
+  S.active.note = list.map(n=>{ const e=n.ex&&exDef(n.ex); return (e?e.n+': ':'')+n.txt; }).join(' · ');
+  if(list[0].ex) S.active.noteEx=list[0].ex; else delete S.active.noteEx;
+}
+// Új bejegyzés (vagy a szerkesztett `editT` idejű felülírása).
+let dayNoteEdit=null;     // a szerkesztés alatt álló bejegyzés `t`-je
+function dayNoteSave(txt){
+  if(!S.active) return;
+  if(!Array.isArray(S.active.dayNotes)){
+    // Első íráskor a RÉGI egyszövegű jegyzetet bejegyzéssé alakítjuk, hogy
+    // ne vesszen el, ha menet közben frissült az app.
+    S.active.dayNotes = S.active.note
+      ? [{ t:S.active.t||Date.now(), ex:S.active.noteEx||null, txt:S.active.note }] : [];
+  }
+  if(dayNoteEdit!=null){
+    const it=S.active.dayNotes.find(n=>n.t===dayNoteEdit);
+    if(it){ it.txt=txt; dayNoteEdit=null; dayNoteSync(); S.activeT=Date.now(); return; }
+    dayNoteEdit=null;
+  }
+  S.active.dayNotes.push({ t:Date.now(), ex:playerExId()||null, txt });
+  dayNoteSync(); S.activeT=Date.now();
+}
+function dayNoteDelete(t){
+  if(!S.active || !Array.isArray(S.active.dayNotes)) return;
+  S.active.dayNotes = S.active.dayNotes.filter(n=>n.t!==t);
+  if(dayNoteEdit===t) dayNoteEdit=null;
+  dayNoteSync(); S.activeT=Date.now(); save(); openPlayerNote(); render();
+}
+function dayNoteStartEdit(t){
+  const it=(S.active&&S.active.dayNotes||[]).find(n=>n.t===t); if(!it) return;
+  dayNoteEdit=t; openPlayerNote();
+  const ta=document.getElementById('noteTa'); if(ta){ ta.value=it.txt; ta.focus(); }
+}
+// Rövid óra-perc a bejegyzés mellé.
+function jotTime(t){ const d=new Date(t); return d.getHours()+':'+String(d.getMinutes()).padStart(2,'0'); }
 function addPhoto(id,file){
   if(!file) return;
   const ta=document.getElementById('noteTa'); const keep=ta?ta.value:'';   // ne vesszen el a beírt jegyzet

@@ -84,13 +84,21 @@ alapértéket kapnak; a `save()`/`backup()`/`restore()` viszi őket):
   (`RDY_DEF`). SKALÁR preferencia: a felhő-összefésülésben az újabb állapotból
   jön (mint az `injury`/`hidePlan`), nincs külön kezelés. Maga a PONTSZÁM
   NEM tárolódik – mindig a naplóból számoljuk (lásd „Készenlét").
-- Session-szinten: `note` (aznapi jegyzet), `noteEx` (**melyik gyakorlatnál
-  írtad** – gyakorlat-ID; additív, régi edzésen hiányzik, olyankor csak a
-  jegyzet látszik; az ELSŐ írásnál rögzül és marad, a jegyzet kiürítésekor
-  törlődik), `deload` (kihagyás utáni
+- Session-szinten: `dayNotes` (**a nap jegyzetei – TÖBB bejegyzés**,
+  `[{t, ex, txt}]`: időbélyeg + a gyakorlat ID-ja, AMELYIKNÉL írtad + a
+  szöveg), `note`/`noteEx` (a régi, EGYbejegyzéses alak – lásd lentebb),
+  `deload` (kihagyás utáni
   visszaépítés jelző), `end` (befejezés időbélyege – az időtartamhoz;
   additív, régi edzésen hiányzik, olyankor nincs időtartam). Log-szinten:
   `why` (`busy`|`heavy`|`time` – miért tért el a tervtől).
+  A `dayNotes` additív és **visszafelé kompatibilis**: a `dayNotes(sess)`
+  olvasó a régi `{note, noteEx}` alakot egyelemű listaként adja vissza, a
+  `dayNoteSync()` pedig minden íráskor ÚJRAÍRJA a `note`-ot összefűzött
+  szövegként (`„<gyakorlat>: <szöveg> · …"`) és a `noteEx`-et az elsőre –
+  így egy RÉGI appverzió (vagy a felhőben lévő régi kliens) továbbra is
+  lát értelmes napi jegyzetet. Ezt az összhangot ne bontsd meg. A
+  szinkron a bejegyzéseket `t` szerint egyesíti (`_mergeSession` az
+  `auth.js`-ben), így két eszközön írt jegyzet sem vész el.
 - Az **edzés-összegzés** és a **napló** kártya egy stilizált, elöl+hátul
   **izomtérképet** (`muscleMap`) mutat: a `sessionMgSets` szettszáma szerint
   színezi a terhelt izomcsoportokat (`mg`), a nem-célzottak halvány
@@ -560,11 +568,17 @@ media-blokkban definiálva – a `:root`-on legyen az alapérték.
   jelenik meg (a `fromPlayer` zászlóval). Váltáskor a még nem mentett
   szöveget átvisszük, ha a másik oldal üres – meglévő jegyzetet SOHA nem ír
   felül, és a már mentett szöveget nem másolja át.
-  A **napi jegyzet megjegyzi, melyik gyakorlatnál írtad** (`noteEx`): a lap
-  mentés előtt kiírja („Ide kerül: …"), a napló és a heti export pedig
-  „(<gyakorlat> közben)" alakban mutatja. A bélyeg az első írásnál rögzül,
-  hogy később is tudd, mi közben jutott eszedbe – egy másik gyakorlatnál
-  végzett szerkesztés NEM viszi el.
+  A **nap jegyzete TÖBB bejegyzés** (`dayNotes`), és mindegyik AHHOZ a
+  gyakorlathoz kötődik, amelyiknél írtad. A mező mindig ÚJ bejegyzést ír:
+  fekvenyomásnál írt jegyzet a fekvenyomáshoz, a következő – vállnyomásnál
+  írt – jegyzet a vállnyomáshoz kerül; a korábbi NEM íródik felül. A lap
+  mentés előtt kiírja, hova kerül („Ide kerül: …"), alatta pedig ott a mai
+  bejegyzések listája (gyakorlat + idő + szöveg), sorra koppintva
+  szerkeszthető (`dayNoteStartEdit` → „Szerkesztés: …"), az `×`-szel
+  törölhető (`dayNoteDelete`). A napló és a heti export bejegyzésenként,
+  „<gyakorlat> közben: <szöveg>" alakban mutatja. Az ÍRÁS egyetlen belépési
+  pontja a `dayNoteSave()` – aki a napi jegyzetet állítja, azon menjen át
+  (ez tartja karban a visszafelé kompatibilis `note`/`noteEx` mezőt is).
 - **A főoldal hőse a készenlét-kártya.** A dekoratív „Melyik nap jön?"
   fejléc és a redundáns belépő-gombok (Tervek kezelése, gyógytorna)
   kikerültek – előbbi az alsó nav füle, utóbbi a felső sáv ikonja.

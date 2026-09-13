@@ -147,6 +147,23 @@ const sess = (t,day,log)=>({t,day,log:log||{}});
   ok('lastBackup: max', parse(M(a,b)).lastBackup===900);
 }
 
+// 11) Napi jegyzet-bejegyzések (dayNotes) uniója időbélyeg szerint
+{
+  const jA=sess(500,'pa',{bench:{w:60,sets:[5,5]}}); jA.dayNotes=[{t:10,ex:'bench',txt:'váll húz'}];
+  const jB=sess(500,'pa',{bench:{w:60,sets:[5,5]}}); jB.dayNotes=[{t:20,ex:'ohpdb',txt:'4-es lyuk'}];
+  const m=parse(M(S({sessions:[jA]}), S({sessions:[jB]})));
+  const l=m.sessions[0].dayNotes||[];
+  ok('dayNotes: mindkét eszköz bejegyzése megmarad', l.length===2);
+  ok('dayNotes: idő szerint rendezve', l[0].t===10 && l[1].t===20);
+  ok('dayNotes: a gyakorlat-bélyeg megmarad', l[0].ex==='bench' && l[1].ex==='ohpdb');
+  const m2=parse(M(S({sessions:[jA]}), S({sessions:[jA]})));
+  ok('dayNotes: idempotens (nincs duplikátum)', (m2.sessions[0].dayNotes||[]).length===1);
+  const oldSess=sess(600,'pb',{ohp:{w:30,sets:[8]}}); oldSess.note='régi'; oldSess.noteEx='ohp';
+  const m3=parse(M(S({sessions:[oldSess]}), S({sessions:[oldSess]})));
+  ok('dayNotes: a régi note/noteEx alak sértetlen marad',
+     m3.sessions[0].note==='régi' && m3.sessions[0].noteEx==='ohp' && !m3.sessions[0].dayNotes);
+}
+
 document.getElementById('sum').innerHTML =
   fail===0 ? `<span class="ok">MIND ZÖLD – ${pass} teszt</span>`
            : `<span class="fail">${fail} BUKÁS</span> / ${pass+fail} teszt`;
