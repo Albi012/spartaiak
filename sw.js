@@ -3,7 +3,7 @@
  * azt a böngésző kezeli – a service worker csak a statikus fájlokat
  * cache-eli, az éles edzésadatot nem érinti.
  */
-const VERSION = 'v97';
+const VERSION = 'v98';
 const APP_CACHE = 'edzesnaplo-app-' + VERSION;
 const FONT_CACHE = 'edzesnaplo-fonts';
 
@@ -13,6 +13,20 @@ const APP_SHELL = [
   './index.html',
   './js/auth.js',
   './js/health.js',
+  './vendor/supabase.js',   // a felhő-réteg a repóból jön, nem CDN-ről (offline + áruház)
+  './vendor/fonts.css',     // a betűk is a repóból – nincs Google Fonts kérés
+  './vendor/fonts/Barlow-400-latin-ext.woff2',
+  './vendor/fonts/Barlow-400-latin.woff2',
+  './vendor/fonts/Barlow-500-latin-ext.woff2',
+  './vendor/fonts/Barlow-500-latin.woff2',
+  './vendor/fonts/Barlow-600-latin-ext.woff2',
+  './vendor/fonts/Barlow-600-latin.woff2',
+  './vendor/fonts/BarlowCondensed-500-latin-ext.woff2',
+  './vendor/fonts/BarlowCondensed-500-latin.woff2',
+  './vendor/fonts/BarlowCondensed-600-latin-ext.woff2',
+  './vendor/fonts/BarlowCondensed-600-latin.woff2',
+  './vendor/fonts/BarlowCondensed-700-latin-ext.woff2',
+  './vendor/fonts/BarlowCondensed-700-latin.woff2',
   './manifest.webmanifest',
   './icon-192.png',
   './icon-512.png',
@@ -45,7 +59,11 @@ self.addEventListener('fetch', (e) => {
 
   const url = new URL(req.url);
 
-  // Google Fonts (CSS + fájlok): stale-while-revalidate.
+  // A betűk MÁR A REPÓBAN vannak (vendor/fonts), így az app-héj cache-eli
+  // őket a többi statikus fájllal együtt – nincs külön Google Fonts ág.
+  // Ez a blokk csak a RÉGI, még Google Fontsot kérő kliensek (egy korábbi
+  // build gyorsítótárából induló lap) miatt marad itt: stale-while-revalidate,
+  // hogy azok se törjenek el a frissítés pillanatában.
   if (url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com') {
     e.respondWith(
       caches.open(FONT_CACHE).then(async (cache) => {

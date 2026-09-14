@@ -742,8 +742,18 @@ Az app telepíthető és offline is fut. Fájlok:
 - `manifest.webmanifest` – app metaadat (név, ikonok, `display: standalone`,
   `theme_color`/`background_color`).
 - `sw.js` – service worker. **Csak a statikus app-héjat cache-eli**
-  (`index.html`, ikonok, manifest) és a Google Fonts fájlokat. A
-  `localStorage`-t (`gymlog_v1`) NEM érinti – az edzésadat a böngészőé.
+  (`index.html`, ikonok, manifest, `vendor/`). A `localStorage`-t
+  (`gymlog_v1`) NEM érinti – az edzésadat a böngészőé.
+- `vendor/` – a harmadik féltől származó fájlok a REPÓBAN vannak, nem CDN-en:
+  `supabase.js` (a hivatalos UMD build, MIT) és `fonts.css` + `fonts/*.woff2`
+  (Barlow / Barlow Condensed, latin + latin-ext). **Az app nem kér semmit
+  idegen hoszttól** – ezt E2E-teszt őrzi (26. szekció). Ez három dolgot old
+  meg egyszerre: bejelentkezve is fut offline (korábban a futásidejű
+  `esm.sh` import miatt nem), nem bukik el a natív áruházak
+  „futásidőben letöltött kód" szabályán, és nem szolgáltat ki a
+  felhasználóról adatot egy harmadik félnek. A Supabase betöltése továbbra
+  is LUSTA (`loadSupabase()` az `auth.js`-ben): aki sosem lép be, annak a
+  216 KB-ot sem kell letöltenie. Frissítés: `vendor/README.md`.
 - Ikonok: `icon-192.png`, `icon-512.png`, `icon-maskable-512.png`,
   `apple-touch-icon.png`.
 

@@ -13,7 +13,10 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Edzésnapló">
 <script>try{var _t=localStorage.getItem('gymlog_theme');if(_t==='light'||_t==='dark')document.documentElement.dataset.theme=_t;}catch(e){}</script>
-<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<!-- A betűk a repóból jönnek (vendor/fonts), nem a Google Fonts CDN-ről:
+     így az app első indításkor is offline-kész, nem függ idegen hoszttól, és
+     nem kér le semmit a felhasználóról egy harmadik félnél. -->
+<link rel="stylesheet" href="vendor/fonts.css">
 <style>
 /* ---- Téma tokenek ---------------------------------------------------
    Alap = sötét (teremben ez az alapértelmezett). A rendszer világos
@@ -563,7 +566,7 @@ function logRdyBadge(t){
 }
 let physioRegion='';  // Gyógytorna oldal aktív testtáj (üres = első)
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v97';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v98';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';

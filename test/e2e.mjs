@@ -974,6 +974,48 @@ ok('25 a felismerés nem ír a naplóba', await page.evaluate(()=>{
   stalledList(); stallCard();
   return JSON.stringify(S.sessions)===elotte && S.stall===undefined; }));
 
+// 26. Offline önellátás: semmi nem jön idegen hosztról
+{
+  const kulso=[];
+  const fig = r=>{ const u=r.url();
+    if(!u.startsWith(BASE) && !u.startsWith('data:') && !u.startsWith('blob:')) kulso.push(u); };
+  page.on('request', fig);
+  await page.reload(); await wait(900);
+  await page.evaluate(async ()=>{ try{ await document.fonts.ready; }catch(e){} });
+  await wait(300);
+  page.off('request', fig);
+  ok('26 az oldal betöltése NEM kér semmit idegen hoszttól',
+     kulso.length===0 || (console.log('   külső:', [...new Set(kulso)]), false));
+}
+ok('26 nincs CDN-hivatkozás a forrásban', await page.evaluate(async ()=>{
+  const f=async u=>(await fetch(u)).text();
+  const [html, auth, sw] = await Promise.all([f('index.html'), f('js/auth.js'), f('sw.js')]);
+  const tilos=/esm\.sh|unpkg\.com|cdn\.jsdelivr|cdnjs\.cloudflare/;
+  return !tilos.test(html) && !tilos.test(auth) && !tilos.test(sw)
+      && !/fonts\.googleapis\.com/.test(html); }));
+ok('26 a Supabase a repóból jön és működik', await page.evaluate(async ()=>{
+  const r=await fetch('vendor/supabase.js'); if(!r.ok) return false;
+  const el=document.createElement('script'); el.src='vendor/supabase.js';
+  await new Promise((res,rej)=>{ el.onload=res; el.onerror=rej; document.head.appendChild(el); });
+  return !!(window.supabase && typeof window.supabase.createClient==='function')
+      && !!window.supabase.createClient('https://pelda.supabase.co','teszt-kulcs'); }));
+ok('26 a betűk helyi fájlra mutatnak (magyar ő/ű is)', await page.evaluate(async ()=>{
+  const css=await (await fetch('vendor/fonts.css')).text();
+  const urlok=[...css.matchAll(/url\(([^)]+)\)/g)].map(m=>m[1]);
+  const helyi=urlok.length>0 && urlok.every(u=>!/^https?:/.test(u));
+  // a latin-ext alkészlet kell a magyar ő/ű-höz
+  const r=await fetch('vendor/fonts/BarlowCondensed-600-latin-ext.woff2');
+  return helyi && r.ok && /latin-ext/.test(css); }));
+ok('26 a service worker app-héja tartalmazza a helyi függőségeket', await page.evaluate(async ()=>{
+  const sw=await (await fetch('sw.js')).text();
+  const shell=sw.slice(sw.indexOf('APP_SHELL'), sw.indexOf(']', sw.indexOf('APP_SHELL')));
+  return /vendor\/supabase\.js/.test(shell) && /vendor\/fonts\.css/.test(shell)
+      && (shell.match(/\.woff2/g)||[]).length>=12; }));
+ok('26 a vendor mappa dokumentált és licencelt', await page.evaluate(async ()=>{
+  const [rd, lic] = await Promise.all([
+    fetch('vendor/README.md').then(r=>r.text()), fetch('vendor/LICENSE-supabase.txt').then(r=>r.text())]);
+  return /supabase-js/.test(rd) && /2\.116\.0/.test(rd) && /MIT/i.test(lic); }));
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));

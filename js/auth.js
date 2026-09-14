@@ -29,15 +29,33 @@
               !/YOUR-/.test(window.SUPABASE_CONFIG.url));
   }
 
-  // Supabase JS lusta betöltése (offline/CSP megfontolás: lásd TODO).
+  // A Supabase kliens a REPÓBÓL jön (`vendor/supabase.js`, UMD), nem CDN-ről.
+  // Külső hosztról futásidőben importálva az app bejelentkezve offline el sem
+  // indította a felhő-réteget, és a natív áruházak sem szeretik a futásidőben
+  // letöltött kódot. A betöltés továbbra is LUSTA: aki sosem lép be, annak a
+  // 216 KB-ot se kell letöltenie; a service worker az app-héjjal cache-eli.
+  let sbLoad=null;
+  function loadSupabase(){
+    if(window.supabase && window.supabase.createClient) return Promise.resolve(window.supabase);
+    if(sbLoad) return sbLoad;
+    sbLoad = new Promise((res, rej)=>{
+      const el=document.createElement('script');
+      el.src='vendor/supabase.js'; el.async=true;
+      el.onload=()=> (window.supabase && window.supabase.createClient)
+        ? res(window.supabase) : rej(new Error('vendor/supabase.js betöltődött, de nincs createClient'));
+      el.onerror=()=>{ sbLoad=null; rej(new Error('vendor/supabase.js nem tölthető be')); };
+      document.head.appendChild(el);
+    });
+    return sbLoad;
+  }
   async function ensureClient(){
     if(sb) return sb;
     if(!configured()) return null;
     try{
-      const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+      const { createClient } = await loadSupabase();
       sb = createClient(window.SUPABASE_CONFIG.url, window.SUPABASE_CONFIG.anonKey);
       return sb;
-    }catch(e){ console.warn('Supabase kliens nem tölthető be (offline?)', e); return null; }
+    }catch(e){ console.warn('Supabase kliens nem tölthető be', e); return null; }
   }
 
   // -- Auth műveletek (stub-ok – a valós UI a bekötéskor jön) ----------
