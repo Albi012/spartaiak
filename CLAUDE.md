@@ -99,6 +99,16 @@ alapértéket kapnak; a `save()`/`backup()`/`restore()` viszi őket):
   lát értelmes napi jegyzetet. Ezt az összhangot ne bontsd meg. A
   szinkron a bejegyzéseket `t` szerint egyesíti (`_mergeSession` az
   `auth.js`-ben), így két eszközön írt jegyzet sem vész el.
+  **A MÁSIK IRÁNY is védve van** (ezt könnyű elrontani): ha egy régi
+  appverzió `note`-ot ír ugyanarra az edzésre, a skalár-összefésülés az
+  újabb oldal `note`-ját tartaná meg, és a régi eszközön írt mondat
+  nyomtalanul eltűnne. Ezért a `_mergeSession` minden oldal `note`-ját
+  bejegyzéssé emeli, ha az nincs benne a listában; a `dayNoteCovered`
+  (index.html) és a merge ugyanazzal a szabállyal dönti el, hogy a `note`
+  már „le van fedve" (egy bejegyzés szövege, vagy a lista összefűzése –
+  gyakorlat-névvel vagy anélkül), hogy ne keletkezzen fantom-duplikátum.
+  A `dayNoteAbsorb()` a jegyzet-lap nyitásakor és íráskor beolvasztja az
+  idegen `note`-ot a listába, hogy szerkeszthető és törölhető is legyen.
 - Az **edzés-összegzés** és a **napló** kártya egy stilizált, elöl+hátul
   **izomtérképet** (`muscleMap`) mutat: a `sessionMgSets` szettszáma szerint
   színezi a terhelt izomcsoportokat (`mg`), a nem-célzottak halvány
@@ -251,6 +261,13 @@ görgetés, amiben nem látszott, hol tart az ember. A lépések:
    E nélkül egyetlen rossz találat miatt az egész importot újra kellett
    kezdeni. Minden sor kiírja a szettet, ismétlést, súlyt ÉS a pihenőt, hogy
    az előnézet ugyanazt mutassa, ami be fog kerülni.
+   **Egy napon belül UGYANAZ a gyakorlat kétszer nem mehet be** (`aiDupIds` /
+   `aiHasDup`): a napló gyakorlatonként EGY szett-sort vezet, ezért a két sor
+   összeolvadna – a második `exOv` felülírná az elsőt, és a lejátszóban közös
+   szettlistát kapnának (az edző „nehéz sorozat + leterhelés" szándékából egy
+   gyakorlat lenne). Nem oldjuk meg magunktól: az ütköző sorok pirosan
+   jelölve, a „Hozzáadás" letiltva, amíg a felhasználó ki nem dobja az egyiket
+   vagy át nem köti másikra. Az `aiImportApply` is ellenőrzi (védőháló).
 
 A gyakorlatválasztó két gazdát szolgál (`pickerMode`: `'draft'` |
 `'ai'`), a sorok a `pickerChoose(id)`-n mennek át. AI-módban a „+ Új saját
@@ -628,7 +645,13 @@ media-blokkban definiálva – a `:root`-on legyen az alapérték.
 - **Két téma, sötét az alapértelmezett.** Teremben a sötét kényelmesebb
   és kevesebbet fogyaszt; a világos téma választható (rendszerkövetéssel).
 - **A szám a főszereplő.** A súly és az ismétlés nagy, tabuláris
-  számokkal jelenik meg.
+  számokkal jelenik meg. **A súly magyar alakban megy ki mindenhol**
+  (`kgNum`: egész marad egész, a tizedes VESSZŐT kap – „62,5 kg"). A
+  `wLabel` ezen keresztül formáz, és ugyanezt használja a tárcsa-kalkulátor,
+  a bemelegítő-lépcsők, a haladás-részletlap, a rekordok, a progresszió
+  indoklása és az edzői export is. Enélkül a „62.5 kg" a testsúly-napló
+  „78,4 kg"-ja mellett állna ugyanabban a szövegben. Új súly-kiírásnál is a
+  `kgNum`-ot használd; az SVG-geometria `toFixed`-jei maradnak pontosak.
 - Nincs benne közösségi funkció (ezt szándékosan kihagytuk). **Kivétel a
   fotó:** gyakorlatonként egy gépbeállítás-emlékeztető kép megengedett (nem
   illusztráció, hanem emlékeztető) – lásd `photos` mező.

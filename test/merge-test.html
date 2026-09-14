@@ -164,6 +164,25 @@ const sess = (t,day,log)=>({t,day,log:log||{}});
      m3.sessions[0].note==='régi' && m3.sessions[0].noteEx==='ohp' && !m3.sessions[0].dayNotes);
 }
 
+// 12) Régi kliens `note`-ja ne vesszen el az új `dayNotes` mellett
+{
+  const regi=sess(1000,'pa',{bench:{w:60,sets:[5,5]}});
+  regi.note='REGI TELEFONON'; regi.noteEx='bench';
+  const uj=sess(1000,'pa',{bench:{w:60,sets:[5,5]}});
+  uj.dayNotes=[{t:2000,ex:'bench',txt:'UJ TELEFONON'}]; uj.note='Fekvenyomás: UJ TELEFONON'; uj.noteEx='bench';
+  const m=parse(M(S({sessions:[regi]}), S({sessions:[uj]})));
+  const l=m.sessions[0].dayNotes||[];
+  ok('merge: a régi kliens jegyzete bejegyzéssé válik', l.length===2 && l.some(n=>n.txt==='REGI TELEFONON'));
+  ok('merge: az új bejegyzés is megmarad', l.some(n=>n.txt==='UJ TELEFONON'));
+  ok('merge: a régi note a bélyegét is hozza', (l.find(n=>n.txt==='REGI TELEFONON')||{}).ex==='bench');
+  // Ha a `note` CSAK a lista összefűzése, ne keletkezzen belőle új bejegyzés.
+  const a2=sess(3000,'pb',{ohp:{w:30,sets:[8]}});
+  a2.dayNotes=[{t:10,ex:'ohp',txt:'egy'},{t:20,ex:'ohp',txt:'kettő'}];
+  a2.note='Vállból nyomás: egy · Vállból nyomás: kettő';
+  const m2=parse(M(S({sessions:[a2]}), S({sessions:[a2]})));
+  ok('merge: az összefűzött note nem lesz külön bejegyzés', (m2.sessions[0].dayNotes||[]).length===2);
+}
+
 document.getElementById('sum').innerHTML =
   fail===0 ? `<span class="ok">MIND ZÖLD – ${pass} teszt</span>`
            : `<span class="fail">${fail} BUKÁS</span> / ${pass+fail} teszt`;

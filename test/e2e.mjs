@@ -482,39 +482,54 @@ ok('17 a lap leírása is a hetet ígéri', await page.evaluate(()=>{
 // A szettek önmagukban féligazság – az alvás és a testsúly is menjen el.
 ok('17 az edzés napján mért alvás és testsúly a napra kerül', await page.evaluate(()=>{
   const bak={s:S.sessions,b:S.bw,sl:S.sleep}, ws=weekStart(Date.now());
-  const nap=ws+10*36e5, k=bwKey(nap);
+  // Az edzés MA legyen (de a héten belül) – különben hétfőn a jövőbe esne.
+  const nap=Math.max(ws, Date.now()-36e5), k=bwKey(nap);
   S.sessions=[{t:nap, day:'pa', log:{bench:{w:60,sets:[5,5,5]}}}];
   S.bw={[k]:78.4}; S.sleep={[k]:{min:440,q:4}};
   const t=weeklyReport(); S.sessions=bak.s; S.bw=bak.b; S.sleep=bak.sl;
   const blokk=t.split('—')[2]||'';
   return /alvás: 7ó 20p \(jó\)/.test(blokk) && /testsúly: 78,4 kg/.test(blokk); }));
-ok('17 a regeneráció-blokk összesíti a hét alvását és testsúlyát', await page.evaluate(()=>{
-  const bak={s:S.sessions,b:S.bw,sl:S.sleep}, ws=weekStart(Date.now());
-  S.sessions=[{t:ws+10*36e5, day:'pa', log:{bench:{w:60,sets:[5,5,5]}}}];
+// Az összesítést KÖZVETLENÜL, rögzített ablakon nézzük – a `weeklyReport`
+// ablaka az aktuális naptári hét, így hétfőn nem férne bele három nap, és a
+// teszt a fali órától függene.
+ok('17 a regeneráció-blokk összesíti az ablak alvását és testsúlyát', await page.evaluate(()=>{
+  const bak={b:S.bw,sl:S.sleep};
+  const D=864e5, ma=new Date(new Date().setHours(0,0,0,0)).getTime();
   S.bw={}; S.sleep={};
-  for(let i=0;i<3;i++){ const k=bwKey(ws+i*864e5);
+  for(let i=0;i<3;i++){ const k=bwKey(ma-(2-i)*D);
     S.bw[k]=78+i*0.2; S.sleep[k]={min:420+i*30,q:4}; }
-  const t=weeklyReport(); S.sessions=bak.s; S.bw=bak.b; S.sleep=bak.sl;
+  const t=reportRecovery(ma-2*D, Date.now(), true);
+  S.bw=bak.b; S.sleep=bak.sl;
   return /Regeneráció \(ezen a héten\)/.test(t)
       && /Alvás: átlag 7ó 30p \/ éj \(3 éjszaka, átlagos minőség 4\/5\)/.test(t)
       && /Testsúly: átlag 78,2 kg/.test(t); }));
 ok('17 a testsúly iránya az előző héthez képest is megy', await page.evaluate(()=>{
-  const bak={s:S.sessions,b:S.bw,sl:S.sleep}, ws=weekStart(Date.now());
-  S.sessions=[{t:ws+10*36e5, day:'pa', log:{bench:{w:60,sets:[5,5,5]}}}];
-  S.bw={[bwKey(ws+864e5)]:79, [bwKey(ws-3*864e5)]:78}; S.sleep={};
-  const t=weeklyReport(); S.sessions=bak.s; S.bw=bak.b; S.sleep=bak.sl;
+  const bak={b:S.bw,sl:S.sleep};
+  const D=864e5, ma=new Date(new Date().setHours(0,0,0,0)).getTime();
+  S.bw={[bwKey(ma)]:79, [bwKey(ma-3*D)]:78}; S.sleep={};
+  const t=reportRecovery(ma, Date.now(), true);
+  S.bw=bak.b; S.sleep=bak.sl;
   return /\+1,0 kg az előző héthez/.test(t); }));
+// 0,05 kg alatt a „+0,0 kg" felirat értelmetlen volna.
+ok('17 az elhanyagolható testsúly-eltérést kimondja, nem +0,0-t ír', await page.evaluate(()=>{
+  const bak={b:S.bw,sl:S.sleep};
+  const D=864e5, ma=new Date(new Date().setHours(0,0,0,0)).getTime();
+  S.bw={[bwKey(ma)]:78.02, [bwKey(ma-3*D)]:78}; S.sleep={};
+  const t=reportRecovery(ma, Date.now(), true);
+  S.bw=bak.b; S.sleep=bak.sl;
+  return /változatlan az előző héthez/.test(t) && !/\+0,0 kg/.test(t); }));
 ok('17 rögzítés nélkül NEM talál ki adatot', await page.evaluate(()=>{
   const bak={s:S.sessions,b:S.bw,sl:S.sleep}, ws=weekStart(Date.now());
-  S.sessions=[{t:ws+10*36e5, day:'pa', log:{bench:{w:60,sets:[5,5,5]}}}];
+  S.sessions=[{t:Math.max(ws, Date.now()-36e5), day:'pa', log:{bench:{w:60,sets:[5,5,5]}}}];
   S.bw={}; S.sleep={};
   const t=weeklyReport(); S.sessions=bak.s; S.bw=bak.b; S.sleep=bak.sl;
   return !/Regeneráció/.test(t) && !/Alvás:/.test(t) && !/Testsúly:/.test(t); }));
 ok('17 csak alvás van: a testsúlyról megmondja, hogy nincs (nem hallgatja el)', await page.evaluate(()=>{
-  const bak={s:S.sessions,b:S.bw,sl:S.sleep}, ws=weekStart(Date.now());
-  S.sessions=[{t:ws+10*36e5, day:'pa', log:{bench:{w:60,sets:[5,5,5]}}}];
-  S.bw={}; S.sleep={[bwKey(ws+864e5)]:{min:450,q:5}};
-  const t=weeklyReport(); S.sessions=bak.s; S.bw=bak.b; S.sleep=bak.sl;
+  const bak={b:S.bw,sl:S.sleep};
+  const ma=new Date(new Date().setHours(0,0,0,0)).getTime();
+  S.bw={}; S.sleep={[bwKey(ma)]:{min:450,q:5}};
+  const t=reportRecovery(ma, Date.now(), true);
+  S.bw=bak.b; S.sleep=bak.sl;
   return /Alvás: átlag 7ó 30p/.test(t) && /Testsúly: ebben az időszakban nincs rögzítve/.test(t); }));
 
 // 18. Két bejelentett hiba: AI-import láthatósága + fotó/jegyzet törlése
@@ -761,7 +776,71 @@ ok('22 felismerhetetlen szövegnél formátum-emlékeztetőt kínál', await pag
   return !aiResolved && /Formátum-emlékeztető másolása/.test(t); }));
 ok('22 a lépéssáv nem enged előre feldolgozatlan előnézetre', await page.evaluate(()=>{
   aiGo(3); return aiStep===2; }));
+// Ha TE ürítetted ki az előnézetet, ne azt mondja, hogy olvashatatlan a szöveg.
+ok('22 saját ürítés után őszinte üzenet + újrafeldolgozás', await page.evaluate(async (terv)=>{
+  openAiImport(); aiGo(2); aiTextInput(terv); await new Promise(r=>setTimeout(r,500)); aiGo(3);
+  aiRemoveDay(0); aiRemoveDay(0);
+  const t=document.getElementById('aiStat').textContent;
+  const jo = aiStep===2 && /Minden sort elhagytál/.test(t) && !/nem sikerült edzést kiolvasni/.test(t)
+          && /Újra feldolgozás/.test(t);
+  aiReparse();                                     // vissza lehet hozni a szövegből
+  return jo && aiStep===3 && aiResolved.length===2; }, AITERV));
 await page.evaluate(()=>closeSheet());
+// A RÉGI (egyszövegű) jegyzet ne tűnjön el, ha a felhőből érkezett a lista mellé.
+ok('16 idegen (régi kliens) napi jegyzet külön bejegyzésként látszik', await page.evaluate(()=>{
+  const fake={t:Date.now(),day:'pa',log:{bench:{w:60,sets:[5,5,5]}},
+    dayNotes:[{t:Date.now(),ex:'bench',txt:'UJ'}], note:'MASIK TELEFONON IRTAM', noteEx:'ohpdb'};
+  const l=dayNotes(fake);
+  S.sessions.push(fake); const h=logView(); S.sessions.pop();
+  return l.length===2 && l[1].txt==='MASIK TELEFONON IRTAM' && l[1].ex==='ohpdb'
+      && h.includes('MASIK TELEFONON IRTAM'); }));
+ok('16 az összefűzött régi mező NEM duplikálódik', await page.evaluate(()=>{
+  const fake={t:1,day:'pa',log:{},dayNotes:[{t:10,ex:'bench',txt:'egy'},{t:20,ex:'ohpdb',txt:'kettő'}],
+    note:'Fekvenyomás: egy · Vállból nyomás ülve: kettő'};
+  return dayNotes(fake).length===2; }));
+// Egy napon belüli DUPLA gyakorlat: a napló gyakorlatonként egy szett-sort
+// vezet, ezért a két sor összeolvadna és az egyik előírás elveszne.
+ok('22 dupla gyakorlat esetén figyelmeztet és NEM importál', await page.evaluate(async ()=>{
+  window.uiAlert=m=>{ window.__a=m; return Promise.resolve(); };
+  const T='NAP: X\n- Fekvenyomás | 5x3 | 80 | 240\n- Fekvenyomás | 3x10 | 50 | 90';
+  openAiImport(); aiGo(2); aiTextInput(T); await new Promise(r=>setTimeout(r,500)); aiGo(3);
+  const el=document.getElementById('sheetIn');
+  const gomb=[...el.querySelectorAll('button')].find(b=>/Hozzáadás az edzéseimhez/.test(b.textContent));
+  const n=(S.routines||[]).length; await aiImportApply();
+  return aiHasDup() && gomb && gomb.disabled && /kétszer szerepel/.test(el.textContent)
+      && (S.routines||[]).length===n; }));
+ok('22 feloldás után mehet, és a MEGMARADT előírás a helyes', await page.evaluate(async ()=>{
+  aiRemoveItem(0,1);
+  const n=(S.routines||[]).length; await aiImportApply();
+  const r=S.routines[S.routines.length-1];
+  return (S.routines||[]).length===n+1 && r.ex.length===1 && r.ex[0]==='bench'
+      && r.exOv.bench.s===5 && r.exOv.bench.w===80; }));
+// Külön gyakorlatokra kötve nincs ütközés.
+ok('22 más-más gyakorlat nem számít duplának', await page.evaluate(async ()=>{
+  const T='NAP: X\n- Fekvenyomás | 5x3 | 80 | 240\n- Vállból nyomás | 3x10 | 16 | 90';
+  openAiImport(); aiGo(2); aiTextInput(T); await new Promise(r=>setTimeout(r,500)); aiGo(3);
+  return !aiHasDup(); }));
+await page.evaluate(()=>closeSheet());
+
+// 23. Súlyok magyar alakja: tizedes VESSZŐ (a testsúly-napló is így írja)
+ok('23 kgNum egész marad egész, a tizedes vesszőt kap', await page.evaluate(()=>
+  JSON.stringify([62.5,60,2.5,0,1.25].map(kgNum))===JSON.stringify(['62,5','60','2,5','0','1,25'])));
+ok('23 a heti edzői export súlyai vesszősek', await page.evaluate(()=>{
+  const bak=S.sessions, ws=weekStart(Date.now());
+  S.sessions=[{t:Math.max(ws,Date.now()-36e5),day:'pa',log:{bench:{w:62.5,sets:[5,5,5]}}}];
+  const t=weeklyReport(); S.sessions=bak;
+  return /Fekvenyomás: 62,5 kg/.test(t) && !/62\.5/.test(t); }));
+ok('23 a tárcsa-kalkulátor is vesszős', await page.evaluate(()=>{
+  openPlateCalc(102.5); const t=document.getElementById('plRes').textContent; closeSheet();
+  return /41,25 kg/.test(t) && !/41\.25/.test(t); }));
+ok('23 a bemelegítő tárcsakiosztása is vesszős', await page.evaluate(()=>{
+  const bak=S.active;                       // az openWarmup az aktív edzésből veszi a súlyt
+  S.active={t:Date.now(),day:'pa',log:{bench:{w:62.5,sets:[null,null,null]}}};
+  openWarmup('bench'); const t=document.getElementById('sheetIn').textContent;
+  closeSheet(); S.active=bak;
+  return /62,5 kg/.test(t) && !/\d\.\d/.test(t); }));
+ok('23 a testsúlyos gyakorlat felirata nem változott', await page.evaluate(()=>
+  wLabel({bw:1},0)==='testsúly' && wLabel({bw:1},12.5)==='+12,5' && wLabel({},0)==='0'));
 
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);

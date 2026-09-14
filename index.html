@@ -563,7 +563,7 @@ function logRdyBadge(t){
 }
 let physioRegion='';  // Gyógytorna oldal aktív testtáj (üres = első)
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v94';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v95';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -1079,18 +1079,18 @@ function progNext(id,L){
   switch(pol){
     case 'off': return same('Fix súly – nincs automatikus progresszió.');
     case 'linear':
-      if(allDone) return up(1, `Lineáris: minden ismétlés megvolt (${t}+) → +${inc} kg.`);
+      if(allDone) return up(1, `Lineáris: minden ismétlés megvolt (${t}+) → +${kgNum(inc)} kg.`);
       if(failStreak(id)>=3) return down('Lineáris: 3 sikertelen edzés → −10% visszaépítés.');
       return same('Lineáris: nem lett meg minden – maradj a súlyon, próbáld újra.');
     case 'greyskull': { const lastSet=filled.length?filled[filled.length-1]:0;
-      if(lastSet>=2*t) return up(2, `Greyskull: záró szett ${lastSet} ism (≥2×${t}) → +${inc*2} kg.`);
-      if(lastSet>=t)   return up(1, `Greyskull: záró szett ${lastSet} ism (≥${t}) → +${inc} kg.`);
+      if(lastSet>=2*t) return up(2, `Greyskull: záró szett ${lastSet} ism (≥2×${t}) → +${kgNum(inc*2)} kg.`);
+      if(lastSet>=t)   return up(1, `Greyskull: záró szett ${lastSet} ism (≥${t}) → +${kgNum(inc)} kg.`);
       return down(`Greyskull: záró szett ${lastSet} < ${t} → −10%.`); }
     case 'double': { const hi=t, lo=Math.max(1,hi-3);
-      if(allDone) return up(1, `Dupla: minden szett elérte a ${hi}-t → +${inc} kg (ismétlések vissza ${lo}-re).`);
+      if(allDone) return up(1, `Dupla: minden szett elérte a ${hi}-t → +${kgNum(inc)} kg (ismétlések vissza ${lo}-re).`);
       return same(`Dupla: dolgozz ${lo}–${hi} ism között azonos súllyal, amíg mind ${hi} nem lesz.`); }
     default: { const d=smartInc(e,L);
-      if(d>0){ const over=Math.min(...filled)-t; return {w:R(cur+d), delta:d, reason:`Okos: +${over} a célon → +${d} kg.`}; }
+      if(d>0){ const over=Math.min(...filled)-t; return {w:R(cur+d), delta:d, reason:`Okos: +${over} a célon → +${kgNum(d)} kg.`}; }
       return same('Okos: nem lett meg minden ismétlés → marad a súly.'); }
   }
 }
@@ -1131,7 +1131,10 @@ function fmtDate(t){const d=new Date(t);return d.getFullYear()+'.'+String(d.getM
 // A ' kg' egységet a hívók fűzik hozzá (e.bw && w<=0 esetén nem). Ezért itt
 // a testsúlyos (idős is) gyakorlatnál csak '+hozzáadott' vagy 'testsúly',
 // egyébként a szám – így nincs dupla 'kg' (pl. Plank +5).
-function wLabel(e,w){ if(e.bw) return w>0? '+'+w:'testsúly'; return w }
+// Súly magyar alakban: az egész szám egész marad, a tizedes VESSZŐT kap
+// („62,5 kg"), hogy ne keveredjen a testsúly-napló vesszős alakjával.
+function kgNum(w){ const n=Math.round((+w||0)*100)/100; return String(n).replace('.',','); }
+function wLabel(e,w){ if(e.bw) return w>0? '+'+kgNum(w):'testsúly'; return kgNum(w) }
 function exDone(e,L){ return L && L.sets.length && L.sets.every(x=>x!=null); }
 
 function reducedMotion(){ try{ return window.matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){ return false; } }
@@ -1613,7 +1616,7 @@ function aiUserContext(){
     if(!cur || S.weights[id]>cur.w) wmap.set(e.n, {n:e.n, w:S.weights[id], bw:!!e.bw}); });
   const ws=[...wmap.values()].sort((a,b)=>b.w-a.w).slice(0,8);
   if(ws.length) L.push('Jelenlegi munkasúlyok: '
-    +ws.map(x=>`${x.n} ${x.bw?'+'+x.w+' kg plusz teher (testsúlyos)':x.w+' kg'}`).join(', ')+'.');
+    +ws.map(x=>`${x.n} ${x.bw?'+'+kgNum(x.w)+' kg plusz teher (testsúlyos)':kgNum(x.w)+' kg'}`).join(', ')+'.');
   const mg=aiMgBalance(), keys=Object.keys(mg);
   if(keys.length){ const sorted=keys.sort((a,b)=>mg[b]-mg[a]);
     const under=MGS.filter(m=>!mg[m]);
@@ -1725,11 +1728,11 @@ function aiGuessMg(name){
 // ez egy hosszú görgetés volt, amiben nem látszott, hol tart az ember. A
 // beillesztés egy koppintás (vágólap), a feldolgozás magától fut, az előnézet
 // pedig SZERKESZTHETŐ – rossz párosítás miatt nem kell elölről kezdeni.
-let aiResolved=null, aiPromptText='', aiStep=1, aiText='', aiCopied=false, aiEditRef=null, _aiTimer=null;
+let aiResolved=null, aiPromptText='', aiStep=1, aiText='', aiCopied=false, aiEditRef=null, aiEmptied=false, _aiTimer=null;
 const AI_TITLES=['','Kérd el a tervet','Illeszd be a választ','Nézd át és add hozzá'];
 
 function openAiImport(){
-  aiResolved=null; aiText=''; aiStep=1; aiCopied=false; aiEditRef=null;
+  aiResolved=null; aiText=''; aiStep=1; aiCopied=false; aiEditRef=null; aiEmptied=false;
   aiPromptText=buildAiPrompt();          // a naplóból személyre szabott prompt
   aiRender();
   document.getElementById('sheet').classList.add('on');
@@ -1775,6 +1778,10 @@ function aiStep2Html(){
 // így nem ugrik el a fókusz és a kurzor.
 function aiStatHtml(){
   if(!aiText.trim()) return `<p class="small dim" style="margin-top:8px">Beillesztés után itt jelenik meg, mit ismert fel.</p>`;
+  // Ha TE dobtad ki az összes sort az előnézetben, a szöveg attól még jó –
+  // hazugság volna azt írni, hogy nem sikerült kiolvasni.
+  if(!aiParsed() && aiEmptied) return `<div class="small dim" style="margin-top:10px">Minden sort elhagytál az előnézetben. Illessz be másik tervet, vagy olvasd be újra ezt.</div>
+    <button class="btn" style="margin-top:8px" onclick="aiReparse()">Újra feldolgozás</button>`;
   if(!aiParsed()) return `<div class="banner" style="margin-top:10px">Ebből még nem sikerült edzést kiolvasni. Kérd meg az edzőt, hogy a megadott formátumban adja vissza – az emlékeztetőt egy koppintással elküldheted neki.</div>
     <button class="btn" style="margin-top:8px" onclick="aiCopyFormat()">Formátum-emlékeztető másolása</button>`;
   const n=aiResolved.reduce((a,d)=>a+d.ex.length,0);
@@ -1785,7 +1792,9 @@ function aiTextInput(v){
   aiText=v; clearTimeout(_aiTimer);
   _aiTimer=setTimeout(()=>{ aiParseNow(); const el=document.getElementById('aiStat'); if(el) el.innerHTML=aiStatHtml(); }, 350);
 }
+function aiReparse(){ aiEmptied=false; aiParseNow(); if(aiParsed()) aiStep=3; aiRender(); }
 function aiParseNow(){
+  aiEmptied=false;
   const days=aiParsePlan(aiText);
   aiResolved = days.length ? days.map(d=>({ name:d.name, ex:d.ex.map(x=>({ parsed:x, match:aiMatchEx(x.name) })) })) : null;
 }
@@ -1826,34 +1835,52 @@ function aiCopyFallback(t){ try{ const ta=document.createElement('textarea'); ta
 // Az előnézet SZERKESZTHETŐ: a párosítás egy koppintással átköthető másik
 // gyakorlatra (vagy vissza „újra"), a felesleges sor/nap kidobható. E nélkül
 // egyetlen rossz találat miatt az egész importot újra kellene kezdeni.
+// UGYANAZ a gyakorlat kétszer egy napon: a napló gyakorlatonként EGY szett-sort
+// tárol, tehát a két sor összeolvadna – a második előírás felülírná az elsőt, és
+// a lejátszóban közös szettlistát kapnának. Ezt nem oldjuk meg magunktól (a
+// nehéz sorozat + leterhelés két külön szándék), hanem jelezzük, és a
+// felhasználó dönt: kidobja az egyiket, vagy átköti másik gyakorlatra.
+function aiDupIds(d){
+  const seen={}, dup={};
+  (d.ex||[]).forEach(it=>{ const id=it.match&&it.match.id; if(!id) return;
+    if(seen[id]) dup[id]=1; else seen[id]=1; });
+  return dup;
+}
+function aiHasDup(){ return (aiResolved||[]).some(d=>Object.keys(aiDupIds(d)).length>0); }
+
 function aiStep3Html(){
   if(!aiParsed()) return `<div class="banner" style="margin-top:12px">Nincs feldolgozott terv – lépj vissza a beillesztéshez.</div>`;
   let matched=0, neu=0, h='';
   aiResolved.forEach((d,di)=>{
+    const dup=aiDupIds(d);
     h+=`<div class="card" style="margin-top:10px"><div class="pad">
       <div class="row" style="align-items:center">
         <span class="grow cond" style="font-size:17px;font-weight:600">${esc(d.name)}</span>
         <button class="iconbtn" style="color:var(--red)" onclick="aiRemoveDay(${di})" aria-label="Nap elhagyása">×</button></div>`;
     d.ex.forEach((item,ii)=>{ const p=item.parsed;
-      const meta=`${p.s}×${esc(p.r)}${p.bw?' · testsúly':(p.hasW?' · '+p.w+' kg':'')} · ${p.rest} mp pihenő`;
+      const meta=`${p.s}×${esc(p.r)}${p.bw?' · testsúly':(p.hasW?' · '+kgNum(p.w)+' kg':'')} · ${p.rest} mp pihenő`;
       if(item.match) matched++; else neu++;
+      const utk = !!(item.match && dup[item.match.id]);
       h+=`<div class="row" style="align-items:flex-start;gap:8px;margin-top:8px">
         <button class="grow" style="text-align:left;min-width:0" onclick="aiEditItem(${di},${ii})">
-          <span class="small"><span style="color:var(--${item.match?'sage':'brass'})">${item.match?'✓':'+'}</span>
+          <span class="small"><span style="color:var(--${utk?'red':(item.match?'sage':'brass')})">${utk?'!':(item.match?'✓':'+')}</span>
             ${esc(item.match?item.match.n:p.name)}${item.match?'':' <span class="dim">(új)</span>'}</span>
-          <span class="small dim" style="display:block;margin-top:2px">${meta} <span style="color:var(--mut)">· csere ›</span></span></button>
+          <span class="small dim" style="display:block;margin-top:2px">${meta} <span style="color:var(--mut)">· csere ›</span></span>
+          ${utk?`<span class="small" style="display:block;margin-top:2px;color:var(--red)">Ez a gyakorlat kétszer szerepel ezen a napon – dobd ki az egyiket, vagy kösd át másikra.</span>`:''}</button>
         <button onclick="aiRemoveItem(${di},${ii})" aria-label="Sor elhagyása" style="color:var(--dim);font-size:20px;padding:2px 6px">×</button>
       </div>`; });
     h+=`</div></div>`;
   });
+  const dupe=aiHasDup();
   return h+`<div class="small mut" style="margin-top:10px">${matched} meglévő gyakorlathoz kötve (a súlytörténeteddel együtt), ${neu} új jön létre. A szettek, ismétlések, súlyok és pihenők pontosan így kerülnek be – az első alkalommal ezekkel indul az edzés, utána a saját haladásod viszi tovább. A meglévő terved érintetlen.</div>
-    <button class="btn pri" style="margin-top:10px" onclick="aiImportApply()">Hozzáadás az edzéseimhez</button>`;
+    ${dupe?`<div class="banner" style="margin-top:10px">Egy napon belül ugyanaz a gyakorlat kétszer szerepel. A napló gyakorlatonként egy szett-sort vezet, ezért a két sor összeolvadna, és az egyik előírás elveszne. Oldd fel a pirossal jelölteket, aztán mehet a hozzáadás.</div>`:''}
+    <button class="btn pri" style="margin-top:10px" onclick="aiImportApply()" ${dupe?'disabled':''}>Hozzáadás az edzéseimhez</button>`;
 }
 function aiRemoveItem(di,ii){ const d=aiResolved&&aiResolved[di]; if(!d) return;
   d.ex.splice(ii,1); if(!d.ex.length) aiResolved.splice(di,1);
-  if(!aiResolved.length){ aiResolved=null; aiStep=2; } aiRender(); }
+  if(!aiResolved.length){ aiResolved=null; aiEmptied=true; aiStep=2; } aiRender(); }
 function aiRemoveDay(di){ if(!aiResolved) return; aiResolved.splice(di,1);
-  if(!aiResolved.length){ aiResolved=null; aiStep=2; } aiRender(); }
+  if(!aiResolved.length){ aiResolved=null; aiEmptied=true; aiStep=2; } aiRender(); }
 // A keresőt az edző által írt névvel nyitjuk – csere közben ne kelljen gépelni.
 function aiEditItem(di,ii){ aiEditRef={di,ii}; const it=aiPickTarget();
   openExPicker('ai', it ? it.parsed.name : ''); }
@@ -1865,6 +1892,8 @@ function aiBackToPreview(){ aiEditRef=null; aiStep=3; aiRender(); }
 
 async function aiImportApply(){
   if(!aiResolved||!aiResolved.length){ uiAlert('Nincs mit importálni.'); return; }
+  // Védőháló: duplikált gyakorlat-ID-vel a routine hibás adatot tárolna.
+  if(aiHasDup()){ uiAlert('Egy napon belül ugyanaz a gyakorlat kétszer szerepel. Dobd ki az egyiket, vagy kösd át másik gyakorlatra – így egyik előírás sem vész el.'); return; }
   if(!S.customEx)S.customEx={}; if(!S.routines)S.routines=[]; if(!S.programs)S.programs=[];
   let newEx=0; const dayIds=[];
   aiResolved.forEach(d=>{
@@ -2525,10 +2554,10 @@ function sessionPRs(sess){
     const L=sess.log[id]; if(!L||!L.sets.some(x=>x!=null)) return;
     const e=exDef(id); if(e.bw||!(L.w>0)) return;
     const prevW=Math.max(0,...others.filter(s=>s.log[id]).map(s=>s.log[id].w||0));
-    if(L.w>prevW){ prs.push({name:e.n, kind:'súly-csúcs', val:L.w+' kg'}); return; }
+    if(L.w>prevW){ prs.push({name:e.n, kind:'súly-csúcs', val:kgNum(L.w)+' kg'}); return; }
     const c=sess1RM(L); if(c==null) return;
     const prev1=Math.max(0,...others.filter(s=>s.log[id]).map(s=>sess1RM(s.log[id])||0));
-    if(c>prev1) prs.push({name:e.n, kind:'becsült 1RM', val:'~'+c+' kg'});
+    if(c>prev1) prs.push({name:e.n, kind:'becsült 1RM', val:'~'+kgNum(c)+' kg'});
   });
   return prs;
 }
@@ -2880,7 +2909,9 @@ function reportRecovery(from, to, weekly){
     const prev=bwEntries().filter(e=>{ const x=new Date(e.d+'T00:00:00').getTime(); return x>=from-7*864e5 && x<from; });
     let d='';
     if(prev.length){ const diff=m-avg(prev.map(e=>e.kg));
-      d=' ('+(diff>=0?'+':'−')+bwNum(Math.abs(diff))+' kg az előző héthez)'; }
+      // 0,05 kg alatt a „+0,0 kg" felirat értelmetlen – mondjuk ki inkább.
+      d = Math.abs(diff)<0.05 ? ' (változatlan az előző héthez)'
+        : ' ('+(diff>=0?'+':'−')+bwNum(Math.abs(diff))+' kg az előző héthez)'; }
     t+='  Testsúly: átlag '+bwNum(m)+' kg'+d+'\n';
     t+='    '+bw.map(e=>bwFmtDate(e.d)+': '+bwNum(e.kg)+' kg').join(' · ')+'\n';
   } else t+='  Testsúly: ebben az időszakban nincs rögzítve.\n';
@@ -2929,7 +2960,7 @@ function progStats(){
   return { total:S.sessions.length, month, streak, tonnage };
 }
 // Össztömeg emberi alakja: 1 t felett tonnában, egyébként kg-ban.
-function fmtTon(kg){ return kg>=1000 ? (kg/1000).toFixed(kg>=10000?0:1)+' t' : Math.round(kg)+' kg'; }
+function fmtTon(kg){ return kg>=1000 ? (kg/1000).toFixed(kg>=10000?0:1).replace('.',',')+' t' : Math.round(kg)+' kg'; }
 
 // -- Szint / XP (streak-fókusz) ---------------------------------------
 // Az XP-t a naplóból származtatjuk (nincs elmentett számláló). A fő hajtóerő
@@ -3638,7 +3669,7 @@ function progView(){
       <p class="mut small" style="margin:4px 0 8px">Az első és a legutóbbi munkasúly különbsége</p>`;
     imp.forEach(x=>{ h+=`<div class="row" style="padding:8px 0;border-bottom:1px solid var(--line)">
       <span class="grow cond" style="font-weight:600">${esc(x.n)}</span>
-      <span class="small num" style="color:var(--sage);font-weight:700">+${x.gain} kg</span></div>`; });
+      <span class="small num" style="color:var(--sage);font-weight:700">+${kgNum(x.gain)} kg</span></div>`; });
     h+=`</div></div>`;
   }
   // Terv-kontra-valóság: miért tért el
@@ -3663,7 +3694,7 @@ function progView(){
     h+=`<div class="card pcard" onclick="openProgDetail('${id}')"><div class="pad">
       <div class="row" style="align-items:baseline"><span class="cond grow" style="font-size:19px;font-weight:600">${esc(e.n)}</span>
       <span class="num" style="font-size:24px;font-weight:700">${wLabel(e,last)}<span class="small dim" style="font-weight:400">${e.bw&&last<=0?'':' kg'}</span></span></div>
-      <div class="small ${delta>0?'':'dim'}" style="${delta>0?'color:var(--sage)':''}">${delta>0?'+'+delta+' kg az indulás óta':delta<0?delta+' kg':'változatlan'} · ${pts.length} alkalom</div>
+      <div class="small ${delta>0?'':'dim'}" style="${delta>0?'color:var(--sage)':''}">${delta>0?'+'+kgNum(delta)+' kg az indulás óta':delta<0?kgNum(delta)+' kg':'változatlan'} · ${pts.length} alkalom</div>
       ${pts.length>1?`<svg class="spark" viewBox="0 0 100 44" preserveAspectRatio="none"><path d="${d}" fill="none" stroke="var(--brass)" stroke-width="1.6" vector-effect="non-scaling-stroke" stroke-linejoin="round"/><circle cx="${ex.toFixed(1)}" cy="${ey.toFixed(1)}" r="2.4" fill="var(--brass)" vector-effect="non-scaling-stroke"/></svg>`:''}
       </div></div>`;
   });
@@ -3724,7 +3755,7 @@ function openProgDetail(id, metric){
     const reps=(r.L.sets||[]).filter(x=>x!=null);
     let main, isPr=false;
     if(metric==='vol'){ const v=progMetric(r.L,'vol'); main=v+volUnit; isPr=v===volMax && v>0; }
-    else if(metric==='1rm'){ const v=sess1RM(r.L); main=v!=null?('~'+v+' kg'):'<span class="dim">—</span>'; isPr=v!=null && v===rmMax && v>0; }
+    else if(metric==='1rm'){ const v=sess1RM(r.L); main=v!=null?('~'+kgNum(v)+' kg'):'<span class="dim">—</span>'; isPr=v!=null && v===rmMax && v>0; }
     else { main=wLabel(e,r.L.w)+(e.bw&&r.L.w<=0?'':' kg'); isPr=r.L.w===pr && pr>0; }
     h+=`<div class="histrow">
       <span class="d">${fmtDate(r.t)}</span>
@@ -3773,9 +3804,9 @@ function renderPlateRes(){
   const r=platesPerSide(target, plateBar);
   if(r.belowBar){ el.innerHTML=`<div class="platesum">A cél kisebb a rúdnál (${plateBar} kg).</div>`; return; }
   if(r.perSide===0){ el.innerHTML=`<div class="platesum">Csak a rúd – nincs tárcsa.</div>`; return; }
-  const bars=r.used.map(p=>`<span class="plate" style="height:${Math.round(28+p)}px">${p}</span>`).join('');
-  let sum=`Oldalanként ${r.perSide%1===0?r.perSide:r.perSide.toFixed(2)} kg · ${r.used.length} tárcsa`;
-  if(r.rem>0.01) sum+=` · ${r.rem} kg így nem rakható ki`;
+  const bars=r.used.map(p=>`<span class="plate" style="height:${Math.round(28+p)}px">${kgNum(p)}</span>`).join('');
+  let sum=`Oldalanként ${kgNum(r.perSide)} kg · ${r.used.length} tárcsa`;
+  if(r.rem>0.01) sum+=` · ${kgNum(r.rem)} kg így nem rakható ki`;
   el.innerHTML=`<div class="plateres">${bars||'<span class="dim">–</span>'}</div><div class="platesum">${sum}</div>`;
 }
 
@@ -3802,7 +3833,7 @@ function openWarmup(exId){
   let h=`<div class="grabber"></div>
     <div class="row"><div class="grow"><span class="eyebrow">Bemelegítés</span>
       <h2 style="font-size:22px">${esc(e.n)}</h2>
-      <span class="small dim">Munkasúly: ${W} kg · ${plateBar} kg rúd</span></div>
+      <span class="small dim">Munkasúly: ${kgNum(W)} kg · ${plateBar} kg rúd</span></div>
       <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>`;
   if(!steps.length){
     h+=`<div class="empty" style="padding:18px 0">Ehhez a súlyhoz nincs szükség külön bemelegítő lépcsőre – pár lazább ismétlés a rúddal elég.</div>`;
@@ -3810,14 +3841,14 @@ function openWarmup(exId){
     h+=`<div style="margin-top:8px">`;
     steps.forEach((s,i)=>{ const pr=platesPerSide(s.w, plateBar);
       const side = pr.belowBar||pr.perSide===0 ? 'csak rúd'
-        : ('oldalanként: '+pr.used.map(p=>p%1===0?p:p.toFixed(2)).join(' + ')+(pr.rem>0.01?` (+${pr.rem} marad)`:''));
+        : ('oldalanként: '+pr.used.map(kgNum).join(' + ')+(pr.rem>0.01?` (+${kgNum(pr.rem)} marad)`:''));
       h+=`<div class="wrow">
         <span class="wrow-n">${i+1}</span>
-        <span class="grow"><span class="num" style="font-size:22px;font-weight:700">${s.w}<span class="small dim" style="font-weight:400"> kg</span></span>
+        <span class="grow"><span class="num" style="font-size:22px;font-weight:700">${kgNum(s.w)}<span class="small dim" style="font-weight:400"> kg</span></span>
           <span class="small dim"> × ${s.reps}</span><div class="small mut" style="margin-top:2px">${side}</div></span>
       </div>`; });
     h+=`<div class="wrow" style="border:0"><span class="wrow-n" style="background:var(--brass);color:var(--on-brass)">✓</span>
-      <span class="grow"><span class="num" style="font-size:22px;font-weight:700;color:var(--brass)">${W}<span class="small dim" style="font-weight:400"> kg</span></span>
+      <span class="grow"><span class="num" style="font-size:22px;font-weight:700;color:var(--brass)">${kgNum(W)}<span class="small dim" style="font-weight:400"> kg</span></span>
         <span class="small dim"> · munkasúly</span></span></div>`;
     h+=`</div><p class="small dim" style="margin-top:8px">Tipp: a bemelegítő szetteket nem kell naplózni – csak a munkaszetteket rögzítsd.</p>`;
   }
@@ -3903,6 +3934,7 @@ function openNoteSheet(kind,id,fromPlayer){
     // A nap jegyzete TÖBB bejegyzés. A mező mindig ÚJ bejegyzést ír (vagy a
     // szerkesztésre kijelöltet írja felül); a korábbiak alatta listázódnak,
     // gyakorlathoz kötve, szerkeszthetően és törölhetően.
+    dayNoteAbsorb();                    // a régi alakot beolvasztjuk, hogy szerkeszthető legyen
     const list=dayNotes(S.active);
     const nowEx=playerExId();
     const editing = dayNoteEdit!=null && list.some(n=>n.t===dayNoteEdit);
@@ -3966,22 +3998,57 @@ function saveNote(kind,id){
  */
 function dayNotes(sess){
   if(!sess) return [];
-  if(Array.isArray(sess.dayNotes)) return sess.dayNotes.filter(n=>n&&n.txt);
+  if(Array.isArray(sess.dayNotes)){
+    const list=sess.dayNotes.filter(n=>n&&n.txt);
+    // A régi, EGYszövegű `note` mezőt a `dayNoteSync` mindig a lista
+    // összefűzésére írja át. Ha ELTÉR ettől, akkor egy RÉGI appverzió írta
+    // (pl. a másik telefonod, amin még a korábbi build fut, és a felhő-unió
+    // hozta át) – az a mondat nincs a listában, tehát külön bejegyzésként
+    // mutatjuk. E nélkül a régi eszközön írt jegyzet némán eltűnne.
+    if(sess.note && !dayNoteCovered(list, sess.note))
+      return list.concat([{ t:dayNoteFreeT(list, sess.t||0), ex:sess.noteEx||null, txt:sess.note }]);
+    return list;
+  }
   if(sess.note) return [{ t:sess.t||0, ex:sess.noteEx||null, txt:sess.note }];
   return [];
+}
+// Benne van-e már a `note` szövege a listában? A régi mező lehet EGY jegyzet,
+// vagy a lista összefűzése – utóbbi kétféle alakban is (a `dayNoteSync`
+// gyakorlat-névvel, a felhő-merge anélkül fűz). Mindkettőt lefedjük, hogy egy
+// már meglévő bejegyzés ne jelenjen meg másodszor is.
+function dayNoteCovered(list, txt){
+  const parts=String(txt).split(' · ').map(q=>q.replace(/^[^:]{1,40}: /,''));
+  return parts.every(q=>list.some(n=>n.txt===q));
+}
+function dayNoteJoin(list){
+  return list.map(n=>{ const e=n.ex&&exDef(n.ex); return (e?e.n+': ':'')+n.txt; }).join(' · ');
+}
+// Ütközésmentes időbélyeg a listában (a `t` a bejegyzés azonosítója).
+function dayNoteFreeT(list, t){ let x=t||0; while(list.some(n=>n.t===x)) x++; return x; }
+// A régi kliens `note`-ját BEOLVASZTJUK a listába, mielőtt szerkesztenénk –
+// így az is törölhető/szerkeszthető lesz, nem csak látszik.
+function dayNoteAbsorb(){
+  if(!S.active) return;
+  if(!Array.isArray(S.active.dayNotes)) S.active.dayNotes=[];
+  const list=S.active.dayNotes;
+  if(S.active.note && !dayNoteCovered(list, S.active.note)){
+    list.push({ t:dayNoteFreeT(list, S.active.t||Date.now()), ex:S.active.noteEx||null, txt:S.active.note });
+    dayNoteSync();
+  }
 }
 // A `note` string szinkronban tartása a listával (visszafelé kompatibilitás).
 function dayNoteSync(){
   if(!S.active) return;
   const list=S.active.dayNotes||[];
   if(!list.length){ delete S.active.note; delete S.active.noteEx; return; }
-  S.active.note = list.map(n=>{ const e=n.ex&&exDef(n.ex); return (e?e.n+': ':'')+n.txt; }).join(' · ');
+  S.active.note = dayNoteJoin(list);
   if(list[0].ex) S.active.noteEx=list[0].ex; else delete S.active.noteEx;
 }
 // Új bejegyzés (vagy a szerkesztett `editT` idejű felülírása).
 let dayNoteEdit=null;     // a szerkesztés alatt álló bejegyzés `t`-je
 function dayNoteSave(txt){
   if(!S.active) return;
+  dayNoteAbsorb();                      // régi kliens jegyzete se vesszen el
   if(!Array.isArray(S.active.dayNotes)){
     // Első íráskor a RÉGI egyszövegű jegyzetet bejegyzéssé alakítjuk, hogy
     // ne vesszen el, ha menet közben frissült az app.
@@ -4322,7 +4389,7 @@ async function openFriendStats(id, name){
       <div class="grow"><div class="num" style="font-size:30px;font-weight:700">${d.week||0}</div><div class="small dim">7 napban</div></div>
       ${d.last?`<div class="grow small dim" style="align-self:center">Utolsó:<br>${fmtDate(d.last)}</div>`:''}</div></div>`;
     if(d.lifts&&d.lifts.length){ h+=`<div class="top" style="padding:12px 0 6px"><span class="eyebrow">Legnagyobb súlyok</span></div><div class="card">`;
-      d.lifts.forEach(l=>{ h+=`<div class="hrow"><span class="small grow">${esc(l.n)}</span><span class="small num mut">${l.w} kg</span></div>`; });
+      d.lifts.forEach(l=>{ h+=`<div class="hrow"><span class="small grow">${esc(l.n)}</span><span class="small num mut">${kgNum(l.w)} kg</span></div>`; });
       h+=`</div>`; }
   }
   document.getElementById('sheetIn').innerHTML=h;

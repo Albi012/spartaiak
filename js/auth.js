@@ -92,7 +92,24 @@
     // egyik csendben eltűnne (a skalár-összefésülés az egészet felülírná).
     const jots = new Map();
     (x.dayNotes||[]).concat(y.dayNotes||[]).forEach(n=>{ if(n && n.txt) jots.set(n.t, n); });
-    if(jots.size) out.dayNotes = [...jots.values()].sort((a,b)=>(a.t||0)-(b.t||0));
+    // Egy RÉGI appverzió csak a `note` mezőt írja (nem ismeri a `dayNotes`-t).
+    // A skalár-összefésülés az újabb oldal `note`-ját tartaná meg, és a régi
+    // eszközön írt mondat nyomtalanul eltűnne. Ezért ha egy oldal `note`-ja
+    // NINCS benne a bejegyzés-listában, felvesszük külön bejegyzésként –
+    // a napló ígérete az, hogy rögzített adat nem vész el.
+    if(jots.size){
+      [x, y].forEach(side=>{
+        const n = side && side.note; if(!n) return;
+        for(const it of jots.values()) if(it.txt===n) return;      // már bejegyzésként megvan
+        // A `dayNoteSync` összefűzött alakja („Gyakorlat: szöveg · …") sem új adat.
+        const parts = n.split(' · ').map(q=>q.replace(/^[^:]{1,40}: /, ''));
+        if(parts.every(q=>{ for(const it of jots.values()) if(it.txt===q) return true; return false; })) return;
+        let t = side.t || 0; while(jots.has(t)) t++;
+        jots.set(t, { t, ex: side.noteEx || null, txt: n });
+      });
+      out.dayNotes = [...jots.values()].sort((a,b)=>(a.t||0)-(b.t||0));
+      out.note = out.dayNotes.map(it=>it.txt).join(' · ');   // a régi mező maradjon konzisztens
+    }
     out.log = Object.assign({}, x.log||{});
     Object.keys(y.log||{}).forEach(id=>{
       const cur = out.log[id], nw = y.log[id];
