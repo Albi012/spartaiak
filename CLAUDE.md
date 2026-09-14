@@ -515,6 +515,27 @@ A felület ikonjai **monokróm inline SVG-k** (`ICON` objektum,
 válnak platformonként színes emojivá. Új ikon is így kerüljön be; a
 statikus gombok/nav ikonjait a `paintIcons()` tölti be induláskor.
 
+## Pihenő-óra
+
+A pihenő a lejátszóban, a **gyakorlat neve mellett** fut: 52px-es gyűrű a
+hátralévő idővel (`restPillHtml`, `.restpill`). **Maga a gyűrű a gomb** – egy
+koppintás leállítja (`stopTimer`). Korábban teljes képernyős overlay volt,
+amit minden szett után ki kellett nyomni, és pont azt takarta el, amit edzés
+közben látni akarsz: hol tartasz, mennyi szett van hátra, mi a súly.
+**Ne vezesd vissza rátakaró ablakként.**
+
+- `_restOn` az állapot (nem DOM-osztály); a `restRunning()` kérdezi le.
+- A `startTimer`/`stopTimer` `render()`-t hív, ha a lejátszóban vagy – így
+  jelenik meg és tűnik el az óra. A `tick()` a meglévő DOM-ot frissíti, és
+  **elviseli, ha nincs ott** (`if(el)`): a lejátszón kívül nincs mit festeni.
+- A `restPillHtml()` a FRISS értékkel születik meg minden festéskor, hogy a
+  `render()` és a következő `tick()` közti ~200 ms-ben se villanjon rosszat.
+- Az óra `tEnd` időbélyeg-alapú, tehát háttérből visszatérve pontos.
+- A lejátszóból kilépve (`pausePlayer`) a pihenő is leáll – félbehagyott
+  edzés után ne szólaljon meg egy óra a háttérből.
+- A ±15 mp állítás a régi overlayjel együtt kikerült (a gyakorlatban nem
+  használt: a pihenő letelte úgysem kötelező érvényű).
+
 ## Mikro-interakciók
 
 Kis, teremben is érezhető visszajelzések – mind `prefers-reduced-motion`
@@ -763,6 +784,7 @@ media-blokkban definiálva – a `:root`-on legyen az alapérték.
 3. ~~A pihenőóra megáll, ha a telefon képernyője elalszik.~~
    **Kész:** Wake Lock API tartja ébren a képernyőt, amíg a pihenő megy;
    az óra amúgy is időbélyeg-alapú, tehát háttérből visszatérve pontos.
+   **A pihenő NEM teljes képernyős ablak** – lásd „Pihenő-óra" lentebb.
 4. ~~A biztonsági mentés kézi.~~ **Kész:** havi mentés-emlékeztető a
    kezdőképernyőn (`lastBackup` alapján).
 

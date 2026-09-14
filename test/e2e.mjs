@@ -1128,6 +1128,57 @@ ok('28 a heti nézet nem ír a naplóba', await page.evaluate(()=>{
   weekDays(); weekPlan(); weekPlanCard();
   return JSON.stringify(S.sessions)===elotte; }));
 
+// 29. Pihenő: kis óra a név mellett, nem teljes képernyős ablak
+await page.evaluate(async ()=>{ window.uiConfirm=()=>Promise.resolve(true); window.uiAlert=()=>Promise.resolve();
+  stopTimer(); S.active=null; playing=false; closeSheet(); await startDay('pa'); });
+await wait(450);
+ok('29 nincs többé teljes képernyős pihenő-overlay', await page.evaluate(()=>
+  !document.getElementById('rest') && !document.querySelector('.rest') && typeof adjustRest==='undefined'));
+await page.evaluate(()=>{ const e=dayDef(S.active.day).ex[0]; cur={id:e.id,i:0}; setRep(8); });
+await wait(400);
+ok('29 szett után elindul, és a GYAKORLAT NEVE MELLETT jelenik meg', await page.evaluate(()=>{
+  const pill=document.querySelector('.restpill');
+  const sor=document.querySelector('.pname').closest('.row');
+  return restRunning() && !!pill && sor.contains(pill); }));
+ok('29 a kis óra a célsúlyt ELNYOMÓ overlay helyett hagyja látszani a felületet', await page.evaluate(()=>
+  !!document.querySelector('.pchips') && !!document.querySelector('.pfoot')
+  && getComputedStyle(document.querySelector('.restpill')).position!=='fixed'));
+ok('29 a koppintható terület legalább 44px', await page.evaluate(()=>{
+  const r=document.querySelector('.restpill').getBoundingClientRect();
+  return r.width>=44 && r.height>=44; }));
+ok('29 a kiírt idő a hátralévő időt mutatja', await page.evaluate(()=>{
+  const t=document.querySelector('.rp-val').textContent;
+  const [m,sec]=t.split(':').map(Number);
+  const varhato=Math.ceil(Math.max(0,tEnd-Date.now())/1000);
+  return /^\d+:\d{2}$/.test(t) && Math.abs((m*60+sec)-varhato)<=1; }));
+ok('29 újrafestés után is a FRISS időt mutatja (nem villan rosszat)', await page.evaluate(()=>{
+  render();
+  const t=document.querySelector('.rp-val').textContent;
+  const [m,sec]=t.split(':').map(Number);
+  const varhato=Math.ceil(Math.max(0,tEnd-Date.now())/1000);
+  return Math.abs((m*60+sec)-varhato)<=1; }));
+ok('29 egy koppintás leállítja és eltünteti', await page.evaluate(()=>{
+  document.querySelector('.restpill').click();
+  return !restRunning() && !document.querySelector('.restpill'); }));
+// A lejátszóból kilépve a pihenő is leáll (ez a korábbi viselkedés): ha
+// félbehagyod az edzést, nem jár tovább a háttérben egy óra, ami majd megszólal.
+ok('29 a lejátszóból kilépve a pihenő is leáll, az óra eltűnik', await page.evaluate(async ()=>{
+  playing=true; tab='home'; startTimer(90);
+  await new Promise(r=>setTimeout(r,250));
+  const futott=restRunning();
+  pausePlayer();
+  // a festés View Transitionön keresztül is mehet – várjunk a friss DOM-ra
+  await new Promise(r=>setTimeout(r,500));
+  return futott && !restRunning() && !document.querySelector('.restpill'); }));
+ok('29 letelve magától eltűnik', await page.evaluate(async ()=>{
+  playing=true; tab='home';
+  S.active=S.active||{t:Date.now(),day:'pa',log:{}};
+  startTimer(1); tEnd=Date.now()-1; tick();
+  await new Promise(r=>setTimeout(r,1500));
+  return !restRunning(); }));
+await page.evaluate(()=>{ stopTimer(); S.active=null; playing=false; tab='home'; render(); });
+await wait(200);
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));
