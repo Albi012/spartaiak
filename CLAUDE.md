@@ -379,6 +379,29 @@ felület egységesen érti a „hetet". Ha ezen a héten még nincs edzés, az
 utolsó 3 megy el, és a fejléc ezt meg is mondja („ezen a héten még nem volt
 edzés") – nem tesz úgy, mintha heti anyag volna.
 
+## Stagnálás-felismerés
+
+A `stallOf(id)` / `stalledList()` a **naplóból származtatja**, hogy egy
+gyakorlat megakadt-e – nincs hozzá tárolt mező, ugyanaz az elv, mint a
+készenlétnél. Két külön dolgot mond ki, és a szóhasználat is elválasztja:
+
+- **„nem jön össze"** (`state:'fail'`) – a `failStreak(id)` szerint 3 egymást
+  követő naplózott alkalom a cél ALATT maradt.
+- **„megakadt"** (`state:'stall'`) – a csúcssúly óta eltelt `STALL_DAYS` (21)
+  nap, és azóta legalább 2 alkalom volt. Tiszta testsúlyos gyakorlatnál
+  (sosem volt `w>0`) NEM szólal meg – ott az ismétlés a mérce, azt a
+  `failStreak` ág fedi.
+
+`STALL_MIN` (4) naplózott alkalom alatt **null**-t ad: kevés adatból nem
+ítélkezünk. A `stallCard()` csak akkor kerül ki a Haladás fülre, ha van mit
+mondani – üres „minden rendben" kártya nem foglal helyet.
+
+**Az alapértelmezett „okos" progresszió is visszalép** 3 bukás után (−10%,
+ugyanaz, amit a lineáris ad): egyszer nem összejönni „próbáld újra", de
+háromszor egymás után már nem – onnan csak lefelé van hely, ahonnan
+építkezni lehet. A lejátszó a `progNext` indoklását amúgy is kiírja, így a
+szám nem marad megmagyarázatlan.
+
 ## Készenlét (readiness)
 
 Egyetlen napi szám (0..100), ami az app fő tájékozódási pontja. A

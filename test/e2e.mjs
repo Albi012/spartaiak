@@ -910,6 +910,70 @@ ok('23 a bemelegítő tárcsakiosztása is vesszős', await page.evaluate(()=>{
 ok('23 a testsúlyos gyakorlat felirata nem változott', await page.evaluate(()=>
   wLabel({bw:1},0)==='testsúly' && wLabel({bw:1},12.5)==='+12,5' && wLabel({},0)==='0'));
 
+// 25. Stagnálás-felismerés (a naplóból származtatva, tárolt mező nélkül)
+const mkSess=(nap,w,sets)=>({t:Date.now()-nap*864e5, day:'pa', log:{bench:{w,sets}}});
+ok('25 kevés adatnál NEM mond ítéletet', await page.evaluate(()=>{
+  const bak=S.sessions;
+  S.sessions=[{t:Date.now()-3*864e5,day:'pa',log:{bench:{w:60,sets:[5,5,5]}}}];
+  const r=stallOf('bench'); S.sessions=bak; return r===null; }));
+ok('25 három bukás után „nem jön össze"', await page.evaluate((m)=>{
+  const bak=S.sessions, D=864e5, e=exDef('bench'), t=parseInt(e.r)||8;
+  S.sessions=[];
+  for(let i=6;i>=4;i--) S.sessions.push({t:Date.now()-i*D,day:'pa',
+    log:{bench:{w:60,sets:Array(e.s).fill(t)}}});            // megvolt
+  for(let i=3;i>=1;i--) S.sessions.push({t:Date.now()-i*D,day:'pa',
+    log:{bench:{w:60,sets:Array(e.s).fill(t-2)}}});          // 3× cél alatt
+  const r=stallOf('bench'); S.sessions=bak;
+  return !!r && r.state==='fail' && r.fail===3 && /nem jött össze/.test(r.txt); }, 0));
+ok('25 az OKOS progresszió is visszalép 3 bukás után', await page.evaluate(()=>{
+  const bak={s:S.sessions,p:S.prog}, D=864e5, e=exDef('bench'), t=parseInt(e.r)||8;
+  S.sessions=[]; S.prog={};
+  for(let i=6;i>=4;i--) S.sessions.push({t:Date.now()-i*D,day:'pa',log:{bench:{w:60,sets:Array(e.s).fill(t)}}});
+  for(let i=3;i>=1;i--) S.sessions.push({t:Date.now()-i*D,day:'pa',log:{bench:{w:60,sets:Array(e.s).fill(t-2)}}});
+  const n=progNext('bench', lastFor('bench'));
+  S.sessions=bak.s; S.prog=bak.p;
+  return progPolicy('bench')==='smart' && n.w<60 && n.delta<0 && /visszaépítés/.test(n.reason); }));
+ok('25 EGY bukás után még nem lép vissza', await page.evaluate(()=>{
+  const bak=S.sessions, D=864e5, e=exDef('bench'), t=parseInt(e.r)||8;
+  S.sessions=[];
+  for(let i=5;i>=2;i--) S.sessions.push({t:Date.now()-i*D,day:'pa',log:{bench:{w:60,sets:Array(e.s).fill(t)}}});
+  S.sessions.push({t:Date.now()-D,day:'pa',log:{bench:{w:60,sets:Array(e.s).fill(t-2)}}});
+  const n=progNext('bench', lastFor('bench')); S.sessions=bak;
+  return n.w===60 && n.delta===0; }));
+ok('25 régóta változatlan súly = megakadt', await page.evaluate(()=>{
+  const bak=S.sessions, D=864e5, e=exDef('bench'), t=parseInt(e.r)||8;
+  S.sessions=[{t:Date.now()-40*D,day:'pa',log:{bench:{w:55,sets:Array(e.s).fill(t)}}}];
+  // 30 napja tartja a 60-at, a célt hozza, de nem lép feljebb
+  [30,20,10,2].forEach(d=>S.sessions.push({t:Date.now()-d*D,day:'pa',
+    log:{bench:{w:60,sets:Array(e.s).fill(t)}}}));
+  const r=stallOf('bench'); S.sessions=bak;
+  return !!r && r.state==='stall' && r.days>=21 && r.since>=2 && /nem emelkedett a súly/.test(r.txt); }));
+ok('25 emelkedő súlynál nincs riasztás', await page.evaluate(()=>{
+  const bak=S.sessions, D=864e5, e=exDef('bench'), t=parseInt(e.r)||8;
+  S.sessions=[];
+  [40,30,20,10,2].forEach((d,i)=>S.sessions.push({t:Date.now()-d*D,day:'pa',
+    log:{bench:{w:50+i*2.5,sets:Array(e.s).fill(t)}}}));
+  const r=stallOf('bench'); S.sessions=bak; return r===null; }));
+ok('25 tiszta testsúlyos gyakorlatnál nem a súlyt méri', await page.evaluate(()=>{
+  const bak=S.sessions, D=864e5, e=exDef('dipbw'), t=parseInt(e.r)||8;
+  S.sessions=[];
+  [40,30,20,10,2].forEach(d=>S.sessions.push({t:Date.now()-d*D,day:'pb',
+    log:{dipbw:{w:0,sets:Array(e.s).fill(t)}}}));
+  const r=stallOf('dipbw'); S.sessions=bak; return r===null; }));
+ok('25 a Haladás fülön megjelenik a kártya', await page.evaluate(()=>{
+  const bak=S.sessions, D=864e5, e=exDef('bench'), t=parseInt(e.r)||8;
+  S.sessions=[{t:Date.now()-40*D,day:'pa',log:{bench:{w:55,sets:Array(e.s).fill(t)}}}];
+  [30,20,10,2].forEach(d=>S.sessions.push({t:Date.now()-d*D,day:'pa',
+    log:{bench:{w:60,sets:Array(e.s).fill(t)}}}));
+  const h=progView(); S.sessions=bak;
+  return /Megakadt gyakorlatok/.test(h) && /Fekvenyomás/.test(h); }));
+ok('25 üres naplónál nincs kártya', await page.evaluate(()=>{
+  const bak=S.sessions; S.sessions=[]; const c=stallCard(); S.sessions=bak; return c===''; }));
+ok('25 a felismerés nem ír a naplóba', await page.evaluate(()=>{
+  const elotte=JSON.stringify(S.sessions);
+  stalledList(); stallCard();
+  return JSON.stringify(S.sessions)===elotte && S.stall===undefined; }));
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));

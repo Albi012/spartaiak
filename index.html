@@ -563,7 +563,7 @@ function logRdyBadge(t){
 }
 let physioRegion='';  // Gyógytorna oldal aktív testtáj (üres = első)
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v96';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v97';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -1063,6 +1063,46 @@ function failStreak(id){ const e=exDef(id), t=parseInt(e.r)||8; let n=0;
   for(let i=S.sessions.length-1;i>=0;i--){ const L=S.sessions[i].log[id]; if(!L) continue;
     const done=L.sets.length>=e.s && L.sets.every(x=>x!=null&&x>=t); if(done) break; n++; }
   return n; }
+/* ---- Stagnálás-felismerés ------------------------------------------
+ * A naplóból SZÁRMAZTATOTT állapot – nincs hozzá tárolt mező, ugyanúgy, mint
+ * a készenlétnél. Két külön dolgot mond ki, és a szóhasználat is elválasztja:
+ *   - „nem jön össze" (fail): az utolsó edzések a cél ALATT maradtak;
+ *   - „megakadt" (stall): a munkasúly egy ideje NEM emelkedett.
+ * Csak elég adatnál szólal meg (`STALL_MIN` alkalom) – tippelni nem tippel. */
+const STALL_MIN=4;        // ennyi naplózott alkalom kell az ítélethez
+const STALL_DAYS=21;      // ennyi nap óta változatlan csúcssúly = megakadt
+
+// Egy gyakorlat naplózott alkalmai időrendben.
+function exHistory(id){
+  const out=[];
+  (S.sessions||[]).forEach(s=>{ const L=s.log&&s.log[id];
+    if(L && (L.sets||[]).some(x=>x!=null)) out.push({ t:s.t||0, w:L.w||0, L }); });
+  return out.sort((a,b)=>(a.t||0)-(b.t||0));
+}
+// null = nincs mit mondani (kevés adat, vagy megy a dolog).
+function stallOf(id){
+  const h=exHistory(id); if(h.length<STALL_MIN) return null;
+  const fail=failStreak(id);
+  if(fail>=3) return { id, state:'fail', fail, days:0, since:fail,
+    txt:`${fail} egymás utáni edzésen nem jött össze a cél` };
+  // Mikor érted el ELŐSZÖR a mostani csúcssúlyt? Az óta nem emelkedtél.
+  let best=-1, bestT=h[0].t;
+  h.forEach(x=>{ if(x.w>best){ best=x.w; bestT=x.t; } });
+  if(!(best>0)) return null;          // tiszta testsúlyosnál a súly nem mérce
+  const days=Math.floor((Date.now()-bestT)/864e5);
+  const since=h.filter(x=>x.t>bestT).length;
+  if(days>=STALL_DAYS && since>=2) return { id, state:'stall', fail, days, since,
+    txt:`${days} napja nem emelkedett a súly (${since} alkalom azóta)` };
+  return null;
+}
+// Minden naplózott gyakorlat átnézve; a ténylegesen bukó esetek elöl.
+function stalledList(){
+  const ids=new Set();
+  (S.sessions||[]).forEach(s=>Object.keys(s.log||{}).forEach(id=>ids.add(id)));
+  return [...ids].map(stallOf).filter(Boolean)
+    .sort((a,b)=> a.state!==b.state ? (a.state==='fail'?-1:1) : (b.days-a.days||b.since-a.since));
+}
+
 // A következő súly + indoklás egy befejezett edzés (L={w,sets}) alapján.
 function progNext(id,L){
   const e=exDef(id), inc=e.inc||2.5, t=parseInt(e.r)||8, pol=progPolicy(id);
@@ -1091,6 +1131,10 @@ function progNext(id,L){
       return same(`Dupla: dolgozz ${lo}–${hi} ism között azonos súllyal, amíg mind ${hi} nem lesz.`); }
     default: { const d=smartInc(e,L);
       if(d>0){ const over=Math.min(...filled)-t; return {w:R(cur+d), delta:d, reason:`Okos: +${over} a célon → +${kgNum(d)} kg.`}; }
+      // Egyszer nem jött össze → maradj. HÁROMSZOR egymás után viszont nem
+      // „próbáld újra" kérdés: onnan már csak lefelé van hely, ahonnan
+      // építkezni lehet. Ugyanaz a −10%, amit a lineáris is ad.
+      if(failStreak(id)>=3) return down('Okos: 3 edzés óta nem jön össze a cél → −10% visszaépítés.');
       return same('Okos: nem lett meg minden ismétlés → marad a súly.'); }
   }
 }
@@ -3630,6 +3674,23 @@ function rdySpark(rows, hgt){
     <circle cx="${X(last.i).toFixed(1)}" cy="${Y(last.v).toFixed(1)}" r="2.4" fill="${col}" vector-effect="non-scaling-stroke"/></svg>`;
 }
 
+// Megakadt gyakorlatok. Csak akkor kerül ki, ha VAN mit mondani – üres
+// „minden rendben" kártyával nem foglalunk helyet a Haladás fülön.
+function stallCard(){
+  const list=stalledList(); if(!list.length) return '';
+  let h=`<div class="card"><div class="pad">
+    <span class="eyebrow">Megakadt gyakorlatok</span>
+    <p class="mut small" style="margin:4px 0 10px">A naplóból, súly és ismétlés alapján. Koppints a részletekért.</p>`;
+  list.slice(0,6).forEach(x=>{ const e=exDef(x.id), fail=x.state==='fail';
+    h+=`<button class="btn" style="text-align:left;margin-bottom:8px" onclick="openProgDetail('${x.id}')">
+      <span style="font-weight:600">${esc(e.n)}</span>
+      <span class="small" style="display:block;margin-top:2px;color:var(--${fail?'red':'brass'})">${esc(x.txt)}</span>
+      <span class="small dim" style="display:block;margin-top:2px">${fail
+        ? 'A progresszió innen −10% visszaépítést ajánl – onnan újra fel.'
+        : 'Érdemes lehet más progressziót választani, vagy 2–3 hétre lecserélni a mozgást.'}</span></button>`; });
+  if(list.length>6) h+=`<div class="small dim">…és további ${list.length-6}.</div>`;
+  return h+`</div></div>`;
+}
 function progView(){
   const ids=[]; const seen=new Set();
   PLAN.forEach(d=>d.ex.forEach(e=>{ seen.add(e.id);
@@ -3662,6 +3723,7 @@ function progView(){
       <div class="row small dim" style="justify-content:space-between;margin-top:8px"><span>30 napja</span>${trend?`<span>${trend}</span>`:''}<span>ma</span></div>
       </div></div>`;
   }
+  h+=stallCard();
   const WEEKS=16, cols=trainingHeatmap(WEEKS);
   h+=`<div class="card"><div class="pad">
     <span class="eyebrow">Edzésnaptár · utolsó ${WEEKS} hét</span>
