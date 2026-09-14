@@ -563,7 +563,7 @@ function logRdyBadge(t){
 }
 let physioRegion='';  // Gyógytorna oldal aktív testtáj (üres = első)
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v95';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v96';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -1848,6 +1848,31 @@ function aiDupIds(d){
 }
 function aiHasDup(){ return (aiResolved||[]).some(d=>Object.keys(aiDupIds(d)).length>0); }
 
+// A KORÁBBI AI-import megkeresése. Az `at` mezőt KIZÁRÓLAG az import teszi a
+// routine-ra (a kézi összeállító és a kész sablonok nem), ezért a régi,
+// `ai` jelölő nélküli importok is felismerhetők róla. Egy terv akkor
+// AI-terv, ha jelölt, VAGY minden napja AI-importált edzés – így nem
+// nyúlunk a kézzel összerakott vagy sablonból másolt terveidhez.
+function aiPrevImport(){
+  const rIds=new Set((S.routines||[]).filter(r=>r && (r.ai===1 || r.at>0)).map(r=>r.id));
+  const pIds=new Set((S.programs||[]).filter(p=>p && (p.ai===1 ||
+    ((p.days||[]).length>0 && p.days.every(d=>rIds.has(d))))).map(p=>p.id));
+  return { rIds:[...rIds], pIds:[...pIds] };
+}
+// A korábbi import eltávolítása – síremlékkel, hogy a felhő-unió se hozza
+// vissza. A `customEx`-eket SZÁNDÉKOSAN meghagyjuk: az új import a nevük
+// alapján újra rájuk köt, így a súlytörténeted folytatódik.
+function aiWipePrev(){
+  const prev=aiPrevImport(); if(!prev.rIds.length && !prev.pIds.length) return 0;
+  const rSet=new Set(prev.rIds), pSet=new Set(prev.pIds);
+  S.routines=(S.routines||[]).filter(r=>!rSet.has(r.id));
+  S.programs=(S.programs||[]).filter(p=>!pSet.has(p.id));
+  (S.programs||[]).forEach(p=>{ p.days=(p.days||[]).filter(d=>!rSet.has(d)); });
+  prev.rIds.concat(prev.pIds).forEach(tombstone);
+  if(pSet.has(S.activeProgram)) S.activeProgram=null;
+  return prev.rIds.length;
+}
+
 function aiStep3Html(){
   if(!aiParsed()) return `<div class="banner" style="margin-top:12px">Nincs feldolgozott terv – lépj vissza a beillesztéshez.</div>`;
   let matched=0, neu=0, h='';
@@ -1872,7 +1897,11 @@ function aiStep3Html(){
     h+=`</div></div>`;
   });
   const dupe=aiHasDup();
-  return h+`<div class="small mut" style="margin-top:10px">${matched} meglévő gyakorlathoz kötve (a súlytörténeteddel együtt), ${neu} új jön létre. A szettek, ismétlések, súlyok és pihenők pontosan így kerülnek be – az első alkalommal ezekkel indul az edzés, utána a saját haladásod viszi tovább. A meglévő terved érintetlen.</div>
+  const prev=aiPrevImport();
+  const csere = prev.rIds.length
+    ? `<div class="small" style="margin-top:10px;color:var(--brass)">A korábbi AI-importod (${prev.rIds.length} edzés${prev.pIds.length?', '+prev.pIds.length+' terv':''}) ennek a helyére kerül – nem gyűlnek egymásra. A naplózott edzéseid és a saját, kézzel készített terveid érintetlenek.</div>`
+    : '';
+  return h+csere+`<div class="small mut" style="margin-top:10px">${matched} meglévő gyakorlathoz kötve (a súlytörténeteddel együtt), ${neu} új jön létre. A szettek, ismétlések, súlyok és pihenők pontosan így kerülnek be – az első alkalommal ezekkel indul az edzés, utána a saját haladásod viszi tovább. A meglévő terved érintetlen.</div>
     ${dupe?`<div class="banner" style="margin-top:10px">Egy napon belül ugyanaz a gyakorlat kétszer szerepel. A napló gyakorlatonként egy szett-sort vezet, ezért a két sor összeolvadna, és az egyik előírás elveszne. Oldd fel a pirossal jelölteket, aztán mehet a hozzáadás.</div>`:''}
     <button class="btn pri" style="margin-top:10px" onclick="aiImportApply()" ${dupe?'disabled':''}>Hozzáadás az edzéseimhez</button>`;
 }
@@ -1895,6 +1924,11 @@ async function aiImportApply(){
   // Védőháló: duplikált gyakorlat-ID-vel a routine hibás adatot tárolna.
   if(aiHasDup()){ uiAlert('Egy napon belül ugyanaz a gyakorlat kétszer szerepel. Dobd ki az egyiket, vagy kösd át másik gyakorlatra – így egyik előírás sem vész el.'); return; }
   if(!S.customEx)S.customEx={}; if(!S.routines)S.routines=[]; if(!S.programs)S.programs=[];
+  // A korábbi AI-import HELYÉRE kerülünk, nem mellé: enélkül minden behúzás
+  // újabb „AI edzésterv" + újabb azonos nevű napok sorát rakná a listába.
+  // A saját (kézzel készített, sablonból másolt) terveid és a naplód nem
+  // érintettek. Az előnézet ezt előre kiírja.
+  const cserelt = aiWipePrev();
   let newEx=0; const dayIds=[];
   aiResolved.forEach(d=>{
     const ov={};
@@ -1920,7 +1954,7 @@ async function aiImportApply(){
       S.customEx[id]=def; newEx++; return id;
     });
     const rid=uid('r_');
-    const rt={ id:rid, name:d.name||'AI edzés', sub:exIds.length+' gyakorlat', ex:exIds, at:Date.now() };
+    const rt={ id:rid, name:d.name||'AI edzés', sub:exIds.length+' gyakorlat', ex:exIds, at:Date.now(), ai:1 };
     if(Object.keys(ov).length) rt.exOv=ov;
     S.routines.push(rt);
     dayIds.push(rid);
@@ -1932,12 +1966,13 @@ async function aiImportApply(){
   // koppintás az „Aktív edzésterv" választóban.
   let progName='';
   if(dayIds.length>1){ const pid=uid('p_');
-    S.programs.push({ id:pid, name:'AI edzésterv', days:dayIds });
+    S.programs.push({ id:pid, name:'AI edzésterv', days:dayIds, ai:1 });
     progName='AI edzésterv'; S.activeProgram=pid; }
-  save(); closeSheet(); tab='home'; render(); window.scrollTo(0,0);
-  await uiAlert(progName
+  save(); flushCloud(); closeSheet(); tab='home'; render(); window.scrollTo(0,0);
+  const cs = cserelt ? ` A korábbi AI-importod (${cserelt} edzés) helyére került.` : '';
+  await uiAlert((progName
     ? `Kész: ${dayIds.length} edzés a(z) „${progName}" tervben, ${newEx} új gyakorlat. Ez lett az aktív terved – a régire egy koppintással visszaválthatsz a főoldali választóban.`
-    : `Kész: ${dayIds.length} edzés, ${newEx} új gyakorlat. Megtalálod a főoldalon a „Saját edzések" alatt és a Tervek fülön.`);
+    : `Kész: ${dayIds.length} edzés, ${newEx} új gyakorlat. Megtalálod a főoldalon a „Saját edzések" alatt és a Tervek fülön.`)+cs);
 }
 
 /* ================= Edzés-összeállító (saját edzések) ================ */

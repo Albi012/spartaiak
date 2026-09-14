@@ -811,9 +811,11 @@ ok('22 dupla gyakorlat esetén figyelmeztet és NEM importál', await page.evalu
       && (S.routines||[]).length===n; }));
 ok('22 feloldás után mehet, és a MEGMARADT előírás a helyes', await page.evaluate(async ()=>{
   aiRemoveItem(0,1);
-  const n=(S.routines||[]).length; await aiImportApply();
-  const r=S.routines[S.routines.length-1];
-  return (S.routines||[]).length===n+1 && r.ex.length===1 && r.ex[0]==='bench'
+  await aiImportApply();
+  // Az import a korábbi AI-terv HELYÉRE kerül (24. szekció), ezért nem a
+  // darabszámot nézzük, hanem a ténylegesen létrejött edzést.
+  const r=(S.routines||[]).find(x=>x.ai===1);
+  return !!r && r.ex.length===1 && r.ex[0]==='bench'
       && r.exOv.bench.s===5 && r.exOv.bench.w===80; }));
 // Külön gyakorlatokra kötve nincs ütközés.
 ok('22 más-más gyakorlat nem számít duplának', await page.evaluate(async ()=>{
@@ -821,6 +823,72 @@ ok('22 más-más gyakorlat nem számít duplának', await page.evaluate(async ()
   openAiImport(); aiGo(2); aiTextInput(T); await new Promise(r=>setTimeout(r,500)); aiGo(3);
   return !aiHasDup(); }));
 await page.evaluate(()=>closeSheet());
+
+// 24. Az ÚJ AI-import a korábbi HELYÉRE kerül (nem gyűlnek egymásra)
+await page.evaluate(()=>{ window.uiAlert=m=>{ window.__a=m; return Promise.resolve(); };
+  window.uiConfirm=()=>Promise.resolve(true);
+  S.routines=[]; S.programs=[]; S.deleted=[]; S.activeProgram=null; });
+const AI2='NAP: AI Push\nNAP_SOR\nNAP: AI Pull\nNAP_SOR2';
+const TERV_A='NAP: A Push\n- Fekvenyomás | 4x6 | 60 | 90\nNAP: A Pull\n- Húzódzkodás | 4x8 | testsúly | 120';
+const TERV_B='NAP: B Push\n- Vállból nyomás | 3x10 | 16 | 90\nNAP: B Pull\n- Hasalva kézisúlyzós evezés | 4x10 | 22 | 75';
+const aiImport = async (terv)=>page.evaluate(async t=>{
+  openAiImport(); aiGo(2); aiTextInput(t); await new Promise(r=>setTimeout(r,500));
+  aiGo(3); await aiImportApply();
+  return { r:(S.routines||[]).length, p:(S.programs||[]).length, act:S.activeProgram }; }, terv);
+
+const imp1 = await aiImport(TERV_A);
+ok('24 az első import létrejön', imp1.r===2 && imp1.p===1 && !!imp1.act);
+// Saját (kézzel készített) edzés és terv – ezekhez NEM szabad nyúlni.
+await page.evaluate(()=>{
+  S.routines.push({id:'r_sajat', name:'Kézzel rakott nap', sub:'1 gyakorlat', ex:['bench']});
+  S.programs.push({id:'p_sajat', name:'Saját tervem', days:['r_sajat','pa']});
+  addStarterRoutine(Object.keys(STARTER_ROUTINES)[0], true);   // sablonból másolt
+});
+const kezzelElotte = await page.evaluate(()=>(S.routines||[]).filter(r=>!(r.ai===1||r.at>0)).length);
+const imp2 = await aiImport(TERV_B);
+ok('24 a MÁSODIK import nem szaporítja az AI-terveket', await page.evaluate(()=>
+  (S.routines||[]).filter(r=>r.ai===1||r.at>0).length===2
+  && (S.programs||[]).filter(p=>p.ai===1).length===1));
+ok('24 az új terv napjai az ÚJ tervből valók', await page.evaluate(()=>{
+  const p=(S.programs||[]).find(x=>x.ai===1);
+  const nevek=p.days.map(d=>(S.routines.find(r=>r.id===d)||{}).name).join(',');
+  return /B Push/.test(nevek) && /B Pull/.test(nevek) && !/A Push/.test(nevek); }));
+ok('24 a SAJÁT edzések és tervek érintetlenek', await page.evaluate((n)=>
+  (S.routines||[]).filter(r=>!(r.ai===1||r.at>0)).length===n
+  && (S.programs||[]).some(p=>p.id==='p_sajat')
+  && (S.routines||[]).some(r=>r.id==='r_sajat'), kezzelElotte));
+ok('24 a régi AI-elemek síremléket kapnak (a felhő se hozza vissza)', await page.evaluate(()=>{
+  const k=(S.deleted||[]).filter(d=>d&&d.k&&!d.alive).map(d=>d.k);
+  return k.length>=3 && k.some(x=>x.indexOf('r_')===0) && k.some(x=>x.indexOf('p_')===0); }));
+ok('24 az aktív terv az ÚJ import lett', await page.evaluate(()=>
+  S.activeProgram===((S.programs||[]).find(p=>p.ai===1)||{}).id));
+// A korábbi importból naplózott edzés NEVE megmarad a napló számára.
+ok('24 a törölt AI-nap naplózott edzése nevesített marad', await page.evaluate(()=>{
+  const fake={t:Date.now(), day:'r_regen_torolt', dayName:'A Push', log:{bench:{w:60,sets:[6,6,6]}}};
+  S.sessions.push(fake); const nev=dayName(fake); const h=logView(); S.sessions.pop();
+  return nev==='A Push' && h.includes('A Push'); }));
+// A RÉGI, jelölő nélküli (csak `at`-tel bíró) import is lecserélődik.
+ok('24 a régi, ai-jelölő nélküli import is lecserélődik', await page.evaluate(async ()=>{
+  S.routines=[{id:'r_regi1', name:'Régi AI nap', sub:'1', ex:['bench'], at:1}];
+  S.programs=[{id:'p_regi', name:'AI edzésterv', days:['r_regi1']}];
+  S.activeProgram='p_regi'; S.deleted=[];
+  const prev=aiPrevImport();
+  openAiImport(); aiGo(2); aiTextInput('NAP: Új\n- Fekvenyomás | 4x6 | 60 | 90');
+  await new Promise(r=>setTimeout(r,500)); aiGo(3); await aiImportApply();
+  return prev.rIds.length===1 && prev.pIds.length===1
+      && !(S.routines||[]).some(r=>r.id==='r_regi1')
+      && !(S.programs||[]).some(p=>p.id==='p_regi'); }));
+ok('24 az előnézet előre kimondja a cserét', await page.evaluate(async ()=>{
+  openAiImport(); aiGo(2); aiTextInput('NAP: X\n- Fekvenyomás | 4x6 | 60 | 90');
+  await new Promise(r=>setTimeout(r,500)); aiGo(3);
+  const t=document.getElementById('sheetIn').textContent; closeSheet();
+  return /korábbi AI-importod/.test(t) && /helyére kerül/.test(t); }));
+ok('24 első importnál NINCS csere-figyelmeztetés', await page.evaluate(async ()=>{
+  S.routines=[]; S.programs=[]; S.activeProgram=null;
+  openAiImport(); aiGo(2); aiTextInput('NAP: X\n- Fekvenyomás | 4x6 | 60 | 90');
+  await new Promise(r=>setTimeout(r,500)); aiGo(3);
+  const t=document.getElementById('sheetIn').textContent; closeSheet();
+  return !/korábbi AI-importod/.test(t); }));
 
 // 23. Súlyok magyar alakja: tizedes VESSZŐ (a testsúly-napló is így írja)
 ok('23 kgNum egész marad egész, a tizedes vesszőt kap', await page.evaluate(()=>

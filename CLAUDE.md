@@ -330,6 +330,23 @@ Az import működése:
   korábbi plusz súlyod jönne fel, pedig az edző nem azt kérte. A „testsúly"
   csak akkor ad `w:0`-t, ha a feloldott gyakorlat maga is testsúlyos
   (`base.bw`); egyébként nem nyúlunk a súlyhoz.
+- **Az ÚJ import a KORÁBBI AI-import HELYÉRE kerül** (`aiPrevImport` /
+  `aiWipePrev`), nem mellé. Enélkül minden behúzás újabb „AI edzésterv"-et
+  és újabb, azonos nevű napokat rakott a listára – a Tervek fül és a napló
+  szűrő-chipjei pár import után olvashatatlanná váltak.
+  **Felismerés:** az `at` mezőt KIZÁRÓLAG az import teszi a routine-ra (a
+  kézi összeállító és a `STARTER_ROUTINES` másolat NEM), ezért a régi,
+  `ai:1` jelölő nélküli importok is felismerhetők róla. Egy terv akkor
+  AI-terv, ha `ai:1`, VAGY minden napja AI-importált edzés – így a kézzel
+  összerakott és a sablonból másolt terv nem esik áldozatul. Az új import
+  `ai:1`-et tesz a routine-ra és a programra is.
+  **A törlés síremlékes** (`tombstone`) + azonnali `flushCloud()`, hogy a
+  felhő-unió ne hozza vissza a lecserélt terveket a másik eszközről.
+  A `customEx`-eket SZÁNDÉKOSAN meghagyjuk: az új import a nevük alapján
+  újra rájuk köt (`aiMatchEx` az `exLibrary()`-ben látja őket), így a
+  súlytörténet folytatódik. A naplózott edzések is érintetlenek – a
+  `startDay` elmenti a `dayName`-et, ezért a törölt routine edzése nevesítve
+  marad. Az előnézet ELŐRE kiírja, mi cserélődik; ez maga a megerősítés.
 - **Több nap esetén az új terv AKTÍVVÁ is válik** (`S.activeProgram`).
   Ez nem szépészeti: a főoldal csak az aktív terv napjait mutatja, a „Saját
   edzések" szekció pedig kihagyja azokat a routine-okat, amik tervhez
