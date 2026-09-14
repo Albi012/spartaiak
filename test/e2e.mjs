@@ -1016,6 +1016,65 @@ ok('26 a vendor mappa dokumentált és licencelt', await page.evaluate(async ()=
     fetch('vendor/README.md').then(r=>r.text()), fetch('vendor/LICENSE-supabase.txt').then(r=>r.text())]);
   return /supabase-js/.test(rd) && /2\.116\.0/.test(rd) && /MIT/i.test(lic); }));
 
+// 27. Barátok fül – a felület kilépve/belépve, és a szerveroldal teljessége
+ok('27 felhő-konfig nélkül kimondja, hogy nincs beállítva', await page.evaluate(()=>{
+  const bak=window.Auth;
+  window.Auth={ configured:()=>false, isLoggedIn:()=>false };
+  const t=friendsView().replace(/<[^>]*>/g,' '); window.Auth=bak;
+  return /nincs beállítva/.test(t) && !/Betöltés/.test(t); }));
+ok('27 kilépve belépésre hív, nem hibázik', await page.evaluate(()=>{
+  const bak=window.Auth;
+  window.Auth={ configured:()=>true, isLoggedIn:()=>false };
+  const t=friendsView().replace(/<[^>]*>/g,' '); window.Auth=bak;
+  return /Lépj be/.test(t) && /Belépés/.test(t); }));
+ok('27 belépve a barát-kód, a kérések és a barátok is megjelennek', await page.evaluate(()=>{
+  const bak={a:window.Auth, f:friendsData, s:sharedPlansData, p:myProfile};
+  window.Auth={ configured:()=>true, isLoggedIn:()=>true, currentUser:()=>({id:'en'}) };
+  myProfile={ display_name:'Én', friend_code:'ABC123' };
+  friendsData=[
+    { requester:'en', addressee:'b1', addressee_name:'Béla', status:'accepted' },
+    { requester:'c1', addressee:'en', requester_name:'Csaba', status:'pending' },
+    { requester:'en', addressee:'d1', addressee_name:'Dóra', status:'pending' }];
+  sharedPlansData=[{ id:'sp1', name:'Erő blokk', from_name:'Béla' }];
+  const h=friendsView(), t=h.replace(/<[^>]*>/g,' ');
+  window.Auth=bak.a; friendsData=bak.f; sharedPlansData=bak.s; myProfile=bak.p;
+  return /ABC123/.test(t) && /Béla/.test(t) && /Csaba/.test(t) && /Dóra/.test(t)
+      && /Erő blokk/.test(t) && /Barátaid \(1\)/.test(t) && /függőben/.test(t); }));
+ok('27 a bejövő kérés badge-et kap', await page.evaluate(()=>{
+  const bak={a:window.Auth, f:friendsData};
+  window.Auth={ configured:()=>true, isLoggedIn:()=>true, currentUser:()=>({id:'en'}) };
+  friendsData=[{ requester:'c1', addressee:'en', requester_name:'Csaba', status:'pending' }];
+  const n=friendsPending(); updateFriendsBadge();
+  const pont=document.getElementById('friendsDot');
+  const on=!!(pont && pont.classList.contains('on'));
+  friendsData=[]; updateFriendsBadge();
+  const off=!(pont && pont.classList.contains('on'));
+  window.Auth=bak.a; friendsData=bak.f;
+  return n===1 && on && off; }));
+ok('27 a barát neve escape-elve megy ki (nem HTML)', await page.evaluate(()=>{
+  const bak={a:window.Auth, f:friendsData, p:myProfile};
+  window.Auth={ configured:()=>true, isLoggedIn:()=>true, currentUser:()=>({id:'en'}) };
+  myProfile={ friend_code:'X' };
+  friendsData=[{ requester:'en', addressee:'b1', addressee_name:'<img src=x onerror=alert(1)>', status:'accepted' }];
+  const h=friendsView();
+  window.Auth=bak.a; friendsData=bak.f; myProfile=bak.p;
+  return !/<img src=x/.test(h) && /&lt;img/.test(h); }));
+// A szerveroldal teljessége: minden használt tábla/RPC legyen sémában, ÉS a
+// fiók-törlés fedje le – különben árva sor marad a törölt fiók után.
+ok('27 minden használt tábla és RPC szerepel a sémafájlokban', await page.evaluate(async ()=>{
+  const auth=await (await fetch('js/auth.js')).text();
+  const sql=(await Promise.all(['schema.sql','schema-friends.sql','schema-plan-shares.sql','schema-delete-account.sql']
+    .map(f=>fetch('supabase/'+f).then(r=>r.text())))).join('\n');
+  const nevek=[...new Set([...auth.matchAll(/\.(?:from|rpc)\('([a-z_]+)'/g)].map(m=>m[1]))];
+  window.__hianyzo=nevek.filter(n=>!new RegExp('\\b'+n+'\\b').test(sql));
+  return nevek.length>=6 && window.__hianyzo.length===0; }));
+ok('27 a fiók-törlés MINDEN felhasználói táblát takarít', await page.evaluate(async ()=>{
+  const auth=await (await fetch('js/auth.js')).text();
+  const del=await (await fetch('supabase/schema-delete-account.sql')).text();
+  const tablak=[...new Set([...auth.matchAll(/\.from\('([a-z_]+)'\)/g)].map(m=>m[1]))];
+  window.__nemTorolt=tablak.filter(t=>!new RegExp('delete from public\\.'+t+'\\b').test(del));
+  return tablak.length>=5 && window.__nemTorolt.length===0; }));
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));

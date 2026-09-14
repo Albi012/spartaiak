@@ -609,6 +609,31 @@ Minden törlés a mentés után `flushCloud()`-dal AZONNAL a felhőbe írja a
 síremléket (nem várja a debounce-t). Új törlésnél mindig hívd a
 `tombstone()`-t.
 
+## Barátok (opcionális, felhő-fiókkal)
+
+Külön fül (`friendsView`, `tab==='friends'`). **Csak akkor él, ha van
+felhő-konfig ÉS be vagy lépve** – enélkül egy mondattal kimondja, miért
+üres, és nem hibázik. A napló ettől függetlenül teljesen működik.
+
+- **Barát-kód** (`profiles.friend_code`): a saját kódodat megosztod, a
+  másikét beírod → `Auth.requestFriend` (`request_friend` RPC). Nincs
+  keresés név/e-mail szerint, nincs nyilvános profil.
+- **Kölcsönösség:** a `friendships` sor `pending` → `accepted`, amíg a
+  címzett el nem fogadja. Bejövő kérésre a navban pötty jelenik meg
+  (`friendsPending` / `updateFriendsBadge`).
+- **Amit a barát lát:** csak a `shared_stats`-ba publikált, SZÁRMAZTATOTT
+  összefoglaló (`publishStats`/`friendStats`) – nyers napló SOHA nem megy át.
+- **Edzésterv-küldés** (`plan_shares`): a címzett külön dönt az importálásról
+  (`doImportPlan`) vagy elvetésről; a terve addig érintetlen.
+- **Szerveroldal:** `supabase/schema-friends.sql` + `schema-plan-shares.sql`.
+
+**Ha ÚJ táblát vagy RPC-t veszel fel az `auth.js`-be, három dolgot csinálj:**
+sémafájl hozzá, `on delete cascade` az `auth.users`-re, és vedd fel a
+`delete_my_account()` törlés-listájába. E2E-teszt őrzi mindkettőt (27.
+szekció): átnézi az `auth.js` összes `from('…')`/`rpc('…')` hívását, és
+elbukik, ha valamelyik kimarad a sémából vagy a fiók-törlésből. Enélkül a
+törölt fiók után árva sor maradna, ami adatvédelmi hiba.
+
 ## Fiók végleges törlése
 
 Az **App Store (5.1.1(v))** és a **Google Play** is megköveteli, hogy ha az
@@ -692,9 +717,12 @@ media-blokkban definiálva – a `:root`-on legyen az alapérték.
   indoklása és az edzői export is. Enélkül a „62.5 kg" a testsúly-napló
   „78,4 kg"-ja mellett állna ugyanabban a szövegben. Új súly-kiírásnál is a
   `kgNum`-ot használd; az SVG-geometria `toFixed`-jei maradnak pontosak.
-- Nincs benne közösségi funkció (ezt szándékosan kihagytuk). **Kivétel a
-  fotó:** gyakorlatonként egy gépbeállítás-emlékeztető kép megengedett (nem
-  illusztráció, hanem emlékeztető) – lásd `photos` mező.
+- **A közösségi rész szűk és opcionális** (lásd „Barátok" lentebb): nincs
+  hírfolyam, like, nyilvános profil vagy felfedezés. Csak kóddal bejelölt,
+  kölcsönös barátok, származtatott statisztikák és kézzel küldött
+  edzésterv. Ezt a szűkösséget tartsd meg – az app fő ígérete a saját napló,
+  nem a közönség. **Gyakorlatonként egy gépbeállítás-emlékeztető fotó** is
+  megengedett (nem illusztráció, hanem emlékeztető) – lásd `photos` mező.
 - **Technika-videó gyakorlatonként** (felhasználói kérésre bekerült): a
   gyakorlat-jegyzet és a haladás-részletlap „Technika videó" linkje külső
   fülön nyílik (NEM beágyazott videó). A `VIDEO[exId]` térkép a PONTOS,
