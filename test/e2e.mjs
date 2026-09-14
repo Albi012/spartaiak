@@ -1075,6 +1075,59 @@ ok('27 a fiók-törlés MINDEN felhasználói táblát takarít', await page.eva
   window.__nemTorolt=tablak.filter(t=>!new RegExp('delete from public\\.'+t+'\\b').test(del));
   return tablak.length>=5 && window.__nemTorolt.length===0; }));
 
+// 28. Heti nézet a főoldalon (hétfőtől, a naplóból – nem talál ki menetrendet)
+ok('28 hét hétfőtől, 7 nap', await page.evaluate(()=>{
+  const d=weekDays();
+  return d.length===7 && d[0].lbl==='H' && d[6].lbl==='V'
+      && d[0].t===weekStart(Date.now())
+      && d.filter(x=>x.ma).length===1; }));
+ok('28 a mai edzés a mai cellába kerül', await page.evaluate(()=>{
+  const bak=S.sessions, ws=weekStart(Date.now());
+  const t=Math.max(ws, Date.now()-36e5);
+  S.sessions=[{t, day:'pa', dayName:'Push A', log:{bench:{w:60,sets:[5,5,5]}}}];
+  const d=weekDays(), ma=d.find(x=>x.ma); S.sessions=bak;
+  return ma.sess.length===1 && d.filter(x=>x.sess.length).length===1; }));
+ok('28 a MÚLT heti edzés nem számít bele', await page.evaluate(()=>{
+  const bak=S.sessions, ws=weekStart(Date.now());
+  S.sessions=[{t:ws-12*36e5, day:'pa', dayName:'Push A', log:{bench:{w:60,sets:[5,5,5]}}}];
+  const d=weekDays(), p=weekPlan(); S.sessions=bak;
+  return d.every(x=>!x.sess.length) && p.every(x=>!x.done); }));
+ok('28 csak mérés = pihenőnap jelölés, nem edzés', await page.evaluate(()=>{
+  const bak={s:S.sessions,b:S.bw,sl:S.sleep};
+  S.sessions=[]; S.bw={[bwKey(Date.now())]:80}; S.sleep={};
+  const ma=weekDays().find(x=>x.ma);
+  S.sessions=bak.s; S.bw=bak.b; S.sleep=bak.sl;
+  return ma.pihen===true && ma.sess.length===0; }));
+ok('28 a terv napjai: megvolt / hátra van', await page.evaluate(()=>{
+  const bak={s:S.sessions,a:S.activeProgram}; S.activeProgram=null;   // beépített PLAN
+  const t=Math.max(weekStart(Date.now()), Date.now()-36e5);
+  S.sessions=[{t, day:'pa', dayName:'Push A', log:{bench:{w:60,sets:[5,5,5]}}}];
+  const p=weekPlan(); S.sessions=bak.s; S.activeProgram=bak.a;
+  return p.length===4 && p.filter(x=>x.done).length===1
+      && p.find(x=>x.id==='pa').done===true; }));
+ok('28 a kártya a hátralévő napokat indíthatóan mutatja', await page.evaluate(()=>{
+  const bak={s:S.sessions,a:S.activeProgram}; S.activeProgram=null;
+  const t=Math.max(weekStart(Date.now()), Date.now()-36e5);
+  S.sessions=[{t, day:'pa', dayName:'Push A', log:{bench:{w:60,sets:[5,5,5]}}}];
+  const h=weekPlanCard(); S.sessions=bak.s; S.activeProgram=bak.a;
+  return /Ez a hét/.test(h) && /1\/4 edzés/.test(h)
+      && /még hátra van/.test(h) && /startDay\('la'\)/.test(h)
+      && !/startDay\('pa'\)/.test(h)          // a megvoltat nem kínálja újra
+      && /Megvolt: Push A/.test(h); }));
+ok('28 teljesített hétnél elismerés, nem üres lista', await page.evaluate(()=>{
+  const bak={s:S.sessions,a:S.activeProgram}; S.activeProgram=null;
+  const ws=weekStart(Date.now()), t=Math.max(ws, Date.now()-36e5);
+  S.sessions=['pa','la','pb','lb'].map(d=>({t, day:d, dayName:d, log:{bench:{w:60,sets:[5]}}}));
+  const h=weekPlanCard(); S.sessions=bak.s; S.activeProgram=bak.a;
+  return /4\/4 edzés/.test(h) && /végigcsináltad/.test(h) && !/startDay/.test(h); }));
+ok('28 üres naplónál nincs heti kártya a főoldalon', await page.evaluate(()=>{
+  const bak=S.sessions; S.sessions=[]; const h=homeView(); S.sessions=bak;
+  return !/Ez a hét/.test(h); }));
+ok('28 a heti nézet nem ír a naplóba', await page.evaluate(()=>{
+  const elotte=JSON.stringify(S.sessions);
+  weekDays(); weekPlan(); weekPlanCard();
+  return JSON.stringify(S.sessions)===elotte; }));
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));

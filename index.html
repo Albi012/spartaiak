@@ -299,6 +299,19 @@ textarea:focus{outline:2px solid var(--brass);outline-offset:2px}
 .rdystrip span.t{flex:1;font-size:13px;line-height:1.35}
 
 /* Terv kontra valóság / sérülés – választható címkék */
+/* Heti sáv a főoldalon: 7 egyenlő oszlop, hétfőtől. A cella maga nem
+   koppintható (nincs mit tenni egy múltbeli napon) – a cselekvés a terv
+   listájában van alatta. */
+.wkrow{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:10px}
+.wkday{display:flex;flex-direction:column;align-items:center;gap:6px}
+.wklbl{font-size:11px;font-weight:600;color:var(--dim);letter-spacing:.04em}
+.wkcell{width:100%;aspect-ratio:1;max-height:38px;border-radius:11px;background:var(--card2);
+  border:1px solid transparent;display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:700;color:var(--dim)}
+.wkcell.done{background:var(--brass);color:var(--on-brass);border-color:var(--brass)}
+.wkcell.rest{color:var(--mut)}
+.wkcell.today{border-color:var(--brass)}
+.wkcell.future{opacity:.45}
 .whyrow{display:flex;flex-wrap:wrap;gap:8px}
 .whyc{padding:9px 13px;border-radius:999px;border:1px solid var(--line);background:var(--card2);color:var(--mut);font-size:13px;font-weight:600}
 .whyc.on{border-color:var(--brass);color:var(--brass);background:var(--brass-d)}
@@ -566,7 +579,7 @@ function logRdyBadge(t){
 }
 let physioRegion='';  // Gyógytorna oldal aktív testtáj (üres = első)
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v99';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v100';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -1255,6 +1268,60 @@ function suggestDay(){
   if(!best || best.score===0) return null;
   return {...best, needy};
 }
+/* ---- Heti nézet – előre is lássunk, ne csak vissza ------------------
+ * A hét HÉTFŐTŐL indul (ugyanaz a `weekStart`, mint a sorozatnál, a heti
+ * izomtérképnél és az edzői exportnál), hogy a felület egységesen értse a
+ * „hetet". Két dolgot mutat, és egyiket sem TALÁLJA KI: mit edzettél eddig
+ * ezen a héten (a naplóból), és az aktív terv mely napjai vannak még hátra.
+ * Az appban NINCS nap→hétköznap beosztás – ezért a hátralévő napok listája
+ * SORREND, nem menetrend; nem teszünk úgy, mintha lenne órarended. */
+const WDAY=['H','K','Sze','Cs','P','Szo','V'];
+function weekDays(){
+  const ws=weekStart(Date.now()), ma=new Date(new Date().setHours(0,0,0,0)).getTime();
+  return WDAY.map((lbl,i)=>{
+    const t0=ws+i*864e5, t1=t0+864e5;
+    const sess=(S.sessions||[]).filter(s=>(s.t||0)>=t0 && (s.t||0)<t1);
+    const k=bwKey(t0);
+    return { lbl, t:t0, ma:t0===ma, jovo:t0>ma, sess,
+      pihen: !sess.length && !!((S.bw&&S.bw[k]) || (S.sleep&&S.sleep[k])) };
+  });
+}
+// Az aktív terv napjai + megvolt-e MÁR EZEN A HÉTEN.
+function weekPlan(){
+  const act=activeProg(), ws=weekStart(Date.now());
+  return ((act&&act.days)||[]).map(id=>{ const d=dayDef(id); if(!d) return null;
+    const s=(S.sessions||[]).find(x=>(x.t||0)>=ws && x.day===id);
+    return { id, name:d.name, done:!!s, t:s?s.t:0 };
+  }).filter(Boolean);
+}
+function weekPlanCard(){
+  const days=weekDays(), terv=weekPlan();
+  const meg=terv.filter(x=>!x.done), kesz=terv.length-meg.length;
+  let h=`<div class="card"><div class="pad">
+    <div class="row" style="align-items:baseline">
+      <span class="eyebrow grow">Ez a hét</span>
+      ${terv.length?`<span class="small dim">${kesz}/${terv.length} edzés</span>`:''}</div>
+    <div class="wkrow">`;
+  days.forEach(d=>{
+    const cls = d.sess.length ? 'done' : d.pihen ? 'rest' : '';
+    const jel = d.sess.length ? (d.sess.length>1?d.sess.length:'✓') : d.pihen ? '·' : '';
+    h+=`<div class="wkday"><span class="wklbl"${d.ma?' style="color:var(--brass)"':''}>${d.lbl}</span>
+      <span class="wkcell ${cls}${d.ma?' today':''}${d.jovo?' future':''}"
+        title="${fmtDate(d.t)}${d.sess.length?' – '+d.sess.map(x=>esc(dayName(x))).join(', '):''}">${jel}</span></div>`;
+  });
+  h+=`</div>`;
+  if(terv.length){
+    h+=`<div class="small mut" style="margin-top:12px">${meg.length
+      ? 'Az aktív tervedből még hátra van:'
+      : 'A tervedet végigcsináltad ezen a héten. Szép munka.'}</div>`;
+    meg.forEach(x=>{ h+=`<button class="btn" style="text-align:left;margin-top:8px" onclick="startDay('${x.id}')">
+      <span style="font-weight:600">${esc(x.name)}</span>
+      <span class="small dim" style="display:block;margin-top:2px">Kezdés ›</span></button>`; });
+    const done=terv.filter(x=>x.done);
+    if(done.length) h+=`<div class="small dim" style="margin-top:10px">Megvolt: ${done.map(x=>esc(x.name)+' <span style="color:var(--sage)">✓</span>').join(' · ')}</div>`;
+  }
+  return h+`</div></div>`;
+}
 function homeView(){
   const done = S.sessions.length;
   const wk = S.sessions.filter(s=>Date.now()-s.t < 6048e5).length;
@@ -1324,6 +1391,9 @@ function homeView(){
         <button class="btn pri" onclick="startDay('${sug.dayId}')">Kezdés ›</button></div></div>`;
     }
   }
+  // Heti nézet: mi van meg és mi van hátra. Üres naplónál nem kerül ki –
+  // első indításkor még nincs mit összegezni.
+  if(done) h+=weekPlanCard();
   // Napi testsúly + alvás – edzés nélküli napon is (mindig látható)
   h+=bwHomeCard();
   h+=sleepHomeCard();

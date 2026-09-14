@@ -379,6 +379,26 @@ felület egységesen érti a „hetet". Ha ezen a héten még nincs edzés, az
 utolsó 3 megy el, és a fejléc ezt meg is mondja („ezen a héten még nem volt
 edzés") – nem tesz úgy, mintha heti anyag volna.
 
+## Heti nézet a főoldalon
+
+A `weekPlanCard()` (a „Mit edzek ma?" ajánló UTÁN, a testsúly/alvás kártyák
+ELŐTT) a főoldal egyetlen előre néző eleme. A hét **hétfőtől** indul
+(`weekStart`, ugyanaz, mint a sorozatnál, a heti izomtérképnél és az edzői
+exportnál) – a felület egységesen érti a „hetet".
+
+- `weekDays()` – 7 cella: edzés (`sess`), csak mérés = pihenőnap (`pihen`),
+  ma (`ma`), jövő (`jovo`). A cellák nem koppinthatók: egy múltbeli napon
+  nincs mit tenni.
+- `weekPlan()` – az AKTÍV terv napjai + megvolt-e már ezen a héten. A még
+  hátralévők indítható sorok (`startDay`), a megvoltak egy sorban felsorolva.
+
+**Az appban NINCS nap→hétköznap beosztás, és ezt ne is találd ki.** A
+hátralévő napok listája SORREND, nem menetrend – nem teszünk úgy, mintha
+órarended volna. Ha valaha kell rögzített beosztás, az ÚJ, additív mező
+legyen (és a szinkront is érintse), ne a heti nézet tippelje meg.
+
+Üres naplónál a kártya nem kerül ki – első indításkor nincs mit összegezni.
+
 ## Stagnálás-felismerés
 
 A `stallOf(id)` / `stalledList()` a **naplóból származtatja**, hogy egy
