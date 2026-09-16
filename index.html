@@ -561,7 +561,7 @@ function logRdyBadge(t){
 }
 let physioRegion='';  // Gyógytorna oldal aktív testtáj (üres = első)
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v101';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v102';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -2937,9 +2937,22 @@ function logView(){
       <button class="btn" onclick="restore()" style="margin-bottom:20px;color:var(--mut)">Visszaállítás mentésből</button>`;
   return h+'</div>';
 }
+// A mentés a TELJES állapotot viszi – azt, amit a `save()` is eltesz. Korábban
+// hat mező kimaradt, és a visszaállítás némán elvette őket: a `prog`
+// (gyakorlatonkénti progresszió-szabály) visszaállt „okos"-ra, az
+// `activeProgram` a beépített tervre esett vissza (vagyis az importált napok
+// eltűntek a főoldalról), a `deleted` síremlékek nélkül pedig a felhőből
+// VISSZAJÖTTEK a már törölt edzések és fotók. Ha új mezőt veszel fel a
+// `save()`-be, ide is vedd fel – E2E-teszt hasonlítja a kettőt (30. szekció).
+// A folyamatban lévő edzés (`active`/`activeT`) SZÁNDÉKOSAN marad ki: a
+// mentés a naplód pillanatképe, egy napokkal későbbi visszaállításnál egy
+// félbehagyott edzés feltámasztása csak zavart okozna.
 function backup(){
-  const v=JSON.stringify({sessions:S.sessions,weights:S.weights,notes:S.notes,photos:S.photos,
-    customEx:S.customEx,routines:S.routines,programs:S.programs,bw:S.bw,sleep:S.sleep,rdy:S.rdy});
+  const v=JSON.stringify({app:APP_VERSION, at:Date.now(),
+    sessions:S.sessions,weights:S.weights,notes:S.notes,photos:S.photos,
+    customEx:S.customEx,routines:S.routines,programs:S.programs,bw:S.bw,sleep:S.sleep,rdy:S.rdy,
+    prog:S.prog,injury:S.injury,hidePlan:S.hidePlan,activeProgram:S.activeProgram,
+    deleted:S.deleted,lastBackup:S.lastBackup});
   const b=new Blob([v],{type:'application/json'}), u=URL.createObjectURL(b);
   const a=document.createElement('a'); a.href=u;
   a.download='edzesnaplo-'+fmtDate(Date.now()).replace(/\./g,'')+'.json';
@@ -2954,7 +2967,14 @@ function restore(){
       if(!(await uiConfirm('Ez felülírja a jelenlegi '+S.sessions.length+' edzést '+d.sessions.length+' mentett edzéssel. Folytatod?', {ok:'Visszaállítás', danger:true}))) return;
       S.sessions=d.sessions; S.weights=d.weights||{}; if(d.notes)S.notes=d.notes; if(d.photos)S.photos=d.photos;
       if(d.customEx)S.customEx=d.customEx; if(d.routines)S.routines=d.routines; if(d.programs)S.programs=d.programs;
-      if(d.bw)S.bw=d.bw; if(d.sleep)S.sleep=d.sleep;
+      if(d.bw)S.bw=d.bw; if(d.sleep)S.sleep=d.sleep; if(d.rdy)S.rdy=d.rdy; if(d.prog)S.prog=d.prog;
+      // Mindegyik `if`-fel: a RÉGI, szűkebb mentésfájlok is betöltődnek, csak
+      // az akkor még nem mentett mezőket hagyják érintetlenül.
+      if(d.injury!==undefined) S.injury=d.injury;
+      if(d.hidePlan!==undefined) S.hidePlan=d.hidePlan;
+      if(d.activeProgram!==undefined) S.activeProgram=d.activeProgram;
+      if(Array.isArray(d.deleted)) S.deleted=d.deleted;   // a síremlékek nélkül a felhő visszahozná a törölteket
+      if(d.lastBackup) S.lastBackup=d.lastBackup;
       save(); render();
     }catch(e){ uiAlert('Ez nem érvényes mentésfájl.'); } };
     r.readAsText(f); };

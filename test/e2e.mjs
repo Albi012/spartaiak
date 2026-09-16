@@ -1179,6 +1179,46 @@ ok('29 letelve magától eltűnik', await page.evaluate(async ()=>{
 await page.evaluate(()=>{ stopTimer(); S.active=null; playing=false; tab='home'; render(); });
 await wait(200);
 
+// 30. Mentés/visszaállítás: a TELJES állapot menjen, ne vesszen el mező
+ok('30 a mentés ugyanazokat a mezőket viszi, mint amit a save() eltesz', await page.evaluate(async ()=>{
+  const src=await (await fetch('index.html')).text();
+  const mezok = blokk => [...blokk.matchAll(/([a-zA-Z]+)\s*:\s*S\.[a-zA-Z]+/g)].map(m=>m[1]);
+  const saveB  = src.slice(src.indexOf('async function save()'), src.indexOf('const ok=await writeKey'));
+  const backB  = src.slice(src.indexOf('function backup()'), src.indexOf('const b=new Blob'));
+  // A folyamatban lévő edzés szándékosan marad ki a mentésfájlból.
+  const kihagy = new Set(['active','activeT']);
+  const kell = mezok(saveB).filter(x=>!kihagy.has(x));
+  const van  = new Set(mezok(backB));
+  window.__hianyzoMentes = kell.filter(x=>!van.has(x));
+  return kell.length>=14 && window.__hianyzoMentes.length===0; }));
+ok('30 a visszaállítás vissza is olvassa a kritikus mezőket', await page.evaluate(async ()=>{
+  const src=await (await fetch('index.html')).text();
+  const r=src.slice(src.indexOf('function restore()'), src.indexOf('function loadBundled'));
+  return ['prog','injury','hidePlan','activeProgram','deleted','rdy'].every(k=>
+    r.includes('d.'+k) && r.includes('S.'+k+'=')); }));
+ok('30 körbe-teszt: a progresszió, az aktív terv és a síremlékek túlélik', await page.evaluate(()=>{
+  const bak=JSON.parse(JSON.stringify({p:S.prog,a:S.activeProgram,d:S.deleted,i:S.injury,h:S.hidePlan}));
+  S.prog={bench:'linear'}; S.activeProgram='p_teszt'; S.injury={parts:['váll'],since:1};
+  S.hidePlan=true; S.deleted=[{k:'r_torolt',at:1}];
+  // ugyanaz a szerializálás, amit a backup() csinál
+  const v=JSON.parse(JSON.stringify({sessions:S.sessions,weights:S.weights,notes:S.notes,photos:S.photos,
+    customEx:S.customEx,routines:S.routines,programs:S.programs,bw:S.bw,sleep:S.sleep,rdy:S.rdy,
+    prog:S.prog,injury:S.injury,hidePlan:S.hidePlan,activeProgram:S.activeProgram,
+    deleted:S.deleted,lastBackup:S.lastBackup}));
+  S.prog=bak.p; S.activeProgram=bak.a; S.deleted=bak.d; S.injury=bak.i; S.hidePlan=bak.h;
+  return v.prog.bench==='linear' && v.activeProgram==='p_teszt'
+      && v.deleted[0].k==='r_torolt' && v.injury.parts[0]==='váll' && v.hidePlan===true; }));
+ok('30 a RÉGI, szűkebb mentésfájl is betölthető marad', await page.evaluate(async ()=>{
+  const src=await (await fetch('index.html')).text();
+  const r=src.slice(src.indexOf('function restore()'), src.indexOf('function loadBundled'));
+  // minden új mező feltételes olvasás – különben a régi fájl felülírná üressel
+  return /if\(d\.prog\)/.test(r) && /if\(d\.injury!==undefined\)/.test(r)
+      && /if\(Array\.isArray\(d\.deleted\)\)/.test(r); }));
+ok('30 a mentés jelzi, melyik appverzió írta', await page.evaluate(async ()=>{
+  const src=await (await fetch('index.html')).text();
+  const b=src.slice(src.indexOf('function backup()'), src.indexOf('const b=new Blob'));
+  return /app:\s*APP_VERSION/.test(b); }));
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));

@@ -47,7 +47,19 @@ beolvassa és átalakítja.
 
 **Bővített, additív mezők** (visszafelé kompatibilisek – a régi
 `gymlog_v1` adat migráció nélkül betöltődik, a hiányzó kulcsok
-alapértéket kapnak; a `save()`/`backup()`/`restore()` viszi őket):
+alapértéket kapnak; a `save()`/`backup()`/`restore()` viszi őket).
+
+> **Ha ÚJ mezőt veszel fel a `save()`-be, vedd fel a `backup()`-ba is.**
+> Egy ideig hat mező kimaradt a mentésfájlból, és a visszaállítás némán
+> elvette őket: a `prog` visszaállt „okos"-ra, az `activeProgram` a
+> beépített tervre esett vissza (vagyis az importált napok eltűntek a
+> főoldalról), a `deleted` síremlékek nélkül pedig a felhőből VISSZAJÖTTEK
+> a már törölt edzések és fotók. E2E-teszt hasonlítja a két függvény
+> mezőlistáját (30. szekció), és elbukik, ha eltérnek. A folyamatban lévő
+> edzés (`active`/`activeT`) SZÁNDÉKOSAN marad ki – a mentés a napló
+> pillanatképe. A `restore()` minden mezőt FELTÉTELESEN olvas, hogy a régi,
+> szűkebb mentésfájlok is betölthetők maradjanak.
+
 
 - `notes` – gyakorlathoz kötött **állandó** jegyzet (padszög, ülésmagasság,
   technikai emlékeztető).
