@@ -3,7 +3,7 @@
  * azt a böngésző kezeli – a service worker csak a statikus fájlokat
  * cache-eli, az éles edzésadatot nem érinti.
  */
-const VERSION = 'v104';
+const VERSION = 'v105';
 const APP_CACHE = 'edzesnaplo-app-' + VERSION;
 const FONT_CACHE = 'edzesnaplo-fonts';
 
@@ -11,6 +11,7 @@ const FONT_CACHE = 'edzesnaplo-fonts';
 const APP_SHELL = [
   './',
   './index.html',
+  './js/i18n.js',
   './js/auth.js',
   './js/health.js',
   './vendor/supabase.js',   // a felhő-réteg a repóból jön, nem CDN-ről (offline + áruház)

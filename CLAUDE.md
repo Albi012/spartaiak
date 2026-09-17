@@ -643,7 +643,8 @@ bemutatót). Szintén FÜGGETLEN a `gymlog_v1`-től. Az `openWelcome` első
 indításkor jön (üres napló + nincs jelző); a fiók-lapról bármikor
 újranyitható.
 
-**Beállítás-kulcsok** (mind FÜGGETLEN a `gymlog_v1`-től): `gymlog_mute`
+**Beállítás-kulcsok** (mind FÜGGETLEN a `gymlog_v1`-től): `gymlog_lang`
+(`hu` | `en`, lásd „Nyelv"), `gymlog_mute`
 (`'1'` = pihenő-hang ki), `gymlog_noteday` (`'1'` = a lejátszó jegyzet-gombja
 alapból a NAP jegyzetét nyitja; hiánya/`'0'` = az éppen mutatott
 gyakorlatét – lásd „Jegyzetelés"), `gymlog_notify` (`'1'` = időzítő rendszer-
@@ -756,6 +757,33 @@ lapon a piros „Fiók végleges törlése" nyitja (`openDeleteAccount`).
 - A `privacy.html` mindkét nyelven leírja a folyamatot
   (`#fiok-torles` / `#account-deletion`) – ez adja a **Google Play által
   megkövetelt nyilvános törlés-URL-t** is, ezért ne vedd ki.
+
+## Nyelv (magyar / angol) – FOKOZATOSAN épül
+
+`js/i18n.js`, globális `tr(kulcs, vars)`. **A KULCS maga a magyar szöveg** –
+nincsenek kitalált `home.title` azonosítók. Két okból:
+
+- az app egyetlen, ~5000 soros fájl; a kulcs-kitalálás és a későbbi
+  átnevezés több hibát okozna, mint amennyit megold;
+- így a fordítás **bevezethető fokozatosan**: amit még nem fordítottunk le,
+  az automatikusan MAGYARUL jelenik meg, nem üresen vagy `missing.key`
+  alakban. Egy félig üres felület rosszabb, mint egy félig magyar.
+
+**A globális neve `tr`, NEM `t`** – az app kódjában sok lokális `const t = …`
+van (cél-ismétlésszám, szöveg-akkumulátor), amit egy egybetűs globális
+elárnyékolna, és csak futásidőben derülne ki.
+
+- Nyelv-kulcs: `gymlog_lang` (`hu` | `en`), FÜGGETLEN a `gymlog_v1`-től – a
+  nyelvváltás soha nem érinti a naplót (E2E-teszt őrzi, 33. szekció).
+- Váltó: Profil lap → Nyelv. A `switchLang` a `paintIcons()`-t is újrafuttatja,
+  mert az alsó nav feliratai **statikus HTML**-ben vannak (`.nlbl`), nem
+  sablonban – ott `${tr(…)}` szó szerint jelenne meg.
+- **Az alapértelmezés MAGYAR**, akkor is, ha a böngésző angol. Egy angol
+  böngészőt automatikusan „angol" felületre tenni, ami valójában nagyrészt
+  magyar, félrevezető. A `navigator.language`-alapú tippelés a `detect()`-ben
+  egy sorral bekapcsolható, ha a fordítás teljes lesz.
+- A gyakorlatnevek (PLAN/LIB/REHAB, ~190 db) **még magyarok** – azok az `n`
+  mezőkben élnek, és külön körben kapnak `en` párt.
 
 ## Téma (világos / sötét)
 

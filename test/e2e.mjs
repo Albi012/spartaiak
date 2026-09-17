@@ -1339,6 +1339,43 @@ ok('32 a beosztás egyben törölhető', await page.evaluate(async ()=>{
 await page.evaluate(()=>{ S.sched={}; closeSheet(); tab='home'; render(); });
 await wait(150);
 
+// 33. Nyelvi réteg (a magyar a forrásnyelv, az angol fokozatosan épül)
+ok('33 alapból magyar, akkor is, ha a böngésző angol', await page.evaluate(()=>
+  I18N.getLang()==='hu' && document.documentElement.lang==='hu'
+  && (navigator.language||'').toLowerCase().indexOf('hu')!==0));
+ok('33 fordítatlan szöveg MAGYARUL jön, nem üresen', await page.evaluate(()=>{
+  I18N.setLang('en');
+  const x=tr('Ez egy soha le nem fordított mondat.');
+  I18N.setLang('hu');
+  return x==='Ez egy soha le nem fordított mondat.'; }));
+ok('33 angolra váltva a felület szövege tényleg megváltozik', await page.evaluate(()=>{
+  const huNav=(document.querySelector('.nav button .nlbl')||{}).textContent;
+  switchLang('en');
+  const enNav=(document.querySelector('.nav button .nlbl')||{}).textContent;
+  const enCard=weekPlanCard();
+  switchLang('hu');
+  const vissza=(document.querySelector('.nav button .nlbl')||{}).textContent;
+  return huNav==='Edzés' && enNav==='Workout' && /This week/.test(enCard) && vissza==='Edzés'; }));
+ok('33 a nyelv a lemezen marad, és a html lang követi', await page.evaluate(()=>{
+  switchLang('en');
+  const mentve=localStorage.getItem('gymlog_lang'), l=document.documentElement.lang;
+  switchLang('hu');
+  return mentve==='en' && l==='en' && document.documentElement.lang==='hu'; }));
+ok('33 a nyelvváltás NEM nyúl a naplóhoz', await page.evaluate(()=>{
+  const elotte=JSON.stringify(S.sessions)+'|'+JSON.stringify(S.weights);
+  switchLang('en'); switchLang('hu');
+  return JSON.stringify(S.sessions)+'|'+JSON.stringify(S.weights)===elotte; }));
+ok('33 a behelyettesítés működik', await page.evaluate(()=>
+  tr('{n} edzés', {n:12})==='12 edzés'));
+ok('33 a globális neve `tr` (az egybetűs `t` lokálisokat árnyékolna)', await page.evaluate(()=>
+  typeof window.tr==='function' && typeof window.t!=='function'));
+ok('33 az i18n az app-héjban van (offline is)', await page.evaluate(async ()=>{
+  const sw=await (await fetch('sw.js')).text();
+  return /js\/i18n\.js/.test(sw) && (await fetch('js/i18n.js')).ok; }));
+ok('33 a profil-lapon ott a nyelvválasztó', await page.evaluate(()=>{
+  openAuthSheet(); const t=document.getElementById('sheetIn').textContent; closeSheet();
+  return /Nyelv/.test(t) && /Magyar/.test(t) && /Angol/.test(t); }));
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));

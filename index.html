@@ -446,11 +446,11 @@ textarea:focus{outline:2px solid var(--brass);outline-offset:2px}
 
 
 <div class="nav">
-  <button data-tab="home" class="on"><span class="ic">▣</span>Edzés</button>
-  <button data-tab="plans"><span class="ic">▤</span>Tervek</button>
-  <button data-tab="log"><span class="ic">≡</span>Napló</button>
-  <button data-tab="prog"><span class="ic">↗</span>Haladás</button>
-  <button data-tab="friends"><span class="ndot" id="friendsDot"></span><span class="ic">☺</span>Barátok</button>
+  <button data-tab="home" class="on"><span class="ic">▣</span><span class="nlbl">Edzés</span></button>
+  <button data-tab="plans"><span class="ic">▤</span><span class="nlbl">Tervek</span></button>
+  <button data-tab="log"><span class="ic">≡</span><span class="nlbl">Napló</span></button>
+  <button data-tab="prog"><span class="ic">↗</span><span class="nlbl">Haladás</span></button>
+  <button data-tab="friends"><span class="ndot" id="friendsDot"></span><span class="ic">☺</span><span class="nlbl">Barátok</span></button>
 </div>
 
 <div class="sheet" id="sheet"><div class="inner" id="sheetIn"></div></div>
@@ -462,6 +462,9 @@ textarea:focus{outline:2px solid var(--brass);outline-offset:2px}
 <!-- Felhő-szinkron (1. fázis). A supabase-config.js opcionális; ha hiányzik,
      az app változatlanul, localStorage-ból fut. Lásd docs/1-fazis-auth-TODO.md -->
 <script src="supabase-config.js" onerror="void 0"></script>
+<!-- Nyelvi réteg. A KULCS maga a magyar szöveg, ezért amit még nem
+     fordítottunk le, az magyarul jelenik meg – nem üresen. Lásd js/i18n.js. -->
+<script src="js/i18n.js"></script>
 <script src="js/auth.js"></script>
 <!-- Natív Health-híd (alvás). Sima weben inert; csak Capacitor-burokban aktív. -->
 <script src="js/health.js" onerror="void 0"></script>
@@ -570,7 +573,7 @@ function logRdyBadge(t){
 }
 let physioRegion='';  // Gyógytorna oldal aktív testtáj (üres = első)
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v104';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v105';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -1317,9 +1320,9 @@ function openSchedSheet(){ renderSchedSheet(); document.getElementById('sheet').
 function renderSchedSheet(){
   const act=activeProg(), ids=(act&&act.days)||[];
   let h=`<div class="grabber"></div>
-    <div class="row"><div class="grow"><span class="eyebrow">Heti beosztás</span>
-      <h2 style="font-size:22px">Melyik nap mi?</h2>
-      <span class="small dim">Nem kötelező – beosztás nélkül a heti nézet csak sorrendet mutat.</span></div>
+    <div class="row"><div class="grow"><span class="eyebrow">${tr('Heti beosztás')}</span>
+      <h2 style="font-size:22px">${tr('Melyik nap mi?')}</h2>
+      <span class="small dim">${tr('Nem kötelező – beosztás nélkül a heti nézet csak sorrendet mutat.')}</span></div>
       <button onclick="closeSheet();render()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>`;
   if(!ids.length) return void (document.getElementById('sheetIn').innerHTML =
     h+`<div class="empty" style="padding:18px 0">Az aktív tervedben nincs edzésnap.</div>`);
@@ -1330,9 +1333,9 @@ function renderSchedSheet(){
       + WDAY.map((lbl,i)=>`<button class="whyc ${schedOf(id).includes(i)?'on':''}"
           onclick="schedToggle('${id}',${i})">${lbl}</button>`).join('')
       + `</div></div></div>`; });
-  h+=`<div class="small dim" style="margin-top:12px">Egy edzés több napra is betehető (pl. hétfő és csütörtök). A beosztás csak javaslat – bármikor indíthatsz bármit.</div>`;
-  if(schedHas()) h+=`<button class="btn" style="margin-top:10px;color:var(--red)" onclick="schedClear()">Beosztás törlése</button>`;
-  h+=`<button class="btn pri" style="margin-top:10px" onclick="closeSheet();render()">Kész</button>`;
+  h+=`<div class="small dim" style="margin-top:12px">${tr('Egy edzés több napra is betehető (pl. hétfő és csütörtök). A beosztás csak javaslat – bármikor indíthatsz bármit.')}</div>`;
+  if(schedHas()) h+=`<button class="btn" style="margin-top:10px;color:var(--red)" onclick="schedClear()">${tr('Beosztás törlése')}</button>`;
+  h+=`<button class="btn pri" style="margin-top:10px" onclick="closeSheet();render()">${tr('Kész')}</button>`;
   document.getElementById('sheetIn').innerHTML=h;
 }
 async function schedClear(){
@@ -1345,7 +1348,7 @@ function weekPlanCard(){
   const meg=terv.filter(x=>!x.done), kesz=terv.length-meg.length;
   let h=`<div class="card"><div class="pad">
     <div class="row" style="align-items:baseline">
-      <span class="eyebrow grow">Ez a hét</span>
+      <span class="eyebrow grow">${tr('Ez a hét')}</span>
       ${terv.length?`<span class="small dim">${kesz}/${terv.length} edzés</span>`:''}</div>
     <div class="wkrow">`;
   days.forEach((d,i)=>{
@@ -1361,8 +1364,8 @@ function weekPlanCard(){
   h+=`</div>`;
   if(terv.length){
     h+=`<div class="small mut" style="margin-top:12px">${meg.length
-      ? 'Az aktív tervedből még hátra van:'
-      : 'A tervedet végigcsináltad ezen a héten. Szép munka.'}</div>`;
+      ? tr('Az aktív tervedből még hátra van:')
+      : tr('A tervedet végigcsináltad ezen a héten. Szép munka.')}</div>`;
     const maWd=(new Date().getDay()+6)%7;
     // Beosztással: a MAI napra betett edzés kerül előre, és ki is mondjuk.
     const rend=meg.slice().sort((a,b)=>
@@ -1371,10 +1374,10 @@ function weekPlanCard(){
       const napok=schedOf(x.id).map(i=>WDAY[i]).join(', ');
       h+=`<button class="btn" style="text-align:left;margin-top:8px${ma?';border-color:var(--brass)':''}" onclick="startDay('${x.id}')">
       <span style="font-weight:600">${esc(x.name)}</span>
-      <span class="small dim" style="display:block;margin-top:2px">${ma?'<span style="color:var(--brass)">Mára beosztva</span> · ':(napok?esc(napok)+' · ':'')}Kezdés ›</span></button>`; });
+      <span class="small dim" style="display:block;margin-top:2px">${ma?'<span style="color:var(--brass)">'+tr('Mára beosztva')+'</span> · ':(napok?esc(napok)+' · ':'')}${tr('Kezdés ›')}</span></button>`; });
     const done=terv.filter(x=>x.done);
-    if(done.length) h+=`<div class="small dim" style="margin-top:10px">Megvolt: ${done.map(x=>esc(x.name)+' <span style="color:var(--sage)">✓</span>').join(' · ')}</div>`;
-    h+=`<button class="btn" style="margin-top:10px;color:var(--mut)" onclick="openSchedSheet()">${schedHas()?'Heti beosztás módosítása':'Heti beosztás megadása'}</button>`;
+    if(done.length) h+=`<div class="small dim" style="margin-top:10px">${tr('Megvolt:')} ${done.map(x=>esc(x.name)+' <span style="color:var(--sage)">✓</span>').join(' · ')}</div>`;
+    h+=`<button class="btn" style="margin-top:10px;color:var(--mut)" onclick="openSchedSheet()">${schedHas()?tr('Heti beosztás módosítása'):tr('Heti beosztás megadása')}</button>`;
   }
   return h+`</div></div>`;
 }
@@ -1399,10 +1402,10 @@ function homeView(){
     <span class="cond" style="font-size:17px;font-weight:600">Már ${daysSince} napja nem edzettél</span>
     <div class="small mut" style="margin-top:2px">A rendszeresség többet ér a tökéletes edzésnél. Válassz egy napot alább, és csak kezdd el.</div></div></div>`;
   if(needsBackup()) h+=`<div class="card" style="border-color:var(--brass)"><div class="pad">
-    <div class="row"><div class="grow"><span class="cond" style="font-size:17px;font-weight:600">Rég mentettél biztonsági másolatot</span>
-    <div class="small mut" style="margin-top:2px">Kézi mentésre senki nem emlékszik, amíg el nem veszti az adatait.</div></div>
-    <button onclick="dismissNag()" class="small dim" style="padding:8px">Később</button></div>
-    <button class="btn pri" style="margin-top:10px" onclick="backup()">Mentés most</button></div></div>`;
+    <div class="row"><div class="grow"><span class="cond" style="font-size:17px;font-weight:600">${tr('Rég mentettél biztonsági másolatot')}</span>
+    <div class="small mut" style="margin-top:2px">${tr('Kézi mentésre senki nem emlékszik, amíg el nem veszti az adatait.')}</div></div>
+    <button onclick="dismissNag()" class="small dim" style="padding:8px">${tr('Később')}</button></div>
+    <button class="btn pri" style="margin-top:10px" onclick="backup()">${tr('Mentés most')}</button></div></div>`;
   if(injuryOn()) h+=`<div class="card" style="border-color:var(--red)"><div class="pad">
     <span class="cond" style="font-size:17px;font-weight:600;color:var(--red)">Sérülés-mód aktív – ${S.injury.parts.join(', ')}</span>
     <div class="small mut" style="margin-top:2px">Új edzésnél az érintett gyakorlatok kimaradnak, a többi súlya csökken.</div>
@@ -1438,15 +1441,15 @@ function homeView(){
       const freshWeek = sug.needy.length===MGS.length;   // ezen a héten még nincs edzés
       const covers = `<b>${sug.covers.map(esc).join(', ')}</b>`;
       const reason = sug.sched
-        ? `A heti beosztásod szerint ez van mára.`
+        ? tr('A heti beosztásod szerint ez van mára.')
         : freshWeek
         ? `Kiegyensúlyozott kezdés a héthez – terheli: ${covers}.`
         : `A héten kimaradt: ${covers} – ez a nap pótolja.`;
       h+=`<div class="card" style="border-color:var(--brass)"><div class="pad">
-        <span class="eyebrow" style="color:var(--brass)">Mit edzek ma?</span>
+        <span class="eyebrow" style="color:var(--brass)">${tr('Mit edzek ma?')}</span>
         <div class="cond" style="font-size:19px;font-weight:600;margin-top:4px">${esc(sug.name)}</div>
         <div class="small mut" style="margin:2px 0 10px">${reason}</div>
-        <button class="btn pri" onclick="startDay('${sug.dayId}')">Kezdés ›</button></div></div>`;
+        <button class="btn pri" onclick="startDay('${sug.dayId}')">${tr('Kezdés ›')}</button></div></div>`;
     }
   }
   // Heti nézet: mi van meg és mi van hátra. Üres naplónál nem kerül ki –
@@ -2458,7 +2461,7 @@ function playerView(){
   }
   let note='';
   if(last) note=`<div class="prev">Előző: ${wLabel(e,last.w)}${e.bw&&last.w<=0?'':' kg'} × ${last.sets.map(x=>x==null?'–':x).join(', ')}</div>`;
-  else note=`<div class="prev dim">Első alkalom – a technika a cél, ne a súly.</div>`;
+  else note=`<div class="prev dim">${tr('Első alkalom – a technika a cél, ne a súly.')}</div>`;
   // Ha a súly az edzőterv ELŐÍRÁSÁBÓL jön (és nem a saját haladásodból),
   // mondjuk is meg – különben megmagyarázatlanul ugrana a szám.
   if(e.ovW && lastForT(e.id) <= ((dayDef(S.active.day)||{}).at||0))
@@ -2526,10 +2529,10 @@ function playerView(){
       ${why}
     </div>
     <div class="pfoot">
-      <button class="btn" onclick="exNav(${curEx-1})" ${curEx===0?'disabled':''} style="flex:0 0 40%">‹ Előző</button>
+      <button class="btn" onclick="exNav(${curEx-1})" ${curEx===0?'disabled':''} style="flex:0 0 40%">${tr('‹ Előző')}</button>
       ${isLast
-        ? `<button class="btn pri" onclick="finish()" style="flex:1">Edzés lezárása</button>`
-        : `<button class="btn pri" onclick="exNav(${curEx+1})" style="flex:1">Következő ›</button>`}
+        ? `<button class="btn pri" onclick="finish()" style="flex:1">${tr('Edzés lezárása')}</button>`
+        : `<button class="btn pri" onclick="exNav(${curEx+1})" style="flex:1">${tr('Következő ›')}</button>`}
     </div>
     <div class="row" style="gap:10px;max-width:560px;margin:0 auto;padding:0 16px 16px;width:100%">
       <button class="btn" style="flex:1;margin:0" onclick="openPlayerNote()">Jegyzet${noteHasText()?' •':''}</button>
@@ -2723,7 +2726,7 @@ function restPillHtml(){
   if(!_restOn) return '';
   const left=Math.max(0,tEnd-Date.now()), s=Math.ceil(left/1000);
   const R=23, C=2*Math.PI*R, frac=tLen? left/(tLen*1000) : 0;
-  return `<button class="restpill" onclick="stopTimer()" aria-label="Pihenő – koppints a leállításhoz" title="Pihenő – koppints a leállításhoz">
+  return `<button class="restpill" onclick="stopTimer()" aria-label="${tr('Pihenő – koppints a leállításhoz')}" title="${tr('Pihenő – koppints a leállításhoz')}">
     <svg viewBox="0 0 52 52" aria-hidden="true">
       <circle class="rp-bg" cx="26" cy="26" r="${R}"></circle>
       <circle class="rp-fg" id="restRing" cx="26" cy="26" r="${R}"
@@ -2990,8 +2993,8 @@ function logView(){
     h+=`<div class="card"><div class="pad" style="border-bottom:1px solid var(--line)">
       <div class="row"><div class="grow"><span class="cond" style="font-size:20px;font-weight:600">${esc(dn)}</span>
       <div class="small dim">${fmtDate(s.t)}${dur?' · '+fmtDur(dur):''} · ${tot} szett · <span class="num">${load.toLocaleString('hu')}</span> kg${hi?' <span style="color:var(--red);font-weight:600">· kiugró</span>':''}${logRdyInline(s.t)}</div></div>
-      <button onclick="openEditSession(${idx})" class="small" style="padding:8px;color:var(--mut)">Javítás</button>
-      <button onclick="del(${idx})" class="small dim" style="padding:8px">Törlés</button></div>
+      <button onclick="openEditSession(${idx})" class="small" style="padding:8px;color:var(--mut)">${tr('Javítás')}</button>
+      <button onclick="del(${idx})" class="small dim" style="padding:8px">${tr('Törlés')}</button></div>
       ${(()=>{ const js=dayNotes(s); if(!js.length) return '';
         return `<div style="padding:0 16px 10px">`+js.map(n=>{ const e=n.ex&&exDef(n.ex);
           return `<div class="small mut" style="margin-top:2px">${e?`<span style="color:var(--brass)">${esc(e.n)}</span> <span class="dim">közben:</span> `:'<span class="dim">Jegyzet: </span>'}${esc(n.txt)}</div>`;
@@ -3005,11 +3008,11 @@ function logView(){
       h+=`<div class="hrow"><span class="small grow">${esc(e.n)} <span class="dim" style="font-size:11px">· kivéve</span></span>
         <span class="small num mut">${wLabel(e,l.w)}${e.bw&&l.w<=0?'':' kg'} × ${l.sets.map(x=>x==null?'–':x).join(', ')}</span></div>`; });
     const mgSets=sessionMgSets(s);
-    h+=`<details class="mmfold"><summary>Terhelt izmok</summary>
+    h+=`<details class="mmfold"><summary>${tr('Terhelt izmok')}</summary>
       <div class="pad" style="padding-top:0">${muscleMap(mgSets,true)}${mmLegend()}${mgChips(mgSets)}</div></details>`;
     h+='</div>';
   });
-  h+=`<button class="btn pri" onclick="openWeeklyExport()" style="margin-bottom:8px">Heti összefoglaló edzőnek</button>
+  h+=`<button class="btn pri" onclick="openWeeklyExport()" style="margin-bottom:8px">${tr('Heti összefoglaló edzőnek')}</button>
       <button class="btn" onclick="copyAll()" style="margin-bottom:8px">Napló másolása szövegként</button>
       <button class="btn" onclick="backup()" style="margin-bottom:8px;color:var(--mut)">Biztonsági mentés (adatfájl)</button>
       <button class="btn" onclick="restore()" style="margin-bottom:20px;color:var(--mut)">Visszaállítás mentésből</button>`;
@@ -3114,9 +3117,9 @@ function editSessionHtml(){
   const s=esSess();
   if(!s) return `<div class="grabber"></div><div class="empty">Ez az edzés már nincs meg.</div>`;
   let h=`<div class="grabber"></div>
-    <div class="row"><div class="grow"><span class="eyebrow">Edzés javítása</span>
+    <div class="row"><div class="grow"><span class="eyebrow">${tr('Edzés javítása')}</span>
       <h2 style="font-size:22px">${esc(dayName(s))}</h2>
-      <span class="small dim">${fmtDate(s.t)} · a változás azonnal mentődik</span></div>
+      <span class="small dim">${fmtDate(s.t)} · ${tr('a változás azonnal mentődik')}</span></div>
       <button onclick="closeEditSession()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>`;
   const ids=esExIds(s);
   if(!ids.length) h+=`<div class="empty" style="padding:18px 0">Ebben az edzésben nincs rögzített gyakorlat.</div>`;
@@ -3137,7 +3140,7 @@ function editSessionHtml(){
         <span class="r">${v==null?'·':v}</span><span class="l">${i+1}. sz</span></button>`; });
     h+=`<button class="chip" onclick="esAddSet('${id}')" aria-label="Szett hozzáadása"><span class="r">+</span><span class="l">szett</span></button>`;
     h+=`</div></div></div>`; });
-  return h+`<button class="btn pri" style="margin-top:14px" onclick="closeEditSession()">Kész</button>`;
+  return h+`<button class="btn pri" style="margin-top:14px" onclick="closeEditSession()">${tr('Kész')}</button>`;
 }
 // A szett-érték megadása: ugyanaz a logika, mint a lejátszóban (cél körüli
 // tartomány egy koppintással + kézi mező), csak a naplóra kötve.
@@ -3155,8 +3158,8 @@ function esRepHtml(){
     <div class="kb">${g}</div>
     <input id="esRepMan" type="number" inputmode="numeric" min="0" max="999" placeholder="Egyéb szám…"
       style="width:100%;margin-top:12px" value="${cur==null?'':cur}">
-    <button class="btn pri" style="margin-top:8px" onclick="esSetRepManual()">Rögzítés</button>
-    <button class="btn" style="margin-top:8px;color:var(--red)" onclick="esSetRep(null)">Szett törlése</button>`;
+    <button class="btn pri" style="margin-top:8px" onclick="esSetRepManual()">${tr('Rögzítés')}</button>
+    <button class="btn" style="margin-top:8px;color:var(--red)" onclick="esSetRep(null)">${tr('Szett törlése')}</button>`;
 }
 function esOpenRep(id,i){ editRep={id,i}; renderEditSheet(); }
 function esBackToSession(){ editRep=null; renderEditSheet(); }
@@ -3963,8 +3966,8 @@ function rdySpark(rows, hgt){
 function stallCard(){
   const list=stalledList(); if(!list.length) return '';
   let h=`<div class="card"><div class="pad">
-    <span class="eyebrow">Megakadt gyakorlatok</span>
-    <p class="mut small" style="margin:4px 0 10px">A naplóból, súly és ismétlés alapján. Koppints a részletekért.</p>`;
+    <span class="eyebrow">${tr('Megakadt gyakorlatok')}</span>
+    <p class="mut small" style="margin:4px 0 10px">${tr('A naplóból, súly és ismétlés alapján. Koppints a részletekért.')}</p>`;
   list.slice(0,6).forEach(x=>{ const e=exDef(x.id), fail=x.state==='fail';
     h+=`<button class="btn" style="text-align:left;margin-bottom:8px" onclick="openProgDetail('${x.id}')">
       <span style="font-weight:600">${esc(e.n)}</span>
@@ -4517,6 +4520,9 @@ function updateAuthBtn(){
   b.style.color = on ? 'var(--sage)' : 'var(--mut)';
   b.title = on ? ('Fiók: '+(Auth.currentUser()?.email||'bejelentkezve')) : 'Fiók / felhő-szinkron';
 }
+// A nyelvváltás csak a FELÜLET nyelvét állítja – a napló (gyakorlat-ID-k,
+// rögzített adat) érintetlen, ahogy a témaváltás sem nyúl hozzá.
+function switchLang(l){ I18N.setLang(l); paintIcons(); render(); openAuthSheet(); }
 function openAuthSheet(){
   const configured = window.Auth && Auth.configured();
   const loggedIn = window.Auth && Auth.isLoggedIn();
@@ -4561,7 +4567,12 @@ function openAuthSheet(){
       <span class="small dim">Időzítő értesítésben (háttérben)</span><br>
       <b>${(function(){try{return localStorage.getItem('gymlog_notify')==='1'}catch(e){return false}})()?'Bekapcsolva':'Kikapcsolva'}</b> <span class="dim">· ha kiváltasz az appból, a pihenő ideje értesítésben látszik</span></button>`;
   h+=`<button class="btn ghost" style="margin-top:14px;color:var(--mut)" onclick="openWelcome()">Bemutató megtekintése</button>`;
-  h+=`<div class="small dim" style="text-align:center;margin-top:14px">Verzió ${APP_VERSION} · <a href="privacy.html" target="_blank" rel="noopener" style="color:var(--mut)">Adatvédelem</a></div>`;
+  h+=`<div class="top" style="padding:18px 0 6px"><span class="eyebrow">${tr('Nyelv')}</span></div>
+    <div class="seg">
+      <button class="${I18N.getLang()==='hu'?'on':''}" onclick="switchLang('hu')">${tr('Magyar')}</button>
+      <button class="${I18N.getLang()==='en'?'on':''}" onclick="switchLang('en')">${tr('Angol')}</button>
+    </div>`;
+  h+=`<div class="small dim" style="text-align:center;margin-top:14px">${tr('Verzió')} ${APP_VERSION} · <a href="privacy.html" target="_blank" rel="noopener" style="color:var(--mut)">${tr('Adatvédelem')}</a></div>`;
   document.getElementById('sheetIn').innerHTML=h;
   document.getElementById('sheet').classList.add('on');
   if(loggedIn && !myProfile){ loadProfile().then(()=>{ const s=document.getElementById('sheet');
@@ -4871,8 +4882,14 @@ function paintIcons(){
   set('#injuryBtn', ICON.injury);
   set('#physioBtn', ICON.physio);
   const navIcon={home:ICON.dumbbell, plans:ICON.plans, log:ICON.list, prog:ICON.chart, friends:ICON.friends};
-  document.querySelectorAll('.nav button').forEach(btn=>{ const ic=btn.querySelector('.ic'); if(ic)
-    ic.innerHTML = navIcon[btn.dataset.tab] || ICON.chart; });
+  // A statikus nav feliratai nem sablonból jönnek, ezért a nyelvet ITT
+  // festjük rájuk (a `.nlbl` a magyar forrásszöveget hordozza kulcsként).
+  const navLbl={home:'Edzés', plans:'Tervek', log:'Napló', prog:'Haladás', friends:'Barátok'};
+  document.querySelectorAll('.nav button').forEach(btn=>{
+    const ic=btn.querySelector('.ic'); if(ic) ic.innerHTML = navIcon[btn.dataset.tab] || ICON.chart;
+    const lb=btn.querySelector('.nlbl'); const k=navLbl[btn.dataset.tab];
+    if(lb && k) lb.textContent = tr(k);
+  });
 }
 function toggleTheme(){
   try{ localStorage.setItem('gymlog_theme', effectiveDark()?'light':'dark'); }catch(e){}
