@@ -185,7 +185,7 @@
     // mezőjükre hatnak – egy törölt FOTÓ nem viszi magával a gyakorlat súlyát
     // és jegyzetét. A csupasz id (pl. `cx_…`) továbbra is mindent kizár.
     const SCOPE = { photos:'photo', notes:'note' };
-    ['weights','notes','photos','customEx','prog','bw','sleep'].forEach(f=>{
+    ['weights','notes','photos','customEx','prog','bw','sleep','sched'].forEach(f=>{
       if(a[f]||b[f]){ const merged = Object.assign({}, older[f]||{}, newer[f]||{});
         const sc = SCOPE[f];
         Object.keys(merged).forEach(k=>{

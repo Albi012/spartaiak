@@ -91,6 +91,9 @@ alapértéket kapnak; a `save()`/`backup()`/`restore()` viszi őket).
   callback menti az `S.sleep`-be. Runbook: `docs/native-health/README.md`
   (ez leváltja a TWA-tervet, ha natív egészségadat kell). `slpFmt` a
   perc→„7ó 45p" formázó.
+- `sched` – **nap → hétköznap beosztás**: `{ '<dayId>': [0..6] }` (0 = hétfő).
+  Opcionális, kulcsolt, additív; per-kulcs unióban szinkronizál. Lásd
+  „Nap → hétköznap beosztás".
 - `rdy` – a **készenlét-pontszám** tényező-kapcsolói:
   `{sleep:1, load:1, bw:1, rest:0}` alak, hiányzó kulcs = alapértelmezés
   (`RDY_DEF`). SKALÁR preferencia: a felhő-összefésülésben az újabb állapotból
@@ -428,12 +431,30 @@ exportnál) – a felület egységesen érti a „hetet".
 - `weekPlan()` – az AKTÍV terv napjai + megvolt-e már ezen a héten. A még
   hátralévők indítható sorok (`startDay`), a megvoltak egy sorban felsorolva.
 
-**Az appban NINCS nap→hétköznap beosztás, és ezt ne is találd ki.** A
-hátralévő napok listája SORREND, nem menetrend – nem teszünk úgy, mintha
-órarended volna. Ha valaha kell rögzített beosztás, az ÚJ, additív mező
-legyen (és a szinkront is érintse), ne a heti nézet tippelje meg.
-
 Üres naplónál a kártya nem kerül ki – első indításkor nincs mit összegezni.
+
+### Nap → hétköznap beosztás (`sched`) – OPCIONÁLIS
+
+`S.sched[dayId] = [0..6]` – mely hétköznapokra tetted be azt az edzést
+(0 = hétfő, a `WDAY` sorrendje; egy nap TÖBB hétköznapra is betehető).
+Kulcsolt, additív mező: a felhő-szinkron per-kulcs unióban viszi, mint a
+`weights`/`prog`-ot, és a `save()`/`backup()`/`restore()` is.
+
+- Szerkesztő: `openSchedSheet` (a heti kártya „Heti beosztás…" gombja) –
+  edzésenként egy hétköznap-chipsor, `schedToggle` kapcsolgat.
+- `schedFor(wd)` CSAK az AKTÍV terv napjait adja vissza, hogy egy törölt
+  vagy másik tervhez tartozó nap ne szivárogjon be a heti nézetbe.
+- A heti cella alatt a beosztott nap neve (`.wkplan`), de csak ha aznap még
+  NINCS edzés – a megtörtént dolog fontosabb, mint a terv.
+- A hátralévők listája a MÁRA beosztottat teszi előre („Mára beosztva”).
+- A `suggestDay()` a beosztást követi, ha van: a mai napra betett, még meg
+  nem csinált edzést ajánlja. Az izomtérkép-alapú ajánlás azért marad, hogy
+  beosztás NÉLKÜL is legyen mit mondani – nem írja felül a döntésedet.
+- `deleteRoutine` törli a hozzá tartozó beosztást (ne maradjon árva kulcs).
+
+**Beosztás nélkül minden a régi:** a heti nézet sorrendet mutat, nem
+menetrendet. Ne találj ki órarendet magadtól – csak azt mutasd, amit a
+felhasználó ténylegesen beállított.
 
 ## Stagnálás-felismerés
 

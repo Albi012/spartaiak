@@ -1277,6 +1277,68 @@ ok('31 szerkesztetlen edzéseknél marad a „gazdagabb nyer" szabály', await p
 await page.evaluate((i)=>{ closeEditSession(); S.sessions.splice(i,1); }, utolso);
 await wait(150);
 
+// 32. Nap → hétköznap beosztás (opcionális, kulcsolt, additív)
+await page.evaluate(()=>{ window.uiConfirm=()=>Promise.resolve(true); closeSheet();
+  S.sched={}; S.activeProgram=null; S.active=null; playing=false; tab='home'; render(); });
+await wait(250);
+ok('32 beosztás nélkül a heti nézet csak sorrendet mutat', await page.evaluate(()=>{
+  const h=weekPlanCard();
+  return !schedHas() && !/wkplan/.test(h) && /Heti beosztás megadása/.test(h); }));
+ok('32 egy nap több hétköznapra is betehető', await page.evaluate(()=>{
+  schedToggle('pa',0); schedToggle('pa',3);
+  return JSON.stringify(schedOf('pa'))==='[0,3]' && schedHas(); }));
+ok('32 ismételt koppintás leveszi', await page.evaluate(()=>{
+  schedToggle('pa',3);
+  return JSON.stringify(schedOf('pa'))==='[0]'; }));
+ok('32 a beosztott nap megjelenik a heti cellánál', await page.evaluate(()=>{
+  const h=weekPlanCard();
+  return /wkplan/.test(h) && /Push A/.test(h); }));
+ok('32 csak az AKTÍV terv napjai számítanak', await page.evaluate(()=>{
+  S.sched={ r_masik_tervbol:[0], pa:[0] };
+  const ids=schedFor(0); S.sched={pa:[0]};
+  return ids.length===1 && ids[0]==='pa'; }));
+ok('32 a mára beosztott edzés kerül előre, és ki is mondja', await page.evaluate(()=>{
+  const maWd=(new Date().getDay()+6)%7;
+  S.sched={ lb:[maWd] };                       // a Pull B-t tesszük mára
+  const h=weekPlanCard(); S.sched={pa:[0]};
+  const elso=h.indexOf('Pull B'), masik=h.indexOf('Push A');
+  return /Mára beosztva/.test(h) && elso>0 && (masik<0 || elso<masik); }));
+ok('32 a „Mit edzek ma?" a beosztást követi, nem az izomtérképet', await page.evaluate(()=>{
+  const bak=S.sessions; S.sessions=[];
+  const maWd=(new Date().getDay()+6)%7;
+  S.sched={ lb:[maWd] };
+  const sug=suggestDay(); S.sched={pa:[0]}; S.sessions=bak;
+  return !!sug && sug.dayId==='lb' && sug.sched===true; }));
+ok('32 a MA már megcsinált beosztott edzést nem ajánlja újra', await page.evaluate(()=>{
+  const bak=S.sessions;
+  const maWd=(new Date().getDay()+6)%7, t=Math.max(weekStart(Date.now()), Date.now()-36e5);
+  S.sessions=[{t, day:'lb', dayName:'Pull B', log:{tbar:{w:20,sets:[10]}}}];
+  S.sched={ lb:[maWd] };
+  const sug=suggestDay(); S.sched={pa:[0]}; S.sessions=bak;
+  return !sug || sug.dayId!=='lb'; }));
+ok('32 a beosztás mentődik és szinkronizál (kulcsolt unió)', await page.evaluate(async ()=>{
+  S.sched={pa:[0],lb:[3]}; await save();
+  const raw=await readKey('gymlog_v1');
+  const mentve=JSON.parse(raw).sched;
+  const alap={active:null,sessions:[],weights:{},notes:{},photos:{},customEx:{},routines:[],programs:[],deleted:[]};
+  const A={...alap, sched:{pa:[0]}}, B={...alap, sched:{lb:[3]}};
+  const m=JSON.parse(window.Auth.mergeGym(JSON.stringify(A), JSON.stringify(B)));
+  return JSON.stringify(mentve.pa)==='[0]' && !!m.sched.pa && !!m.sched.lb; }));
+ok('32 a mentésfájl is viszi', await page.evaluate(async ()=>{
+  const src=await (await fetch('index.html')).text();
+  const b=src.slice(src.indexOf('function backup()'), src.indexOf('const b=new Blob'));
+  return /sched:S\.sched/.test(b); }));
+ok('32 törölt saját edzés nem hagy árva beosztást', await page.evaluate(async ()=>{
+  S.routines=[{id:'r_sched_x', name:'X nap', sub:'1', ex:['bench']}];
+  S.sched={r_sched_x:[2]};
+  await deleteRoutine('r_sched_x');
+  return !(S.sched||{}).r_sched_x; }));
+ok('32 a beosztás egyben törölhető', await page.evaluate(async ()=>{
+  S.sched={pa:[0],lb:[3]}; await schedClear();
+  return !schedHas(); }));
+await page.evaluate(()=>{ S.sched={}; closeSheet(); tab='home'; render(); });
+await wait(150);
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));

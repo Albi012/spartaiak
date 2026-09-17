@@ -318,6 +318,9 @@ textarea:focus{outline:2px solid var(--brass);outline-offset:2px}
 .wkcell.rest{color:var(--mut)}
 .wkcell.today{border-color:var(--brass)}
 .wkcell.future{opacity:.45}
+/* A cella alatti kis cimke: mi van erre a napra beosztva (ha van beosztás). */
+.wkplan{font-size:9px;line-height:1.15;text-align:center;color:var(--dim);
+  max-width:100%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .whyrow{display:flex;flex-wrap:wrap;gap:8px}
 .whyc{padding:9px 13px;border-radius:999px;border:1px solid var(--line);background:var(--card2);color:var(--mut);font-size:13px;font-weight:600}
 .whyc.on{border-color:var(--brass);color:var(--brass);background:var(--brass-d)}
@@ -521,7 +524,7 @@ const ICON={
 
 let S = {sessions:[], active:null, weights:{}, notes:{}, photos:{}, injury:null, lastBackup:0,
          customEx:{}, routines:[], programs:[], hidePlan:false, activeProgram:null,
-         deleted:[], activeT:0, prog:{}, bw:{}, sleep:{}, rdy:null};
+         deleted:[], activeT:0, prog:{}, bw:{}, sleep:{}, rdy:null, sched:{}};
 let tab='home', playing=false, curEx=0, tInt=null, tEnd=0, tLen=0, wl=null, nagOff=false;
 let logFilter=null;   // Napló szűrő edzéstípusra (day id) – null = mind
 // Napló-nézet: nap-típus szűrő (null = minden nap, 'ex' = csak edzés,
@@ -567,7 +570,7 @@ function logRdyBadge(t){
 }
 let physioRegion='';  // Gyógytorna oldal aktív testtáj (üres = első)
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v103';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v104';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -618,7 +621,7 @@ async function save(){
   const v=JSON.stringify({sessions:S.sessions,active:S.active,weights:S.weights,
     notes:S.notes,photos:S.photos,injury:S.injury,lastBackup:S.lastBackup,
     customEx:S.customEx,routines:S.routines,programs:S.programs,hidePlan:S.hidePlan,activeProgram:S.activeProgram,
-    deleted:S.deleted,activeT:S.activeT,prog:S.prog,bw:S.bw,sleep:S.sleep,rdy:S.rdy});
+    deleted:S.deleted,activeT:S.activeT,prog:S.prog,bw:S.bw,sleep:S.sleep,rdy:S.rdy,sched:S.sched});
   const ok=await writeKey(KEY,v);
   if(!ok&&storeMode!=='none'){ storeMode='none'; render(); }
 }
@@ -1242,6 +1245,13 @@ function runCountUps(){
 // ezen a héten elhanyagolt (kevés szettet kapott) izomcsoportot fedi le.
 function suggestDay(){
   const act=activeProg(); if(!act||!act.days||!act.days.length) return null;
+  // HA van heti beosztás, az a mérvadó: a mai napra betett, még meg nem
+  // csinált edzést ajánljuk. Az izomtérkép-alapú ajánlás azért van, hogy
+  // beosztás NÉLKÜL is legyen mit mondani – nem írja felül a döntésedet.
+  const maWd=(new Date().getDay()+6)%7, ws=weekStart(Date.now());
+  const maiak=schedFor(maWd).filter(id=>!(S.sessions||[]).some(x=>(x.t||0)>=ws && x.day===id));
+  if(maiak.length){ const d=dayDef(maiak[0]);
+    if(d) return { dayId:d.id, name:d.name, score:0, lastT:0, covers:[], needy:[], sched:true }; }
   const wk=weeklyMgSets();
   let needy=MGS.filter(mg=>!wk[mg]);                       // ezen a héten 0 szett
   if(!needy.length) needy=[...MGS].sort((a,b)=>(wk[a]||0)-(wk[b]||0)).slice(0,2);
@@ -1282,6 +1292,54 @@ function weekPlan(){
     return { id, name:d.name, done:!!s, t:s?s.t:0 };
   }).filter(Boolean);
 }
+/* ---- Nap → hétköznap beosztás (opcionális) --------------------------
+ * `S.sched[dayId] = [0..6]` – MELY hétköznapokra tetted be azt az edzést
+ * (0 = hétfő, a `WDAY` sorrendje). Kulcsolt, additív mező: a felhő-szinkron
+ * per-kulcs unióban viszi, mint a `weights`/`prog`-ot.
+ * Ez OPCIONÁLIS: beosztás nélkül a heti nézet változatlanul sorrendet mutat,
+ * nem menetrendet – nem találunk ki órarendet magunktól. */
+function schedOf(dayId){ const a=(S.sched||{})[dayId]; return Array.isArray(a)?a:[]; }
+// Egy hétköznapra betett edzések (az AKTÍV tervből, hogy törölt vagy más
+// tervhez tartozó nap ne szivárogjon be).
+function schedFor(wd){
+  const act=activeProg(), ids=(act&&act.days)||[];
+  return ids.filter(id=>schedOf(id).includes(wd));
+}
+function schedHas(){ return Object.values(S.sched||{}).some(a=>Array.isArray(a)&&a.length); }
+function schedToggle(dayId, wd){
+  if(!S.sched) S.sched={};
+  const cur=schedOf(dayId).slice(), i=cur.indexOf(wd);
+  if(i>=0) cur.splice(i,1); else cur.push(wd);
+  if(cur.length) S.sched[dayId]=cur.sort((a,b)=>a-b); else delete S.sched[dayId];
+  save(); renderSchedSheet();
+}
+function openSchedSheet(){ renderSchedSheet(); document.getElementById('sheet').classList.add('on'); }
+function renderSchedSheet(){
+  const act=activeProg(), ids=(act&&act.days)||[];
+  let h=`<div class="grabber"></div>
+    <div class="row"><div class="grow"><span class="eyebrow">Heti beosztás</span>
+      <h2 style="font-size:22px">Melyik nap mi?</h2>
+      <span class="small dim">Nem kötelező – beosztás nélkül a heti nézet csak sorrendet mutat.</span></div>
+      <button onclick="closeSheet();render()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>`;
+  if(!ids.length) return void (document.getElementById('sheetIn').innerHTML =
+    h+`<div class="empty" style="padding:18px 0">Az aktív tervedben nincs edzésnap.</div>`);
+  ids.forEach(id=>{ const d=dayDef(id); if(!d) return;
+    h+=`<div class="card" style="margin-top:10px"><div class="pad">
+      <div class="cond" style="font-size:17px;font-weight:600">${esc(d.name)}</div>
+      <div class="whyrow" style="margin-top:8px">`
+      + WDAY.map((lbl,i)=>`<button class="whyc ${schedOf(id).includes(i)?'on':''}"
+          onclick="schedToggle('${id}',${i})">${lbl}</button>`).join('')
+      + `</div></div></div>`; });
+  h+=`<div class="small dim" style="margin-top:12px">Egy edzés több napra is betehető (pl. hétfő és csütörtök). A beosztás csak javaslat – bármikor indíthatsz bármit.</div>`;
+  if(schedHas()) h+=`<button class="btn" style="margin-top:10px;color:var(--red)" onclick="schedClear()">Beosztás törlése</button>`;
+  h+=`<button class="btn pri" style="margin-top:10px" onclick="closeSheet();render()">Kész</button>`;
+  document.getElementById('sheetIn').innerHTML=h;
+}
+async function schedClear(){
+  if(!await uiConfirm('Törlöd a heti beosztást?\n(Az edzéseid és terveid megmaradnak.)', {ok:'Törlés', danger:true})) return;
+  S.sched={}; save(); renderSchedSheet();
+}
+
 function weekPlanCard(){
   const days=weekDays(), terv=weekPlan();
   const meg=terv.filter(x=>!x.done), kesz=terv.length-meg.length;
@@ -1290,23 +1348,33 @@ function weekPlanCard(){
       <span class="eyebrow grow">Ez a hét</span>
       ${terv.length?`<span class="small dim">${kesz}/${terv.length} edzés</span>`:''}</div>
     <div class="wkrow">`;
-  days.forEach(d=>{
+  days.forEach((d,i)=>{
     const cls = d.sess.length ? 'done' : d.pihen ? 'rest' : '';
     const jel = d.sess.length ? (d.sess.length>1?d.sess.length:'✓') : d.pihen ? '·' : '';
+    // Beosztott, de még meg nem csinált edzés: a cella alatt a nap neve.
+    const terve = d.sess.length ? [] : schedFor(i).map(id=>(dayDef(id)||{}).name).filter(Boolean);
     h+=`<div class="wkday"><span class="wklbl"${d.ma?' style="color:var(--brass)"':''}>${d.lbl}</span>
       <span class="wkcell ${cls}${d.ma?' today':''}${d.jovo?' future':''}"
-        title="${fmtDate(d.t)}${d.sess.length?' – '+d.sess.map(x=>esc(dayName(x))).join(', '):''}">${jel}</span></div>`;
+        title="${fmtDate(d.t)}${d.sess.length?' – '+d.sess.map(x=>esc(dayName(x))).join(', '):(terve.length?' – terv: '+terve.map(esc).join(', '):'')}">${jel}</span>
+      ${terve.length?`<span class="wkplan">${esc(terve[0])}${terve.length>1?' +'+(terve.length-1):''}</span>`:''}</div>`;
   });
   h+=`</div>`;
   if(terv.length){
     h+=`<div class="small mut" style="margin-top:12px">${meg.length
       ? 'Az aktív tervedből még hátra van:'
       : 'A tervedet végigcsináltad ezen a héten. Szép munka.'}</div>`;
-    meg.forEach(x=>{ h+=`<button class="btn" style="text-align:left;margin-top:8px" onclick="startDay('${x.id}')">
+    const maWd=(new Date().getDay()+6)%7;
+    // Beosztással: a MAI napra betett edzés kerül előre, és ki is mondjuk.
+    const rend=meg.slice().sort((a,b)=>
+      (schedOf(b.id).includes(maWd)?1:0)-(schedOf(a.id).includes(maWd)?1:0));
+    rend.forEach(x=>{ const ma=schedOf(x.id).includes(maWd);
+      const napok=schedOf(x.id).map(i=>WDAY[i]).join(', ');
+      h+=`<button class="btn" style="text-align:left;margin-top:8px${ma?';border-color:var(--brass)':''}" onclick="startDay('${x.id}')">
       <span style="font-weight:600">${esc(x.name)}</span>
-      <span class="small dim" style="display:block;margin-top:2px">Kezdés ›</span></button>`; });
+      <span class="small dim" style="display:block;margin-top:2px">${ma?'<span style="color:var(--brass)">Mára beosztva</span> · ':(napok?esc(napok)+' · ':'')}Kezdés ›</span></button>`; });
     const done=terv.filter(x=>x.done);
     if(done.length) h+=`<div class="small dim" style="margin-top:10px">Megvolt: ${done.map(x=>esc(x.name)+' <span style="color:var(--sage)">✓</span>').join(' · ')}</div>`;
+    h+=`<button class="btn" style="margin-top:10px;color:var(--mut)" onclick="openSchedSheet()">${schedHas()?'Heti beosztás módosítása':'Heti beosztás megadása'}</button>`;
   }
   return h+`</div></div>`;
 }
@@ -1369,7 +1437,9 @@ function homeView(){
     if(sug){
       const freshWeek = sug.needy.length===MGS.length;   // ezen a héten még nincs edzés
       const covers = `<b>${sug.covers.map(esc).join(', ')}</b>`;
-      const reason = freshWeek
+      const reason = sug.sched
+        ? `A heti beosztásod szerint ez van mára.`
+        : freshWeek
         ? `Kiegyensúlyozott kezdés a héthez – terheli: ${covers}.`
         : `A héten kimaradt: ${covers} – ez a nap pótolja.`;
       h+=`<div class="card" style="border-color:var(--brass)"><div class="pad">
@@ -2114,6 +2184,7 @@ async function deleteRoutine(id){
   if(!await uiConfirm('Törlöd ezt a saját edzést?\n(A már naplózott edzések megmaradnak.)', {ok:'Törlés', danger:true})) return;
   S.routines=S.routines.filter(x=>x.id!==id);
   (S.programs||[]).forEach(p=>{ p.days=p.days.filter(d=>d!==id); });
+  if(S.sched) delete S.sched[id];        // ne maradjon árva beosztás
   tombstone(id);   // síremlék: a felhő-merge se hozza vissza
   editing=false; draft=null; await save(); flushCloud(); render(); window.scrollTo(0,0);   // a jelenlegi fülön marad
 }
@@ -2959,7 +3030,7 @@ function backup(){
     sessions:S.sessions,weights:S.weights,notes:S.notes,photos:S.photos,
     customEx:S.customEx,routines:S.routines,programs:S.programs,bw:S.bw,sleep:S.sleep,rdy:S.rdy,
     prog:S.prog,injury:S.injury,hidePlan:S.hidePlan,activeProgram:S.activeProgram,
-    deleted:S.deleted,lastBackup:S.lastBackup});
+    deleted:S.deleted,lastBackup:S.lastBackup,sched:S.sched});
   const b=new Blob([v],{type:'application/json'}), u=URL.createObjectURL(b);
   const a=document.createElement('a'); a.href=u;
   a.download='edzesnaplo-'+fmtDate(Date.now()).replace(/\./g,'')+'.json';
@@ -2975,6 +3046,7 @@ function restore(){
       S.sessions=d.sessions; S.weights=d.weights||{}; if(d.notes)S.notes=d.notes; if(d.photos)S.photos=d.photos;
       if(d.customEx)S.customEx=d.customEx; if(d.routines)S.routines=d.routines; if(d.programs)S.programs=d.programs;
       if(d.bw)S.bw=d.bw; if(d.sleep)S.sleep=d.sleep; if(d.rdy)S.rdy=d.rdy; if(d.prog)S.prog=d.prog;
+      if(d.sched)S.sched=d.sched;
       // Mindegyik `if`-fel: a RÉGI, szűkebb mentésfájlok is betöltődnek, csak
       // az akkor még nem mentett mezőket hagyják érintetlenül.
       if(d.injury!==undefined) S.injury=d.injury;
@@ -4576,7 +4648,7 @@ async function confirmDeleteAccount(){
   if(delWipeLocal){
     S={sessions:[], active:null, weights:{}, notes:{}, photos:{}, injury:null, lastBackup:0,
        customEx:{}, routines:[], programs:[], hidePlan:false, activeProgram:null,
-       deleted:[], activeT:0, prog:{}, bw:{}, sleep:{}, rdy:null};
+       deleted:[], activeT:0, prog:{}, bw:{}, sleep:{}, rdy:null, sched:{}};
     playing=false; curEx=0; rdyInvalidate(); await save();
   }
   myProfile=null; friendsData=null; sharedPlansData=null;
