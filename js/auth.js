@@ -128,6 +128,18 @@
       out.dayNotes = [...jots.values()].sort((a,b)=>(a.t||0)-(b.t||0));
       out.note = out.dayNotes.map(it=>it.txt).join(' · ');   // a régi mező maradjon konzisztens
     }
+    // UTÓLAGOS JAVÍTÁS elsőbbsége. A „gazdagabb verzió nyer" szabály jó, amíg
+    // két eszköz ugyanazt az edzést RÖGZÍTI – de ha az egyiken szándékosan
+    // KIVETTÉL egy szettet vagy egy gyakorlatot, a másik oldal bővebb logja
+    // visszahozná. Ezért a szerkesztés `ed` időbélyeget kap, és a frissebben
+    // szerkesztett log nyer EGÉSZBEN.
+    const xe=x.ed||0, ye=y.ed||0;
+    if(xe || ye){
+      const win = xe>=ye ? x : y;
+      out.log = Object.assign({}, win.log||{});
+      out.ed = Math.max(xe, ye);
+      return out;
+    }
     out.log = Object.assign({}, x.log||{});
     Object.keys(y.log||{}).forEach(id=>{
       const cur = out.log[id], nw = y.log[id];

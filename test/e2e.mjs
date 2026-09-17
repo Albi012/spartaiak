@@ -1219,6 +1219,64 @@ ok('30 a mentés jelzi, melyik appverzió írta', await page.evaluate(async ()=>
   const b=src.slice(src.indexOf('function backup()'), src.indexOf('const b=new Blob'));
   return /app:\s*APP_VERSION/.test(b); }));
 
+// 31. Naplózott edzés UTÓLAGOS javítása
+await page.evaluate(()=>{ window.uiConfirm=()=>Promise.resolve(true); window.uiAlert=()=>Promise.resolve();
+  closeSheet(); S.active=null; playing=false;
+  S.sessions.push({t:Date.now()-2*864e5, day:'pa', dayName:'Push A',
+    log:{ bench:{w:60,sets:[8,8,7]}, ohpdb:{w:14,sets:[10,10,10]} }});
+  tab='log'; render(); });
+await wait(300);
+const utolso = await page.evaluate(()=>S.sessions.length-1);
+ok('31 a napló-soron van „Javítás" gomb', await page.evaluate(()=>/openEditSession\(/.test(logView())));
+ok('31 a szerkesztő a rögzített gyakorlatokat listázza', await page.evaluate((i)=>{
+  openEditSession(i);
+  const t=document.getElementById('sheetIn').textContent;
+  return /Edzés javítása/.test(t) && /Fekvenyomás/.test(t) && /Vállból nyomás ülve/.test(t); }, utolso));
+ok('31 elgépelt ismétlés javítható', await page.evaluate((i)=>{
+  esOpenRep('bench',2); esSetRep(9);
+  return JSON.stringify(S.sessions[i].log.bench.sets)==='[8,8,9]'; }, utolso));
+ok('31 lemaradt szett pótolható', await page.evaluate((i)=>{
+  esAddSet('bench'); esOpenRep('bench',3); esSetRep(6);
+  return JSON.stringify(S.sessions[i].log.bench.sets)==='[8,8,9,6]'; }, utolso));
+ok('31 téves szett törölhető (null lesz, nem tűnik el a hely)', await page.evaluate((i)=>{
+  esOpenRep('bench',3); esSetRep(null);
+  return JSON.stringify(S.sessions[i].log.bench.sets)==='[8,8,9,null]'; }, utolso));
+ok('31 a súly is javítható a gyakorlat lépésével', await page.evaluate((i)=>{
+  const e=exDef('bench'), volt=S.sessions[i].log.bench.w;
+  esBumpW('bench',1);
+  return S.sessions[i].log.bench.w===volt+(e.inc||2.5); }, utolso));
+ok('31 gyakorlat kivehető az edzésből, a többi marad', await page.evaluate(async (i)=>{
+  await esRemoveEx('ohpdb');
+  const s=S.sessions[i];
+  return !s.log.ohpdb && !!s.log.bench; }, utolso));
+ok('31 a javítás `ed` bélyeget tesz az edzésre', await page.evaluate((i)=>
+  S.sessions[i].ed>0, utolso));
+ok('31 a javított érték a naplóban is látszik', await page.evaluate((i)=>{
+  closeEditSession();
+  const h=logView();
+  return h.includes('8, 8, 9, –'); }, utolso));
+// A LÉNYEG: a szándékos javítás ne forduljon vissza a felhőből.
+ok('31 a felhő NEM hozza vissza a kivett szettet', await page.evaluate(()=>{
+  const alap={active:null,weights:{},notes:{},photos:{},customEx:{},routines:[],programs:[],deleted:[]};
+  const felho={...alap, sessions:[{t:5000,day:'pa',log:{bench:{w:60,sets:[8,8,8,8]}}}]};      // gazdagabb
+  const helyi={...alap, sessions:[{t:5000,day:'pa',ed:9999,log:{bench:{w:60,sets:[8,8]}}}]};  // szerkesztett
+  const m=JSON.parse(window.Auth.mergeGym(JSON.stringify(felho), JSON.stringify(helyi)));
+  return JSON.stringify(m.sessions[0].log.bench.sets)==='[8,8]' && m.sessions[0].ed===9999; }));
+ok('31 két szerkesztés közül a FRISSEBB nyer', await page.evaluate(()=>{
+  const alap={active:null,weights:{},notes:{},photos:{},customEx:{},routines:[],programs:[],deleted:[]};
+  const regi={...alap, sessions:[{t:6000,day:'pa',ed:100,log:{bench:{w:60,sets:[5]}}}]};
+  const uj  ={...alap, sessions:[{t:6000,day:'pa',ed:200,log:{bench:{w:70,sets:[3,3]}}}]};
+  const m=JSON.parse(window.Auth.mergeGym(JSON.stringify(regi), JSON.stringify(uj)));
+  return m.sessions[0].log.bench.w===70 && m.sessions[0].ed===200; }));
+ok('31 szerkesztetlen edzéseknél marad a „gazdagabb nyer" szabály', await page.evaluate(()=>{
+  const alap={active:null,weights:{},notes:{},photos:{},customEx:{},routines:[],programs:[],deleted:[]};
+  const a={...alap, sessions:[{t:7000,day:'pa',log:{bench:{w:60,sets:[8,null,null]}}}]};
+  const b={...alap, sessions:[{t:7000,day:'pa',log:{bench:{w:60,sets:[8,8,8]}}}]};
+  const m=JSON.parse(window.Auth.mergeGym(JSON.stringify(a), JSON.stringify(b)));
+  return JSON.stringify(m.sessions[0].log.bench.sets)==='[8,8,8]'; }));
+await page.evaluate((i)=>{ closeEditSession(); S.sessions.splice(i,1); }, utolso);
+await wait(150);
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));

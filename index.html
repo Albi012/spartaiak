@@ -131,6 +131,12 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--brass);out
 .wt button:active{background:var(--brass-d)}
 .wt .val{flex:1;text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:40px;font-weight:700;padding:0 4px}
 .wt .val span{font-size:16px;color:var(--dim);font-family:Barlow;font-weight:500;margin-left:4px}
+/* Kisebb súlyállító a napló-javító lapra: ott több gyakorlat van egymás
+   alatt, a lejátszó 64px-es vezérlője feleslegesen hosszúvá tenné a lapot.
+   48px – továbbra is a 44px-es koppintási minimum fölött. */
+.wt.sm button{width:48px;height:48px;font-size:26px}
+.wt.sm .val{font-size:28px}
+.wt.sm .val span{font-size:14px}
 .prev{font-size:13px;color:var(--mut);font-variant-numeric:tabular-nums}
 .hint{font-size:13px;color:var(--brass);font-weight:500}
 
@@ -561,7 +567,7 @@ function logRdyBadge(t){
 }
 let physioRegion='';  // Gyógytorna oldal aktív testtáj (üres = első)
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v102';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v103';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -2913,6 +2919,7 @@ function logView(){
     h+=`<div class="card"><div class="pad" style="border-bottom:1px solid var(--line)">
       <div class="row"><div class="grow"><span class="cond" style="font-size:20px;font-weight:600">${esc(dn)}</span>
       <div class="small dim">${fmtDate(s.t)}${dur?' · '+fmtDur(dur):''} · ${tot} szett · <span class="num">${load.toLocaleString('hu')}</span> kg${hi?' <span style="color:var(--red);font-weight:600">· kiugró</span>':''}${logRdyInline(s.t)}</div></div>
+      <button onclick="openEditSession(${idx})" class="small" style="padding:8px;color:var(--mut)">Javítás</button>
       <button onclick="del(${idx})" class="small dim" style="padding:8px">Törlés</button></div>
       ${(()=>{ const js=dayNotes(s); if(!js.length) return '';
         return `<div style="padding:0 16px 10px">`+js.map(n=>{ const e=n.ex&&exDef(n.ex);
@@ -3006,7 +3013,112 @@ function tombstone(k){ if(!S.deleted) S.deleted=[];
 function untomb(k){ if(!S.deleted) S.deleted=[];
   S.deleted=S.deleted.filter(d=>!d || d.k!==k);
   S.deleted.push({k, at:Date.now(), alive:1}); }
-async function del(i){ if(await uiConfirm('Törlöd ezt az edzést?', {ok:'Törlés', danger:true})){
+/* ---- Naplózott edzés UTÓLAGOS javítása -----------------------------
+ * Eddig egy lezárt edzésen csak a TÖRLÉS volt: egy elgépelt ismétlés vagy egy
+ * lemaradt szett miatt az egész edzést el kellett dobni. Egy naplóban, ami
+ * éles adatot őriz, ez a legrosszabb csere.
+ * A szerkesztés `ed` időbélyeget tesz az edzésre – ezt a felhő-összefésülés
+ * nézi ELŐSZÖR (lásd `_mergeSession`): a szándékos szerkesztés így nem
+ * fordul vissza attól, hogy a másik eszközön „gazdagabb" (több szettes)
+ * verzió van. E nélkül egy TÖRÖLT szettet a szinkron visszahozna. */
+let editSess=null, editRep=null;
+function openEditSession(i){ editSess=i; editRep=null; renderEditSheet();
+  document.getElementById('sheet').classList.add('on'); }
+function renderEditSheet(){ const el=document.getElementById('sheetIn');
+  if(el) el.innerHTML = editRep ? esRepHtml() : editSessionHtml(); }
+function esSess(){ return editSess!=null ? S.sessions[editSess] : null; }
+// Minden változtatás AZONNAL ment (nincs külön „Mentés"), és megjelöli az
+// edzést szerkesztettként.
+function esTouch(){ const s=esSess(); if(!s) return;
+  s.ed=Date.now(); save(); flushCloud(); }
+// A naplózott edzés gyakorlatai: először a nap sorrendjében, majd a többi.
+function esExIds(s){
+  const d=dayDef(s.day)||{ex:[]}, out=[], seen=new Set();
+  d.ex.forEach(e=>{ if(s.log[e.id]){ out.push(e.id); seen.add(e.id); } });
+  Object.keys(s.log).forEach(id=>{ if(!seen.has(id)) out.push(id); });
+  return out;
+}
+function editSessionHtml(){
+  const s=esSess();
+  if(!s) return `<div class="grabber"></div><div class="empty">Ez az edzés már nincs meg.</div>`;
+  let h=`<div class="grabber"></div>
+    <div class="row"><div class="grow"><span class="eyebrow">Edzés javítása</span>
+      <h2 style="font-size:22px">${esc(dayName(s))}</h2>
+      <span class="small dim">${fmtDate(s.t)} · a változás azonnal mentődik</span></div>
+      <button onclick="closeEditSession()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>`;
+  const ids=esExIds(s);
+  if(!ids.length) h+=`<div class="empty" style="padding:18px 0">Ebben az edzésben nincs rögzített gyakorlat.</div>`;
+  ids.forEach(id=>{ const e=exDef(id), L=s.log[id];
+    h+=`<div class="card" style="margin-top:10px"><div class="pad">
+      <div class="row" style="align-items:flex-start">
+        <span class="grow cond" style="font-size:17px;font-weight:600">${esc(e.n)}</span>
+        <button class="iconbtn" style="color:var(--red)" onclick="esRemoveEx('${id}')" aria-label="Gyakorlat elhagyása">×</button></div>
+      ${e.bw&&!(L.w>0)?`<div class="small dim" style="margin-top:6px">Testsúlyos – nincs súly</div>`
+        : `<div class="wt sm" style="margin-top:8px">
+             <button onclick="esBumpW('${id}',-1)" aria-label="kevesebb">−</button>
+             <div class="val">${wLabel(e,L.w)}${e.bw&&L.w<=0?'':'<span>kg</span>'}</div>
+             <button onclick="esBumpW('${id}',1)" aria-label="több">+</button></div>`}
+      <div class="chips">`;
+    (L.sets||[]).forEach((v,i)=>{
+      const cls = v==null ? '' : (v>=(parseInt(e.r)||0) ? ' done' : ' miss');
+      h+=`<button class="chip${cls}" onclick="esOpenRep('${id}',${i})" aria-label="${i+1}. szett">
+        <span class="r">${v==null?'·':v}</span><span class="l">${i+1}. sz</span></button>`; });
+    h+=`<button class="chip" onclick="esAddSet('${id}')" aria-label="Szett hozzáadása"><span class="r">+</span><span class="l">szett</span></button>`;
+    h+=`</div></div></div>`; });
+  return h+`<button class="btn pri" style="margin-top:14px" onclick="closeEditSession()">Kész</button>`;
+}
+// A szett-érték megadása: ugyanaz a logika, mint a lejátszóban (cél körüli
+// tartomány egy koppintással + kézi mező), csak a naplóra kötve.
+function esRepHtml(){
+  const s=esSess(); if(!s) return editSessionHtml();
+  const e=exDef(editRep.id), L=s.log[editRep.id]||{sets:[]};
+  const t=parseInt(e.r)||8, from=Math.max(0,t-4), to=t+6, cur=L.sets[editRep.i];
+  let g='';
+  for(let v=from; v<=to; v++) g+=`<button onclick="esSetRep(${v})"${v===cur?' style="border-color:var(--brass);color:var(--brass)"':''}>${v}</button>`;
+  return `<div class="grabber"></div>
+    <div class="row"><div class="grow"><span class="eyebrow">${editRep.i+1}. szett</span>
+      <h2 style="font-size:22px">${esc(e.n)}</h2>
+      <span class="small dim">cél: ${e.s} × ${esc(e.r)}${e.time?'':' ism.'}</span></div>
+      <button onclick="esBackToSession()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
+    <div class="kb">${g}</div>
+    <input id="esRepMan" type="number" inputmode="numeric" min="0" max="999" placeholder="Egyéb szám…"
+      style="width:100%;margin-top:12px" value="${cur==null?'':cur}">
+    <button class="btn pri" style="margin-top:8px" onclick="esSetRepManual()">Rögzítés</button>
+    <button class="btn" style="margin-top:8px;color:var(--red)" onclick="esSetRep(null)">Szett törlése</button>`;
+}
+function esOpenRep(id,i){ editRep={id,i}; renderEditSheet(); }
+function esBackToSession(){ editRep=null; renderEditSheet(); }
+function esSetRep(v){ const s=esSess(); if(!s||!editRep) return;
+  const L=s.log[editRep.id]; if(!L) return;
+  L.sets[editRep.i]=v; esTouch(); editRep=null; renderEditSheet(); render(); }
+function esSetRepManual(){
+  const el=document.getElementById('esRepMan'); if(!el) return;
+  const v=parseInt(el.value,10);
+  if(!Number.isInteger(v)||v<0||v>999) return;      // érvénytelennél nyitva marad
+  esSetRep(v);
+}
+function esAddSet(id){ const s=esSess(); if(!s) return;
+  const L=s.log[id]; if(!L) return; L.sets.push(null); esTouch(); renderEditSheet(); }
+function esBumpW(id,dir){ const s=esSess(); if(!s) return;
+  const e=exDef(id), L=s.log[id]; if(!L) return;
+  L.w=Math.max(0, roundTo((L.w||0)+dir*(e.inc||2.5), e.inc||2.5));
+  esTouch(); renderEditSheet(); render();
+}
+async function esRemoveEx(id){
+  const s=esSess(); if(!s) return;
+  const e=exDef(id);
+  if(!await uiConfirm('Kiveszed a(z) „'+e.n+'" gyakorlatot ebből az edzésből?\n(A többi gyakorlat marad.)', {ok:'Kivétel', danger:true})) return;
+  delete s.log[id]; esTouch();
+  // Ha így egyetlen rögzített szett sem maradt, az edzés üres – ezt kimondjuk.
+  const ures=!Object.values(s.log).some(l=>(l.sets||[]).some(x=>x!=null));
+  if(ures && await uiConfirm('Ebben az edzésben már nincs rögzített szett. Törlöd az egész edzést?', {ok:'Edzés törlése', danger:true})){
+    const idx=editSess; closeEditSession(); await del(idx, true); return;
+  }
+  renderEditSheet(); render();
+}
+function closeEditSession(){ editSess=null; editRep=null; closeSheet(); render(); }
+
+async function del(i, skipConfirm){ if(skipConfirm || await uiConfirm('Törlöd ezt az edzést?', {ok:'Törlés', danger:true})){
   const s=S.sessions[i];
   if(s) tombstone((s.t||0)+'|'+(s.day||''));
   S.sessions.splice(i,1); await save(); flushCloud(); render(); } }   // a tombstone azonnal a felhőbe

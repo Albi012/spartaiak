@@ -101,7 +101,8 @@ alapértéket kapnak; a `save()`/`backup()`/`restore()` viszi őket).
   szöveg), `note`/`noteEx` (a régi, EGYbejegyzéses alak – lásd lentebb),
   `deload` (kihagyás utáni
   visszaépítés jelző), `end` (befejezés időbélyege – az időtartamhoz;
-  additív, régi edzésen hiányzik, olyankor nincs időtartam). Log-szinten:
+  additív, régi edzésen hiányzik, olyankor nincs időtartam), `ed` (az
+  UTÓLAGOS JAVÍTÁS időbélyege – lásd „Naplózott edzés javítása"). Log-szinten:
   `why` (`busy`|`heavy`|`time` – miért tért el a tervtől).
   A `dayNotes` additív és **visszafelé kompatibilis**: a `dayNotes(sess)`
   olvasó a régi `{note, noteEx}` alakot egyelemű listaként adja vissza, a
@@ -366,6 +367,29 @@ Az import működése:
   látszanának, és a felhasználó úgy élné meg, hogy az import „felülíródott".
   A régi terv nem vész el: egy koppintás a főoldali „Aktív edzésterv"
   választóban. Ha ezt átírod, a láthatóságot biztosítsd máshogy.
+
+## Naplózott edzés javítása
+
+Egy lezárt edzésen korábban csak a TÖRLÉS volt: egy elgépelt ismétlés vagy
+egy lemaradt szett miatt az egész edzést el kellett dobni. A napló-soron
+mostantól „Javítás" gomb van (`openEditSession`).
+
+- Gyakorlatonként: súly-léptető (a gyakorlat `inc`-ével), szett-chipek
+  (koppintásra cél körüli rács + kézi mező + „Szett törlése" → `null`),
+  „+ szett" a lemaradt szetthez, és `×` a gyakorlat kivételéhez.
+- **Minden változás azonnal mentődik** (`esTouch` → `save()` + `flushCloud()`),
+  nincs külön „Mentés". A lap ezt ki is írja.
+- Ha az utolsó rögzített szett is kikerül, megkérdezi, törölje-e az egész
+  edzést – nem hagy maga után üres, értelmezhetetlen sort.
+
+**A szinkron-csapda, amit ez felvet (ezt ne rontsd el):** a `_mergeSession`
+alapszabálya, hogy gyakorlatonként a GAZDAGABB (több rögzített szettes)
+verzió nyer. Ez jó, amíg két eszköz ugyanazt az edzést rögzíti – de ha az
+egyiken szándékosan KIVETTÉL egy szettet vagy egy gyakorlatot, a másik oldal
+bővebb logja visszahozná. Ezért a szerkesztés `ed` időbélyeget tesz az
+edzésre, és a **frissebben szerkesztett log nyer EGÉSZBEN**; `ed` nélküli
+edzéseknél változatlanul a „gazdagabb nyer" szabály fut. E2E-teszt őrzi
+mindhárom esetet (31. szekció).
 
 ## Heti összefoglaló edzőnek
 
