@@ -1157,9 +1157,13 @@ ok('29 újrafestés után is a FRISS időt mutatja (nem villan rosszat)', await 
   const [m,sec]=t.split(':').map(Number);
   const varhato=Math.ceil(Math.max(0,tEnd-Date.now())/1000);
   return Math.abs((m*60+sec)-varhato)<=1; }));
-ok('29 egy koppintás leállítja és eltünteti', await page.evaluate(()=>{
+// Az óra AZONNAL leáll, de a rövid kilépő animációt megvárja, mielőtt
+// kikerül a DOM-ból – különben a fejléc sora ránduló ugrással rendeződne át.
+ok('29 egy koppintás leállítja és eltünteti', await page.evaluate(async ()=>{
   document.querySelector('.restpill').click();
-  return !restRunning() && !document.querySelector('.restpill'); }));
+  const azonnalLeallt = !restRunning();
+  await new Promise(r=>setTimeout(r,350));
+  return azonnalLeallt && !document.querySelector('.restpill'); }));
 // A lejátszóból kilépve a pihenő is leáll (ez a korábbi viselkedés): ha
 // félbehagyod az edzést, nem jár tovább a háttérben egy óra, ami majd megszólal.
 ok('29 a lejátszóból kilépve a pihenő is leáll, az óra eltűnik', await page.evaluate(async ()=>{
@@ -1521,6 +1525,75 @@ ok('35 a két készenlét-gyűrű időzítése egységes',
 ok('35 a belépő animációk prefers-reduced-motion alá vannak zárva',
   /@media \(prefers-reduced-motion: no-preference\)/.test(css)
   && css.indexOf('@keyframes riseIn') > css.indexOf('@media (prefers-reduced-motion: no-preference)'));
+
+// ---- 36. Pihenő-gyűrű a lejátszóban ----
+// A gyűrű ürülése EGYETLEN animáció a pihenő teljes hosszára, nem
+// másodpercenként ötször újraírt attribútum.
+await seed({sessions:[], active:null, weights:{}});
+await page.evaluate(()=>{ startDay('pa'); render(); }); await wait(350);
+await page.evaluate(()=>startTimer(60)); await wait(300);
+
+ok('36 a gyűrűt egyetlen animáció viszi', await page.evaluate(()=>
+  document.getElementById('restRing').getAnimations().length===1));
+ok('36 az animáció a pihenő TELJES hosszára szól', await page.evaluate(()=>{
+  const t=document.getElementById('restRing').getAnimations()[0].effect.getTiming();
+  return t.duration>=58000 && t.duration<=60000; }));
+ok('36 visszaszámlálás = `linear` (állandó mozgás, nem be/kilépés)', await page.evaluate(()=>
+  document.getElementById('restRing').getAnimations()[0].effect.getTiming().easing==='linear'));
+ok('36 a gyűrű tényleg ürül', await (async ()=>{
+  const a=await page.evaluate(()=>parseFloat(getComputedStyle(document.getElementById('restRing')).strokeDashoffset));
+  await wait(1200);
+  const b=await page.evaluate(()=>parseFloat(getComputedStyle(document.getElementById('restRing')).strokeDashoffset));
+  return b>a; })());
+ok('36 újrafestés után sem szakad meg (a render újraköti)', await page.evaluate(()=>{
+  render(); return document.getElementById('restRing').getAnimations().length===1; }));
+
+// A régi hiba: a 200 ms-os átmenet újraindításkor VISSZAFELÉ söpört a körön.
+await page.evaluate(()=>startTimer(90)); await wait(60);
+ok('36 újraindításkor nem söpör visszafelé', await page.evaluate(()=>
+  parseFloat(getComputedStyle(document.getElementById('restRing')).strokeDashoffset) < 3));
+
+// A pihenő alatt a telefon a képernyőt is ébren tartja – ne dolgozzon feleslegesen.
+ok('36 a pihenő alatt másodpercenként EGY DOM-írás van, nem tíz', await page.evaluate(async ()=>{
+  let n=0;
+  const obs=new MutationObserver(ms=>{ n+=ms.length; });
+  obs.observe(document.querySelector('.restpill'), {subtree:true, childList:true,
+    characterData:true, attributes:true});
+  await new Promise(r=>setTimeout(r,3000));
+  obs.disconnect();
+  return n<=4;   // 3 mp alatt ~3 szöveg-frissítés; a régi kód ~30 írást csinált
+}));
+
+// Be- és kilépés: a fejléc sora ne ránduljon, és a kilépés legyen a fürgébb.
+ok('36 a kilépő animáció megvárása után tűnik csak el az óra', await (async ()=>{
+  await page.evaluate(()=>stopTimer());
+  const kozben = await page.evaluate(()=>!!document.querySelector('.restpill'));
+  await wait(400);
+  const utana = await page.evaluate(()=>!document.querySelector('.restpill'));
+  return kozben && utana; })());
+ok('36 a kilépés gyorsabb, mint a belépés', await page.evaluate(async ()=>{
+  const kf=[{opacity:1},{opacity:0}];
+  startTimer(45); render();
+  const pill=document.querySelector('.restpill');
+  if(!pill) return false;
+  // az `animRestPill` időzítései: be 160 ms, ki 120 ms
+  const src=await (await fetch('index.html')).text();
+  const m=src.match(/duration:\s*dir==='in'\?(\d+):(\d+)/);
+  stopTimer();
+  return m && +m[2] < +m[1]; }));
+await wait(400);
+
+// A gyűrű a KIJELZŐ, nem dísz: csökkentett mozgásnál is mennie kell.
+ok('36 a gyűrű nincs a prefers-reduced-motion blokkba zárva', await page.evaluate(async ()=>{
+  const html=await (await fetch('index.html')).text();
+  const css=(html.match(/<style>([\s\S]*?)<\/style>/)||[])[1]||'';
+  // nincs rá CSS-animáció egyáltalán – WAAPI viszi, ami mindig fut
+  return !/restDrain/.test(css) && !/\.rp-fg\{[^}]*transition/.test(css); }));
+ok('36 a v101-ben leváltott pihenő-overlay maradéka kitakarítva', await page.evaluate(async ()=>{
+  const html=await (await fetch('index.html')).text();
+  return !/\.rest\.on/.test(html) && !/rest-card/.test(html); }));
+await page.evaluate(()=>{ stopTimer(); playing=false; tab='home'; S.active=null; render(); });
+await wait(300);
 
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);

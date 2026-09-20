@@ -617,6 +617,24 @@ közben látni akarsz: hol tartasz, mennyi szett van hátra, mi a súly.
   edzés után ne szólaljon meg egy óra a háttérből.
 - A ±15 mp állítás a régi overlayjel együtt kikerült (a gyakorlatban nem
   használt: a pihenő letelte úgysem kötelező érvényű).
+- **A gyűrű ürülését EGYETLEN animáció viszi** (`syncRestRing`, WAAPI), a
+  pihenő teljes hosszára, `linear` ütemmel – ez ÁLLANDÓ mozgás
+  (visszaszámlálás), nem be- vagy kilépés. Korábban a 200 ms-os tick és egy
+  200 ms-os CSS-átmenet esett egymásra: a gyűrű folyamatosan utánhúzott,
+  sosem ért célba a következő írás előtt, újraindításkor pedig VISSZAFELÉ
+  söpört végig a körön. **Ne tegyél vissza `transition`-t az `.rp-fg`-re.**
+- A `tick` a gyűrűhöz NEM nyúl, a szöveget pedig csak valódi másodperc-
+  váltásnál írja (`_restShown`): öt írásból négy ugyanazt tette be, miközben
+  a telefon a képernyőt is ébren tartja.
+- Az animáció az ELEMHEZ tapad, a `render` viszont kicseréli a DOM-ot,
+  ezért a festés-horog (`paint`) újraköti, és a `visibilitychange` is
+  újraszámolja – háttérben a böngésző fékezi az animációkat, enélkül a szám
+  és a gyűrű mást mutatna.
+- Be- és kilépés (`animRestPill`, WAAPI): 160 ms be, **120 ms ki** – a
+  megjelenésről te döntesz, az eltűnés a rendszer válasza, a válasz legyen a
+  fürgébb. A `stopTimer` MEGVÁRJA a kilépést a festéssel, különben a
+  `render` kitörölné az elemet, mielőtt bármit mutatna. Csökkentett
+  mozgásnál elmarad, de maga a GYŰRŰ megy – az nem dísz, hanem a kijelző.
 
 ## Mozgás-rendszer (tokenek, koppintás, belépés)
 

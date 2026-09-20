@@ -203,7 +203,11 @@ a.btn{text-decoration:none;color:var(--ink)}
 .restpill svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg)}
 .restpill:active{transform:scale(var(--press-sm))}
 .rp-bg{fill:none;stroke:var(--card2);stroke-width:5}
-.rp-fg{fill:none;stroke:var(--brass);stroke-width:5;stroke-linecap:round;transition:stroke-dashoffset .2s linear}
+/* NINCS `transition` a gyűrűn: az ürülést egyetlen, a pihenő teljes
+   hosszára szóló WAAPI-animáció viszi (lásd `syncRestRing`). A korábbi
+   200 ms-os átmenet pont a 200 ms-os tickre esett, így a gyűrű sosem ért
+   célba a következő írás előtt – és újraindításkor VISSZAFELÉ söpört. */
+.rp-fg{fill:none;stroke:var(--brass);stroke-width:5;stroke-linecap:round}
 .rp-val{position:relative;font-family:'Barlow Condensed',sans-serif;font-variant-numeric:tabular-nums;
   font-size:15px;font-weight:700;color:var(--brass);line-height:1}
 
@@ -364,12 +368,10 @@ textarea:focus{outline:2px solid var(--brass);outline-offset:2px}
    itt a kísérő vizuális visszajelzés van. */
 @media (prefers-reduced-motion: no-preference){
   @keyframes chipPop{0%{transform:scale(1)}42%{transform:scale(1.16)}100%{transform:scale(1)}}
-  @keyframes restIn{from{transform:scale(.9);opacity:0}to{transform:scale(1);opacity:1}}
   @keyframes sheetUp{from{transform:translateY(26px)}to{transform:translateY(0)}}
   @keyframes vtOut{to{opacity:0}}
   @keyframes vtIn{from{opacity:0}to{opacity:1}}
   .chip.pop{animation:chipPop .3s cubic-bezier(.25,.8,.3,1.35)}
-  .rest.on .rest-card{animation:restIn .3s cubic-bezier(.2,.7,.3,1.25)}
   .sheet.on .inner{animation:sheetUp .26s cubic-bezier(.2,.7,.3,1)}
   ::view-transition-old(appview){animation:vtOut .16s ease both}
   ::view-transition-new(appview){animation:vtIn .24s cubic-bezier(.2,.7,.3,1) both}
@@ -413,7 +415,6 @@ textarea:focus{outline:2px solid var(--brass);outline-offset:2px}
   .sheet.on{animation:fadeIn .2s ease both}
   .modal.on{animation:fadeIn .18s ease both}
   .modal.on .modal-card{animation:popIn .26s cubic-bezier(.2,.7,.3,1.25) both}
-  .rest.on{animation:fadeIn .2s ease both}
   .photo.on{animation:fadeIn .18s ease both}
   .photo.on img{animation:popIn .28s cubic-bezier(.2,.7,.3,1.2) both}
 
@@ -591,7 +592,7 @@ function logRdyBadge(t){
 }
 let physioRegion='';  // Gyógytorna oldal aktív testtáj (üres = első)
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v107';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v108';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -1251,6 +1252,9 @@ function render(){
   // a festéssel egy egységben futnak – így a View Transition ágon is a
   // friss DOM-ra kerülnek, nem a régire.
   const paint = ()=>{ _paint();
+    // A pihenő-gyűrű animációja az elemhez tapad, a festés viszont kicseréli
+    // a DOM-ot – ezért minden festés után újra rá kell kötni.
+    if(_restOn) syncRestRing();
     if(viewChanged || first){ enterAnim(); requestAnimationFrame(runCountUps); } };
   if(viewChanged && !reducedMotion() && document.startViewTransition){
     document.startViewTransition(paint);
@@ -2768,30 +2772,73 @@ function restPillHtml(){
         style="stroke-dasharray:${C.toFixed(1)};stroke-dashoffset:${(C*(1-frac)).toFixed(1)}"></circle>
     </svg><span class="rp-val" id="restVal">${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}</span></button>`;
 }
+/* ---- A gyűrű ürülése: EGY animáció, nem per-tick DOM-írás ------------
+ * A pihenő hossza induláskor ismert, tehát a mozgás előre meghatározott –
+ * ilyenkor deklaratív animáció való, nem másodpercenként ötször újraírt
+ * attribútum. A korábbi megoldásban a 200 ms-os tick és a 200 ms-os CSS
+ * átmenet egymásra esett: a gyűrű folyamatosan utánhúzott, sosem ért célba,
+ * és minden tickben újrafestette az SVG-t – pont akkor, amikor a telefon a
+ * képernyőt is ébren tartja. Újraindításkor ráadásul visszafelé söpört.
+ * `linear`, mert ez ÁLLANDÓ mozgás (visszaszámlálás), nem be- vagy kilépés.
+ * Minden újrafestés után újra kell kötni (a `render` a DOM-ot kicseréli),
+ * ezért a `render` festés-horga is meghívja. */
+function syncRestRing(){
+  const ring=document.getElementById('restRing'); if(!ring) return;
+  const left=Math.max(0, tEnd-Date.now());
+  const R=23, C=2*Math.PI*R, frac=tLen ? left/(tLen*1000) : 0;
+  if(ring.getAnimations) ring.getAnimations().forEach(a=>a.cancel());
+  ring.style.strokeDasharray=C.toFixed(1);
+  ring.style.strokeDashoffset=C.toFixed(1);        // végállapot: üres gyűrű
+  _restShown='';                                    // a szöveg is írjon újra
+  if(left<=0 || !ring.animate) return;
+  ring.animate([{strokeDashoffset:(C*(1-frac)).toFixed(1)},
+                {strokeDashoffset:C.toFixed(1)}],
+               {duration:left, easing:'linear', fill:'forwards'});
+}
+/* Az óra a gyakorlat neve MELLETT jelenik meg és tűnik el: enélkül a fejléc
+ * sora ránduló ugrással rendeződik át. Szettenként látod, ezért rövid.
+ * A kilépés GYORSABB, mint a belépés: a megjelenésről te döntesz, az
+ * eltűnés a rendszer válasza – a válasz legyen a fürgébb.
+ * Csökkentett mozgásnál elmarad, de a `done` akkor is lefut. */
+function animRestPill(dir, done){
+  const pill=document.querySelector('.restpill');
+  if(!pill || !pill.animate || reducedMotion()){ if(done) done(); return; }
+  const kf = dir==='in' ? [{transform:'scale(.9)',opacity:0},{transform:'scale(1)',opacity:1}]
+                        : [{transform:'scale(1)',opacity:1},{transform:'scale(.9)',opacity:0}];
+  const an = pill.animate(kf, {duration: dir==='in'?160:120,
+    easing:'cubic-bezier(.23,1,.32,1)', fill:'forwards'});   // = --ease-out
+  if(done) an.finished.then(done, done);
+}
+let _restShown='';
 function startTimer(sec){
   tLen=sec; tEnd=Date.now()+sec*1000; _restNotifShown=false; _restOn=true;
   acquireWake();                                   // ne aludjon el a képernyő pihenő közben
   ensureAudio();                                   // hang feloldása (a szett-rögzítés koppintásán belül)
   clearInterval(tInt); tInt=setInterval(tick,200);
   if(playing) render();                            // hogy a kis óra kikerüljön a név mellé
-  tick();
+  tick(); syncRestRing(); animRestPill('in');
 }
 function stopTimer(){
   clearInterval(tInt); _restNotifShown=false;
   const volt=_restOn; _restOn=false;
   releaseWake(); clearNotif('rest');
-  if(volt && playing) render();                    // a kis óra eltűnik
+  // A festés VÁRJA MEG a kilépő animációt – különben a `render` kitörölné
+  // az elemet, mielőtt bármit mutatna. (A többi hívó előbb `playing=false`-t
+  // állít, ott ez az ág nem is fut.)
+  if(volt && playing) animRestPill('out', ()=>{ if(!_restOn) render(); });
 }
 function tick(){
   const left=Math.max(0,tEnd-Date.now());
   const s=Math.ceil(left/1000);
   // A lejátszón kívül (szüneteltetve, másik fülön) nincs mit frissíteni –
   // az óra viszont tovább jár, és a végén ugyanúgy szól.
-  const val=document.getElementById('restVal');
-  if(val) val.textContent=Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
-  const ring=document.getElementById('restRing');
-  if(ring){ const R=23, C=2*Math.PI*R, frac=tLen? left/(tLen*1000) : 0;
-    ring.style.strokeDasharray=C.toFixed(1); ring.style.strokeDashoffset=(C*(1-frac)).toFixed(1); }
+  // A gyűrűt NEM írjuk itt: azt a `syncRestRing` egyetlen animációja viszi.
+  // A szöveg másodpercenként változik, a tick viszont 200 ms-onként fut –
+  // öt írásból négy ugyanazt tette be. Csak valódi változásnál nyúlunk a
+  // DOM-hoz, így a pihenő alatt gyakorlatilag nincs festési munka.
+  const txt=Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
+  if(txt!==_restShown){ _restShown=txt;
+    const val=document.getElementById('restVal'); if(val) val.textContent=txt; }
   // Háttérben: EGYSZER, némán jelezzük, hogy megy a pihenő (nem
   // másodpercenként – az újraposzt felébreszti a lezárt képernyőt).
   if(left>0 && document.hidden && !_restNotifShown){ _restNotifShown=true;
@@ -2799,14 +2846,18 @@ function tick(){
   if(left<=0){ clearInterval(tInt); if(navigator.vibrate) navigator.vibrate([200,100,200]); beep();
     if(document.hidden) timerNotif('Pihenő letelt', 'Jöhet a következő szett!', 'rest', false); else clearNotif('rest');
     releaseWake();
-    setTimeout(()=>{ _restOn=false; if(playing) render(); }, 1200); }
+    setTimeout(()=>{ _restOn=false;
+      if(playing) animRestPill('out', ()=>{ if(!_restOn) render(); }); }, 1200); }
 }
 updateMuteLabel();
 // A képernyőzár feloldódhat háttérbe váltáskor – ha még megy a pihenő, kérjük vissza.
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'){
   clearNotif('rest'); clearNotif('hold');   // visszatérve a képernyőn látszik az óra
   _restNotifShown=false; _holdNotifShown=false;   // legközelebbi háttérváltásnál újra jelezhet egyszer
-  if(_restOn && Date.now()<tEnd) acquireWake(); } });
+  // Háttérben a böngésző fékezi az animációkat, így a gyűrű lemaradhat az
+  // időbélyeg-alapú órától. Visszatéréskor újraszámoljuk – enélkül a szám és
+  // a gyűrű mást mutatna, és pont ez a fajta apróság rontja el a bizalmat.
+  if(_restOn && Date.now()<tEnd){ acquireWake(); syncRestRing(); } } });
 
 function finish(){
   // Mobilitás rutin: nem naplózódik (nem edzés), csak lezárul.
