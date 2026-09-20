@@ -141,7 +141,7 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--brass);out
 /* Súlyállító */
 .wt{display:flex;align-items:center;gap:0;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:var(--card2)}
 .wt button{width:64px;height:64px;font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:600;color:var(--brass)}
-.wt button:active{background:var(--brass-d)}
+.wt button:active{background:var(--brass-d);transform:scale(var(--press-sm))}
 .wt .val{flex:1;text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:40px;font-weight:700;padding:0 4px}
 .wt .val span{font-size:16px;color:var(--dim);font-family:Barlow;font-weight:500;margin-left:4px}
 /* Kisebb súlyállító a napló-javító lapra: ott több gyakorlat van egymás
@@ -271,13 +271,27 @@ a.btn{text-decoration:none;color:var(--ink)}
 .empty{text-align:center;padding:44px 20px 28px;color:var(--dim)}
 
 /* Alsó lap (szett-billentyűzet) */
-.sheet{position:fixed;inset:0;background:rgba(8,10,13,.6);display:none;align-items:flex-end;z-index:70;backdrop-filter:blur(2px)}
+.sheet{position:fixed;inset:0;display:none;align-items:flex-end;z-index:70}
+.sheet::before{content:'';position:absolute;inset:0;background:rgba(8,10,13,.6);
+  backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
 .sheet.on{display:flex}
-.sheet .inner{background:var(--card);width:100%;max-width:560px;margin:0 auto;border-radius:22px 22px 0 0;padding:12px 16px calc(20px + env(safe-area-inset-bottom));box-shadow:0 -8px 30px var(--shadow);max-height:90vh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+/* Kilépés: a lap LECSÚSZIK, ahogy felcsúszott. Korábban a `display:none`
+   egyszerűen eltüntette – miközben LEHÚZVA animálva zárult. Ugyanaz a
+   felület kétféleképp tűnt el, és pont ez vette el a lehúzás-gesztus
+   magától értetődőségét. 200 ms: GYORSABB a 260 ms-os belépésnél – a
+   megnyitásról te döntesz, a bezárás a rendszer válasza.
+   A halványulás itt van, nem a `no-preference` blokkban: csökkentett
+   mozgásnál a CSÚSZÁS marad el, nem az egész átmenet. */
+@keyframes sheetFadeOut{to{opacity:0}}
+.sheet.on.closing{pointer-events:none}
+/* A sötétítés `ease`-zel megy (ez színváltás-jellegű, nem be/kilépő elem),
+   így a lap csúszásával együtt halványul, nem szalad el előle. */
+.sheet.on.closing::before{animation:sheetFadeOut 200ms ease both}
+.sheet .inner{position:relative;background:var(--card);width:100%;max-width:560px;margin:0 auto;border-radius:22px 22px 0 0;padding:12px 16px calc(20px + env(safe-area-inset-bottom));box-shadow:0 -8px 30px var(--shadow);max-height:90vh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 .grabber{width:40px;height:5px;border-radius:3px;background:var(--line);margin:0 auto 12px}
 .kb{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px}
 .kb button{padding:16px 0;border-radius:13px;background:var(--card2);border:1px solid var(--line);font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:700}
-.kb button:active{background:var(--brass-d)}
+.kb button:active{background:var(--brass-d);transform:scale(var(--press-sm))}
 /* Kézi ismétlés-mező a rács alatt: a natív számléptető nyilai csak szűkítik
    a beviteli felületet, ezért elrejtjük – a telefon számbillentyűzete jön fel. */
 #repMan{-moz-appearance:textfield;min-height:48px}
@@ -369,10 +383,12 @@ textarea:focus{outline:2px solid var(--brass);outline-offset:2px}
 @media (prefers-reduced-motion: no-preference){
   @keyframes chipPop{0%{transform:scale(1)}42%{transform:scale(1.16)}100%{transform:scale(1)}}
   @keyframes sheetUp{from{transform:translateY(26px)}to{transform:translateY(0)}}
+  @keyframes sheetOut{to{transform:translateY(100%)}}
   @keyframes vtOut{to{opacity:0}}
   @keyframes vtIn{from{opacity:0}to{opacity:1}}
   .chip.pop{animation:chipPop .3s cubic-bezier(.25,.8,.3,1.35)}
   .sheet.on .inner{animation:sheetUp .26s cubic-bezier(.2,.7,.3,1)}
+  .sheet.on.closing .inner{animation:sheetOut 200ms var(--ease-out) both}
   ::view-transition-old(appview){animation:vtOut .16s ease both}
   ::view-transition-new(appview){animation:vtIn .24s cubic-bezier(.2,.7,.3,1) both}
 }
@@ -412,7 +428,7 @@ textarea:focus{outline:2px solid var(--brass);outline-offset:2px}
   #app.enter .chartbig,#app.enter .spark{animation:fadeIn .3s ease .06s both}
 
   /* Overlayek lágy nyitása */
-  .sheet.on{animation:fadeIn .2s ease both}
+  .sheet.on::before{animation:fadeIn .2s ease both}
   .modal.on{animation:fadeIn .18s ease both}
   .modal.on .modal-card{animation:popIn .26s cubic-bezier(.2,.7,.3,1.25) both}
   .photo.on{animation:fadeIn .18s ease both}
@@ -425,7 +441,7 @@ textarea:focus{outline:2px solid var(--brass);outline-offset:2px}
 /* Finom állapot- és press-átmenetek (mozgásmentesen is ártalmatlanok) */
 .nav button{transition:color .2s ease,background .22s ease}
 .nav button:active{transform:scale(var(--press-sm))}
-.btn,.tool,.whyc,.iconbtn,.seg button,.kb button,.mgchip{transition:transform 120ms var(--ease-out),background 200ms ease,border-color 200ms ease,color 200ms ease,box-shadow 200ms ease}
+.btn,.tool,.whyc,.iconbtn,.seg button,.kb button,.wt button,.mgchip{transition:transform 120ms var(--ease-out),background 200ms ease,border-color 200ms ease,color 200ms ease,box-shadow 200ms ease}
 .card{transition:border-color .22s ease,box-shadow .22s ease}
 .daybtn,.pcard,.histrow{transition:background 180ms ease,transform 120ms var(--ease-out)}
 /* A .daybtn a kártyán BELÜL ül, ezért a KÁRTYÁT húzzuk össze – különben a
@@ -592,7 +608,7 @@ function logRdyBadge(t){
 }
 let physioRegion='';  // Gyógytorna oldal aktív testtáj (üres = első)
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v108';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v109';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -1201,7 +1217,7 @@ function openProgPolicy(id){
       <div class="small dim" style="margin-top:2px;font-weight:400">${POLICY_DESC[p]}</div></button>`;
   });
   document.getElementById('sheetIn').innerHTML=h;
-  document.getElementById('sheet').classList.add('on');
+  openSheet();
 }
 function setProgPolicy(id,p){ if(!S.prog) S.prog={};
   if(p==='smart') delete S.prog[id]; else S.prog[id]=p;   // 'smart' = alapértelmezés, nem tároljuk
@@ -1355,7 +1371,7 @@ function schedToggle(dayId, wd){
   if(cur.length) S.sched[dayId]=cur.sort((a,b)=>a-b); else delete S.sched[dayId];
   save(); renderSchedSheet();
 }
-function openSchedSheet(){ renderSchedSheet(); document.getElementById('sheet').classList.add('on'); }
+function openSchedSheet(){ renderSchedSheet(); openSheet(); }
 function renderSchedSheet(){
   const act=activeProg(), ids=(act&&act.days)||[];
   let h=`<div class="grabber"></div>
@@ -1744,7 +1760,7 @@ function openStarters(){
     </div></div>`;
   });
   document.getElementById('sheetIn').innerHTML=h;
-  document.getElementById('sheet').classList.add('on');
+  openSheet();
 }
 // Egy sablon-routine másolása a felhasználó saját edzései közé; visszaadja az új ID-t.
 function addStarterRoutine(key, silent){
@@ -1952,7 +1968,7 @@ function openAiImport(){
   aiResolved=null; aiText=''; aiStep=1; aiCopied=false; aiEditRef=null; aiEmptied=false;
   aiPromptText=buildAiPrompt();          // a naplóból személyre szabott prompt
   aiRender();
-  document.getElementById('sheet').classList.add('on');
+  openSheet();
 }
 // Csak a lap TARTALMÁT cseréljük – így a választóból visszatérve nem csukódik
 // be és nem indul újra a lap-animáció.
@@ -2267,7 +2283,7 @@ function builderView(){
 // AI-import előnézetét (`ai`), ahol egy rossz párosítást kötünk át. A sorok
 // ezért a `pickerChoose`-on mennek át, nem közvetlenül az `addToDraft`-on.
 let pickerQ='', pickerMg='', pickerMode='draft';
-function openExPicker(mode,q){ pickerQ=q||''; pickerMg=''; pickerMode=mode||'draft'; renderPicker(); document.getElementById('sheet').classList.add('on'); }
+function openExPicker(mode,q){ pickerQ=q||''; pickerMg=''; pickerMode=mode||'draft'; renderPicker(); openSheet(); }
 function pickerChoose(id){ return pickerMode==='ai' ? aiBindPick(id) : addToDraft(id); }
 // A találati listát és a chipeket külön frissítjük, hogy a kereső input
 // DOM-eleme gépelés közben ne épüljön újra (megmaradjon a fókusz + kurzor).
@@ -2321,7 +2337,7 @@ function openManageEx(){
     <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
     <button class="btn pri" style="margin:12px 0" onclick="openCustomEx(null,'manage')">+ Új saját gyakorlat</button>
     <div style="max-height:52vh;overflow-y:auto">${rows}</div>`;
-  document.getElementById('sheet').classList.add('on');
+  openSheet();
 }
 async function deleteCustomEx(id){
   const used=(S.routines||[]).some(r=>r.ex.indexOf(id)>=0);
@@ -2438,7 +2454,7 @@ function openDayPicker(){
     <h2 style="font-size:22px">Válassz edzést</h2></div>
     <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
     <div style="max-height:52vh;overflow-y:auto;margin-top:12px">${rows}</div>`;
-  document.getElementById('sheet').classList.add('on');
+  openSheet();
 }
 function addToProg(dId){ prog.days.push(dId); closeSheet(); render(); }
 
@@ -2589,7 +2605,7 @@ function openSet(id,i){
   cur={id,i}; const e=exDef(id), t=parseInt(e.r);
   if(e.time){ openTimerSet(e,i,t); return; }    // idő-alapú gyakorlat → visszaszámláló
   document.getElementById('sheetIn').innerHTML=repKbSheet(e,i,t);
-  document.getElementById('sheet').classList.add('on');
+  openSheet();
 }
 // Ismétlés-választó billentyűzet (a cél körüli tartomány) + kézi mező.
 // A rács a tipikus esetet fedi két koppintással; a mező azért kell, mert a
@@ -2623,7 +2639,37 @@ function setRepManual(){
   if(!Number.isFinite(v) || v<0 || v>999){ el.value=''; el.focus(); return; }
   setRep(v);
 }
-function closeSheet(){ document.getElementById('sheet').classList.remove('on'); }
+/* ---- Alsó lap nyitása / zárása ---------------------------------------
+ * A zárás ANIMÁLT, tehát nem azonnali – ezért kell két dolog:
+ *  - `openSheet()` egyetlen belépési pont, ami törli a félbehagyott
+ *    kilépés nyomait (osztály + a lehúzásból maradt inline transform);
+ *  - nemzedék-számláló (`_sheetGen`): ha a 200 ms alatt ÚJ lap nyílik, a
+ *    régi kilépés már nem nyúl a DOM-hoz, és nem tünteti el a frisset.
+ * A `pointer-events:none` a `.closing`-on azt zárja ki, hogy a kifelé
+ * úszó lapon még egyszer el lehessen találni valamit. */
+const SHEET_OUT=200;
+let _sheetGen=0, _sheetT=null;
+function openSheet(){
+  const s=document.getElementById('sheet'); if(!s) return;
+  _sheetGen++; clearTimeout(_sheetT);
+  s.classList.remove('closing');
+  const i=document.getElementById('sheetIn');
+  if(i){ i.style.transition=''; i.style.transform=''; }
+  s.classList.add('on');
+}
+function closeSheet(){
+  const s=document.getElementById('sheet');
+  if(!s || !s.classList.contains('on')) return;
+  const gen=++_sheetGen;
+  s.classList.add('closing');
+  clearTimeout(_sheetT);
+  _sheetT=setTimeout(()=>{
+    if(gen!==_sheetGen) return;          // közben új lap nyílt
+    s.classList.remove('on','closing');
+    const i=document.getElementById('sheetIn');
+    if(i){ i.style.transition=''; i.style.transform=''; }
+  }, SHEET_OUT);
+}
 
 /* ---- Beépített óra idő-alapú gyakorlathoz (plank stb.) ------------- */
 // A cél-időről visszaszámol; a végén beep + rezgés és automatikusan
@@ -2644,7 +2690,7 @@ function openTimerSet(e,i,target){
     <button id="stBtn" class="btn pri" style="margin-top:14px" onclick="toggleTimerSet(${target})">Indítás</button>
     <button class="btn" style="margin-top:8px;color:var(--mut)" onclick="document.getElementById('sheetIn').innerHTML=repKbSheet(exDef(cur.id),cur.i,${target})">Kézi megadás</button>`;
   document.getElementById('sheetIn').innerHTML=h;
-  document.getElementById('sheet').classList.add('on');
+  openSheet();
 }
 function stTick(target){
   const leftMs=Math.max(0, stEnd-Date.now()), left=leftMs/1000;
@@ -3017,7 +3063,7 @@ function openFinishSummary(sess){
   <div class="mgtrack" style="margin-top:8px"><span class="mgfill" style="--p:${(after.pct/100).toFixed(4)};background:var(--brass)"></span></div>`;
   h+=`<button class="btn pri" style="margin-top:14px" onclick="closeFinish()">Naplóhoz ›</button>`;
   document.getElementById('sheetIn').innerHTML=h;
-  document.getElementById('sheet').classList.add('on');
+  openSheet();
 }
 function closeFinish(){ closeSheet(); }
 
@@ -3184,7 +3230,7 @@ function untomb(k){ if(!S.deleted) S.deleted=[];
  * verzió van. E nélkül egy TÖRÖLT szettet a szinkron visszahozna. */
 let editSess=null, editRep=null;
 function openEditSession(i){ editSess=i; editRep=null; renderEditSheet();
-  document.getElementById('sheet').classList.add('on'); }
+  openSheet(); }
 function renderEditSheet(){ const el=document.getElementById('sheetIn');
   if(el) el.innerHTML = editRep ? esRepHtml() : editSessionHtml(); }
 function esSess(){ return editSess!=null ? S.sessions[editSess] : null; }
@@ -3382,7 +3428,7 @@ function openWeeklyExport(){
       <button class="btn pri" style="flex:1;margin:0" onclick="shareWeekly()">Megosztás</button>
       <button class="btn" style="flex:1;margin:0" onclick="copyWeekly()">Másolás</button>
     </div>`;
-  document.getElementById('sheet').classList.add('on');
+  openSheet();
 }
 function copyWeekly(){ navigator.clipboard.writeText(_weeklyText).then(()=>uiAlert('Vágólapra másolva – beillesztheted az AI edződnek.'),()=>uiAlert('Nem sikerült a másolás.')); }
 async function shareWeekly(){
@@ -3673,7 +3719,7 @@ function bwProgCard(){
 let bwDraft=0, bwDate='';
 function openBwSheet(dateKey){ bwDate=dateKey||bwKey(Date.now());
   const cur=(S.bw||{})[bwDate]; bwDraft = cur>0?cur : (bwLast()?bwLast().kg:75);
-  renderBwSheet(); document.getElementById('sheet').classList.add('on'); }
+  renderBwSheet(); openSheet(); }
 function bwStep(d){ bwDraft=Math.max(20,Math.min(300,Math.round((bwDraft+d)*10)/10)); renderBwSheet(); }
 function bwSave(){ if(!S.bw)S.bw={}; if(bwDraft>0) S.bw[bwDate]=Math.round(bwDraft*10)/10;
   if(navigator.vibrate) navigator.vibrate(12); save(); closeSheet(); render(); }
@@ -3768,7 +3814,7 @@ function openSleepSheet(dateKey){ slpDate=dateKey||bwKey(Date.now());
   const cur=(S.sleep||{})[slpDate];
   slpDraft = cur&&cur.min>0 ? cur.min : (slpLast()?slpLast().min:450);
   slpQ = cur?cur.q||0 : 0;
-  renderSleepSheet(); document.getElementById('sheet').classList.add('on'); }
+  renderSleepSheet(); openSheet(); }
 function slpStep(d){ slpDraft=Math.max(0,Math.min(1080,slpDraft+d)); renderSleepSheet(); }
 function slpSetQ(q){ slpQ = slpQ===q?0:q; renderSleepSheet(); }
 async function slpSync(){
@@ -4055,7 +4101,7 @@ function openRdySheet(){
     +`</div>
     <p class="small dim" style="margin:10px 2px 0">Kikapcsolhatod bármelyiket – a szám akkor a maradékból számol. Ez csak a pontszámot érinti, a naplóadatot soha.</p>`;
   document.getElementById('sheetIn').innerHTML=h;
-  document.getElementById('sheet').classList.add('on');
+  openSheet();
 }
 
 // Holnapi előrejelzés az edzés-összegzőhöz. A mai edzés már a naplóban van,
@@ -4311,7 +4357,7 @@ function openProgDetail(id, metric){
   });
   h+=`</div>`;
   document.getElementById('sheetIn').innerHTML=h;
-  document.getElementById('sheet').classList.add('on');
+  openSheet();
 }
 
 /* ---- Tárcsa-kalkulátor -------------------------------------------- */
@@ -4338,7 +4384,7 @@ function openPlateCalc(preW){
     <div class="seg" id="plBar">${[20,15,10].map(b=>`<button class="${plateBar===b?'on':''}" onclick="setPlateBar(${b})">${b} kg rúd</button>`).join('')}</div>
     <div id="plRes"></div>`;
   document.getElementById('sheetIn').innerHTML=h;
-  document.getElementById('sheet').classList.add('on');
+  openSheet();
   renderPlateRes();
 }
 function setPlateBar(b){ plateBar=b;
@@ -4399,7 +4445,7 @@ function openWarmup(exId){
     h+=`</div><p class="small dim" style="margin-top:8px">Tipp: a bemelegítő szetteket nem kell naplózni – csak a munkaszetteket rögzítsd.</p>`;
   }
   document.getElementById('sheetIn').innerHTML=h;
-  document.getElementById('sheet').classList.add('on');
+  openSheet();
 }
 
 /* ---- Jegyzetek (állandó + aznapi) és fotó -------------------------- */
@@ -4515,7 +4561,7 @@ function openNoteSheet(kind,id,fromPlayer){
     document.getElementById('sheetIn').innerHTML=h;
     if(editing){ const ta=document.getElementById('noteTa'); if(ta) ta.value=editIt.txt; }
   }
-  document.getElementById('sheet').classList.add('on');
+  openSheet();
 }
 function saveNote(kind,id){
   const v=document.getElementById('noteTa').value.trim();
@@ -4660,7 +4706,7 @@ function openInjury(){
   h+=`</div><p class="small dim" style="margin:12px 0 0">Az új edzés indításakor lép életbe. A folyamatban lévő edzést nem módosítja.</p>
     <button class="btn" style="margin-top:12px" onclick="clearInjury()">Sérülés-mód kikapcsolása</button>`;
   document.getElementById('sheetIn').innerHTML=h;
-  document.getElementById('sheet').classList.add('on');
+  openSheet();
 }
 function toggleInjury(m){
   const parts=(S.injury&&S.injury.parts)?S.injury.parts.slice():[];
@@ -4736,7 +4782,7 @@ function openAuthSheet(){
     </div>`;
   h+=`<div class="small dim" style="text-align:center;margin-top:14px">${tr('Verzió')} ${APP_VERSION} · <a href="privacy.html" target="_blank" rel="noopener" style="color:var(--mut)">${tr('Adatvédelem')}</a></div>`;
   document.getElementById('sheetIn').innerHTML=h;
-  document.getElementById('sheet').classList.add('on');
+  openSheet();
   if(loggedIn && !myProfile){ loadProfile().then(()=>{ const s=document.getElementById('sheet');
     if(s&&s.classList.contains('on') && document.getElementById('dispName')) openAuthSheet(); }); }
 }
@@ -4797,7 +4843,7 @@ function openDeleteAccount(){
 
     <button class="btn danger" style="margin-top:14px" onclick="confirmDeleteAccount()">Fiók végleges törlése</button>
     <button class="btn" style="margin-top:8px;color:var(--mut)" onclick="closeSheet()">Mégse</button>`;
-  document.getElementById('sheet').classList.add('on');
+  openSheet();
 }
 function toggleDelWipe(){
   delWipeLocal=!delWipeLocal;
@@ -4933,7 +4979,7 @@ async function openFriendStats(id, name){
     <div class="row"><div class="grow"><span class="eyebrow">Barát haladása</span><h2 style="font-size:22px">${esc(n)}</h2></div>
     <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>`;
   document.getElementById('sheetIn').innerHTML=head(name)+`<div class="empty" style="padding:16px 0">Betöltés…</div>`;
-  document.getElementById('sheet').classList.add('on');
+  openSheet();
   let st=null; try{ st=await Auth.friendStats(id); }catch(e){}
   let h=head((st&&st.display_name)||name);
   if(!st||!st.data||!st.data.sessions){ h+=`<div class="empty" style="padding:16px 0">Ez a barát még nem osztott meg adatot.</div>`; }
@@ -4984,7 +5030,7 @@ async function openSharePlan(programId){
   else acc.forEach(r=>{ const id=r.requester===me?r.addressee:r.requester; const nm=r.requester===me?(r.addressee_name||'Barát'):(r.requester_name||'Barát');
     h+=`<button class="btn" style="margin-bottom:8px" onclick="doSharePlan('${programId}','${id}','${esc(nm)}')">${esc(nm)}</button>`; });
   document.getElementById('sheetIn').innerHTML=h;
-  document.getElementById('sheet').classList.add('on');
+  openSheet();
 }
 async function doSharePlan(programId, toId, toName){
   const payload=buildPlanPayload(programId); const p=progById(programId);
@@ -5020,7 +5066,7 @@ function openWelcome(){
   h+=row(ICON.account,'Fiók / szinkron','Opcionális felhő-fiók: több eszköz közt biztonságosan összefésül. Nélküle minden a böngésződben marad.');
   h+=`<button class="btn pri" style="margin-top:18px" onclick="dismissWelcome()">Kezdjük</button>`;
   document.getElementById('sheetIn').innerHTML=h;
-  document.getElementById('sheet').classList.add('on');
+  openSheet();
 }
 function dismissWelcome(){ try{ localStorage.setItem('gymlog_onboarded','1'); }catch(e){} closeSheet(); }
 function maybeOnboard(){ try{ if(localStorage.getItem('gymlog_onboarded')) return; }catch(e){ return; }
@@ -5084,8 +5130,10 @@ document.getElementById('modal').onclick=e=>{ if(e.target.id==='modal') _closeMo
     if(!dragging) return; dragging=false; sheet.classList.remove('drag');
     const h=inner.offsetHeight||400;
     if(dy>Math.min(150, h*0.28)){
-      inner.style.transition='transform .2s ease'; inner.style.transform='translateY(110%)';
-      setTimeout(()=>{ closeSheet(); inner.style.transition=''; inner.style.transform=''; },180);
+      // Ugyanaz a kilépés, mint az ×-nél és a háttér-koppintásnál.
+      // A `.drag` már le van véve, így a `sheetOut` az AKTUÁLIS (lehúzott)
+      // helyzetből viszi tovább lefelé, nem ugrik vissza.
+      closeSheet();
     } else {
       sheet.classList.add('snap'); inner.style.transform='';
       setTimeout(()=>sheet.classList.remove('snap'),220);

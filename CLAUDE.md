@@ -654,6 +654,11 @@ animációnál ezeket használd, ne találj ki újabb görbét vagy időt.
   A `.daybtn` a kártyán BELÜL ül, ezért a **kártyát** húzzuk össze
   (`.card:has(.daybtn:active)`) – különben a tartalom zsugorodna egy álló
   kereten belül. `:has` nélkül csak a háttérváltás marad.
+  **A szett-rács (`.kb button`) és a súlyállító (`.wt button`) is kap
+  `scale`-t, nem csak hátteret.** Teremben a hüvelykujjad ELTAKARJA a
+  gombot: az ujjad ALATTI háttérváltás láthatatlan, a `scale` viszont a
+  gomb SZÉLÉT mozdítja – az ujjad körül az látszik. Ez a két kontroll az
+  app legtöbbet nyomott eleme, ne vedd le róluk.
 - **Csak `transform` és `opacity` animálódik.** A kitöltő sávok
   (`.mgfill`, `.rdybar>span`) `scaleX(var(--p))`-pel rajzolnak, ahol a `--p`
   a kitöltés ARÁNYA (0..1), nem százalékos szélesség: a `width` minden
@@ -695,6 +700,30 @@ alatt kikapcsol (`reducedMotion()`), a haptika opcionális (`navigator.vibrate`)
 - **Húzható alsó lap:** a `#sheetIn`-en lefelé húzva (felül állva,
   `scrollTop<=0`) bezárul; a `.sheet.drag` alatt nincs belépő-anim, a
   `.sheet.snap` a visszapattanás. A háttérre koppintás továbbra is zár.
+- **A lap ugyanazon az úton megy ki, amin bejött** – lecsúszik. Korábban a
+  `display:none` egyszerűen eltüntette, MIKÖZBEN lehúzva animálva zárult:
+  ugyanaz a felület kétféleképp tűnt el, és pont ez vette el a lehúzás-
+  gesztus magától értetődőségét. A lehúzás-ág ezért már nem hoz saját
+  kilépést, hanem a `closeSheet()`-et hívja.
+  - `SHEET_OUT` = **200 ms**, GYORSABB a 260 ms-os belépésnél: a
+    megnyitásról a felhasználó dönt, a bezárás a rendszer válasza.
+  - **Az `openSheet()` az EGYETLEN nyitási pont** (25 hívási hely), mert a
+    zárás már nem azonnali: törli a félbehagyott kilépés nyomait (osztály +
+    a lehúzásból maradt inline transform). Ne nyúlj közvetlenül a
+    `classList.add('on')`-hoz – E2E-teszt is tiltja (37. szekció).
+  - **Nemzedék-számláló** (`_sheetGen`): ha a 200 ms alatt ÚJ lap nyílik, a
+    régi kilépés már nem nyúl a DOM-hoz, és nem tünteti el a frisset.
+  - **A sötétítés külön `::before` réteg.** Amíg a háttér magán a
+    `.sheet`-en ült, a halványulás a TARTALMAT is vitte – félúton 3%-on
+    állt, vagyis a lecsúszásból semmi nem látszott. Most a sötétítés
+    halványul (`ease`, színváltás-jellegű), a lap pedig CSÚSZIK
+    (`var(--ease-out)`). Az `::before` nem eseménycél, a háttérre koppintás
+    változatlanul zár.
+  - A kilépő szabályok **`.sheet.on.closing`** alakúak: a `.sheet.on`
+    belépő `fadeIn … both` azonos fajsúlyú volt és később jött, ezért
+    1-en tartotta az átlátszatlanságot. Ha új szabályt veszel fel, tartsd
+    meg ezt a fajsúlyt.
+  - Csökkentett mozgásnál a CSÚSZÁS marad el, a halványulás nem.
 - **Belépő animáció (`enterAnim`)**: nézetváltáskor (és első festéskor) az
   `#app` kap egy `.enter` osztályt ~1,1 mp-re, amire a CSS a `.wrap>*`
   kártyák **lépcsőzetes beúszását** akasztja (`riseIn`, 35 ms-os lépcsők,

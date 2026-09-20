@@ -1595,6 +1595,95 @@ ok('36 a v101-ben leváltott pihenő-overlay maradéka kitakarítva', await page
 await page.evaluate(()=>{ stopTimer(); playing=false; tab='home'; S.active=null; render(); });
 await wait(300);
 
+// ---- 37. Lap-kilépés + a legtöbbet nyomott kontrollok ----
+await seed(backup); await nav('home');
+
+// A lap ugyanazon az úton megy ki, amin bejött.
+ok('37 a lap nem tűnik el, hanem lecsúszik', await page.evaluate(async ()=>{
+  openBwSheet(); await new Promise(r=>setTimeout(r,320));
+  closeSheet(); await new Promise(r=>setTimeout(r,90));
+  const s=document.getElementById('sheet'), i=document.getElementById('sheetIn');
+  const m=getComputedStyle(i).transform.match(/,\s*([\d.]+)\)$/);
+  const csuszik = !!m && +m[1] > 40;
+  await new Promise(r=>setTimeout(r,250));
+  return csuszik && s.classList.contains('on')===false; }));
+ok('37 a TARTALOM nem halványul, csak a sötétítés', await page.evaluate(async ()=>{
+  openBwSheet(); await new Promise(r=>setTimeout(r,320));
+  closeSheet(); await new Promise(r=>setTimeout(r,90));
+  const s=document.getElementById('sheet'), i=document.getElementById('sheetIn');
+  const tartalom = +getComputedStyle(i).opacity;
+  const sotetites = +getComputedStyle(s,'::before').opacity;
+  await new Promise(r=>setTimeout(r,250));
+  return tartalom===1 && sotetites<0.8; }));
+ok('37 a kilépés gyorsabb, mint a belépés', await page.evaluate(async ()=>{
+  const html=await (await fetch('index.html')).text();
+  const be=(html.match(/sheetUp \.(\d+)s/)||[])[1];          // .26s
+  const ki=(html.match(/const SHEET_OUT=(\d+)/)||[])[1];     // 200
+  return be && ki && +ki < +be*10; }));
+
+// Megszakíthatóság: ha a kilépés alatt ÚJ lap nyílik, a friss nem tűnhet el.
+ok('37 a kilépés közben nyitott új lap megmarad', await page.evaluate(async ()=>{
+  openBwSheet(); await new Promise(r=>setTimeout(r,320));
+  closeSheet();
+  await new Promise(r=>setTimeout(r,60));
+  openSleepSheet();
+  await new Promise(r=>setTimeout(r,500));   // jóval a régi kilépés lejárta után
+  const s=document.getElementById('sheet');
+  return s.classList.contains('on') && !s.classList.contains('closing')
+      && getComputedStyle(document.getElementById('sheetIn')).transform==='none'; }));
+
+// Egy felület, egy kimeneti út: a lehúzás is a closeSheet-en megy.
+ok('37 a lehúzásnak nincs külön kilépése', await page.evaluate(async ()=>{
+  const html=await (await fetch('index.html')).text();
+  return !/translateY\(110%\)/.test(html); }));
+ok('37 minden lapnyitás egy belépési ponton megy', await page.evaluate(async ()=>{
+  const html=await (await fetch('index.html')).text();
+  // csak a teszt-segéd és az openSheet maga nyúlhat közvetlenül az osztályhoz
+  return !/getElementById\('sheet'\)\.classList\.add\('on'\)/.test(html); }));
+
+// Csökkentett mozgás: a CSÚSZÁS marad el, a halványulás nem.
+await page.emulateMedia({reducedMotion:'reduce'});
+ok('37 csökkentett mozgásnál nem csúszik, de nem is villan', await page.evaluate(async ()=>{
+  openBwSheet(); await new Promise(r=>setTimeout(r,320));
+  closeSheet(); await new Promise(r=>setTimeout(r,90));
+  const s=document.getElementById('sheet'), i=document.getElementById('sheetIn');
+  const nincsCsuszas = getComputedStyle(i).transform==='none';
+  const halvanyul = +getComputedStyle(s,'::before').opacity < 0.8;
+  await new Promise(r=>setTimeout(r,250));
+  return nincsCsuszas && halvanyul; }));
+await page.emulateMedia({reducedMotion:null});
+await wait(200);
+
+// A két legtöbbet nyomott kontroll: az ujjad ELTAKARJA a gombot, ezért a
+// háttérváltás önmagában láthatatlan – a `scale` a gomb SZÉLÉT mozdítja.
+const press2 = await (async ()=>{
+  // Tiszta állapot: a `backup` hozhat folyamatban lévő edzést, olyankor a
+  // `startDay` nem indul, és a súlyállító meg sem jelenne a lejátszóban.
+  await seed({sessions:[], active:null, weights:{}});
+  await page.evaluate(()=>{ startDay('pa'); render(); }); await wait(350);
+  await page.evaluate(()=>{ openSet('bench',0); }); await wait(350);
+  const cdp=await page.context().newCDPSession(page);
+  await cdp.send('DOM.enable'); await cdp.send('CSS.enable');
+  const {root}=await cdp.send('DOM.getDocument');
+  const out={};
+  for(const sel of ['.kb button','.wt button']){
+    const {nodeId}=await cdp.send('DOM.querySelector',{nodeId:root.nodeId,selector:sel});
+    if(!nodeId){ out[sel]=null; continue; }
+    await cdp.send('CSS.forcePseudoState',{nodeId,forcedPseudoClasses:['active']});
+    await wait(120);
+    out[sel]=await page.evaluate(x=>{
+      const m=getComputedStyle(document.querySelector(x)).transform.match(/matrix\(([\d.]+)/);
+      return m?+m[1]:1; }, sel);
+    await cdp.send('CSS.forcePseudoState',{nodeId,forcedPseudoClasses:[]});
+  }
+  return out; })();
+ok('37 a szett-rács gombja összehúzódik lenyomva', press2['.kb button']!=null && press2['.kb button']<1);
+ok('37 a súlyállító gombja összehúzódik lenyomva', press2['.wt button']!=null && press2['.wt button']<1);
+ok('37 mindkettő a --press-sm rendszerértéket kapja',
+  press2['.kb button']===press2['.wt button'] && Math.abs(press2['.kb button']-0.94)<0.005);
+await page.evaluate(()=>{ closeSheet(); playing=false; tab='home'; S.active=null; render(); });
+await wait(350);
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));
