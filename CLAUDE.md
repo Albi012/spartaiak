@@ -618,6 +618,45 @@ közben látni akarsz: hol tartasz, mennyi szett van hátra, mi a súly.
 - A ±15 mp állítás a régi overlayjel együtt kikerült (a gyakorlatban nem
   használt: a pihenő letelte úgysem kötelező érvényű).
 
+## Mozgás-rendszer (tokenek, koppintás, belépés)
+
+A mozgás nem elemenkénti ízlés kérdése – **rendszer**, tokenekkel. Új
+animációnál ezeket használd, ne találj ki újabb görbét vagy időt.
+
+- **Easing-tokenek a `:root`-on:** `--ease-out` (belépés, visszajelzés),
+  `--ease-in-out` (képernyőn belüli mozgás). A beépített CSS-easingek
+  gyengék. **`ease-in` SEHOL nincs a felületen** – lassan indul, és pont azt
+  a pillanatot késlelteti, amit a szem a legjobban figyel; ettől lomhának
+  érződik az app. E2E-teszt őrzi (35. szekció).
+- **Koppintás-visszajelzés MÉRETHEZ kötve:** `--press-sm` (.94 – ikon, chip,
+  nav), `--press-md` (.97 – gomb), `--press-lg` (.99 – nagy kártya).
+  Nagyobb felületen a kisebb elmozdulás ugyanakkora érzetet ad. Minden
+  nyomható elem jelezzen vissza: a régi `.99 + opacity:.9` nem érződött
+  koppintásnak.
+  A `.daybtn` a kártyán BELÜL ül, ezért a **kártyát** húzzuk össze
+  (`.card:has(.daybtn:active)`) – különben a tartalom zsugorodna egy álló
+  kereten belül. `:has` nélkül csak a háttérváltás marad.
+- **Csak `transform` és `opacity` animálódik.** A kitöltő sávok
+  (`.mgfill`, `.rdybar>span`) `scaleX(var(--p))`-pel rajzolnak, ahol a `--p`
+  a kitöltés ARÁNYA (0..1), nem százalékos szélesség: a `width` minden
+  képkockán layoutot kér. A `growX` keyframe ugyanezt a `--p`-t olvassa, így
+  a belépő animáció és az érték-változás nem üti egymást. **Ha új sávot
+  veszel fel, `--p`-t adj neki, ne `width`-et.**
+- **Gyakoriság-szabály.** Ami naponta sokszor látszik, az ne legyen
+  látványos. A fül-váltás belépő animációja ezért rövid (260 ms, 8px út), a
+  lépcső a 6. kártyánál megáll, és a készenlét-szám count-upja 340 ms – az a
+  szám, AMIÉRT megnyitod a főoldalt, nem mutogatni való, hanem elolvasni.
+  Ne told vissza fél másodperc fölé.
+- **Egy dolog = egy időzítés.** A készenlét-gyűrű és a mini-gyűrű ugyanazt
+  rajzolja, ezért azonos a `stroke-dashoffset` átmenetük; teszt hasonlítja
+  a kettőt.
+- **`prefers-reduced-motion`:** a belépő animációk és a keyframe-ek
+  `no-preference` média-blokkban vannak, tehát csökkentett mozgásnál
+  eltűnnek. A koppintás-visszajelzés MARAD – az nem dísz, hanem válasz.
+- Semmi nem lép be `scale(0)`-ból (`popIn` .94-ről indul). A `scaleX(0)`
+  kivétel: egy üres kitöltő-sáv nem „a semmiből" jelenik meg, hanem
+  feltöltődik.
+
 ## Mikro-interakciók
 
 Kis, teremben is érezhető visszajelzések – mind `prefers-reduced-motion`

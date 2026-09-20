@@ -1443,6 +1443,85 @@ ok('34 a kártya NEM tárol semmit (a napló változatlan)', await page.evaluate
   bwProgCard(); bwProgCard();
   return localStorage.getItem('gymlog_v1')===elotte; }));
 
+// ---- 35. Mozgás-rendszer (Emil Kowalski-féle UI-polish szabályok) ----
+// Ezek a szabályok könnyen visszakúsznak egy-egy gyors javításnál, ezért
+// a CSS SZÖVEGÉRE is állítunk feltételeket, nem csak a viselkedésre.
+// A megjegyzéseket kivágjuk: a szabályokról ÍRNI szabad, csak használni nem.
+const css = await page.evaluate(async ()=>{
+  const html = await (await fetch('index.html')).text();
+  const raw = (html.match(/<style>([\s\S]*?)<\/style>/)||[])[1]||'';
+  return raw.replace(/\/\*[\s\S]*?\*\//g,' '); });
+
+ok('35 `ease-in` sehol – lassan indul, attól lomha a felület', !/[^-]ease-in[^-]/.test(css));
+ok('35 nincs `transition: all` (mindig konkrét tulajdonság)', !/transition:\s*all/.test(css));
+// A `scaleX(0)` KIVÉTEL: egy üres kitöltő-sáv nem „a semmiből" jelenik meg,
+// hanem feltöltődik. A tiltás az ELEMEK belépésére szól.
+ok('35 semmi nem scale(0)-ból lép be', !/[^X]scale\(0\)/.test(css));
+ok('35 vannak easing-tokenek a :root-on (nem szórt cubic-bezier)', await page.evaluate(()=>{
+  const v=getComputedStyle(document.documentElement);
+  return v.getPropertyValue('--ease-out').trim().startsWith('cubic-bezier')
+      && v.getPropertyValue('--ease-in-out').trim().startsWith('cubic-bezier'); }));
+
+// Koppintás-visszajelzés: minden nyomható elem jelezzen vissza, és a
+// mérték MÉRETHEZ kötött rendszer legyen (.94 / .97 / .99), ne találgatás.
+await seed(backup); await nav('home');
+const press = await (async ()=>{
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('DOM.enable'); await cdp.send('CSS.enable');
+  const {root} = await cdp.send('DOM.getDocument');
+  const out = {};
+  for(const sel of ['.daybtn','.btn','.iconbtn','.nav button']){
+    const {nodeId} = await cdp.send('DOM.querySelector', {nodeId:root.nodeId, selector:sel});
+    if(!nodeId){ out[sel]=null; continue; }
+    await cdp.send('CSS.forcePseudoState', {nodeId, forcedPseudoClasses:['active']});
+    await wait(120);
+    out[sel] = await page.evaluate(s=>{
+      const el=document.querySelector(s);
+      const t = s==='.daybtn' ? el.parentElement : el;   // a nagy kártya húzódik össze
+      const m = getComputedStyle(t).transform.match(/matrix\(([\d.]+)/);
+      return m ? +m[1] : 1; }, sel);
+    await cdp.send('CSS.forcePseudoState', {nodeId, forcedPseudoClasses:[]});
+  }
+  return out; })();
+ok('35 minden nyomható elem visszajelez koppintásra', Object.values(press).every(v=>v!=null && v<1));
+ok('35 a visszajelzés mértéke a 0,94–0,99 sávban van', Object.values(press).every(v=>v>=0.94 && v<=0.99));
+ok('35 a nagy kártya finomabban húzódik, mint a kis ikon', press['.daybtn'] > press['.iconbtn']);
+ok('35 a gomb érezhetően visszajelez (a régi .99+opacity nem az)', press['.btn']<=0.975);
+
+// Sávok: transform, nem width – a szélesség minden képkockán layoutot kér.
+ok('35 a kitöltő sávok transformmal rajzolnak, nem width-tel',
+  /\.mgfill\{transition:transform/.test(css.replace(/\s/g,''))
+  && /\.rdybar>span\{[^}]*transform:scaleX/.test(css.replace(/\n/g,''))
+  && !/transition:width/.test(css));
+await seed(backup); await nav('home');
+ok('35 a sáv tényleges szélessége egyezik a beállított aránnyal', await page.evaluate(()=>{
+  const el=[...document.querySelectorAll('.rdybar>span')].find(s=>+getComputedStyle(s).getPropertyValue('--p')>0.05);
+  if(!el) return true;   // nincs pontozható tényező – nincs mit ellenőrizni
+  const p=+getComputedStyle(el).getPropertyValue('--p');
+  const r=el.getBoundingClientRect().width / el.parentElement.getBoundingClientRect().width;
+  return Math.abs(r-p) < 0.02; }));
+
+// Gyakoriság-szabály: a fül-váltást naponta sokszor csinálod, ezért rövid.
+ok('35 a belépő animáció 300 ms alatt marad', /riseIn \.2\ds/.test(css));
+ok('35 a lépcső a 6. kártyánál megáll (nem várakoztat a 9-ig)',
+  /nth-child\(n\+6\)\{animation-delay:\.15s\}/.test(css) && !/animation-delay:\.2\ds/.test(css));
+ok('35 a készenlét-szám nem tartja vissza magát fél másodpercig', await page.evaluate(async ()=>{
+  const html=await (await fetch('index.html')).text();
+  const m=html.match(/const dur=(\d+), t0=performance\.now/);
+  return m && +m[1] <= 400; }));
+
+// A gyűrűk ugyanazt csinálják – ugyanaz az időzítésük is.
+// A készenlét-gyűrű és a mini-gyűrű ugyanazt a dolgot rajzolja: ne legyen
+// két külön időzítésük, amit egyenként hangolgat valaki.
+const ringT = name => (css.match(new RegExp('[^}{]*\\'+name+'[^}{]*\\{[^}]*stroke-dashoffset\\s+(\\d+m?s)'))||[])[1];
+ok('35 a két készenlét-gyűrű időzítése egységes',
+  !!ringT('.rdy-fg') && ringT('.rdy-fg')===ringT('.mr-fg'));
+
+// Csökkentett mozgás: a MOZGÁS tűnik el, a visszajelzés nem.
+ok('35 a belépő animációk prefers-reduced-motion alá vannak zárva',
+  /@media \(prefers-reduced-motion: no-preference\)/.test(css)
+  && css.indexOf('@keyframes riseIn') > css.indexOf('@media (prefers-reduced-motion: no-preference)'));
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));
