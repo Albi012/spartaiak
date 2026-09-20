@@ -78,6 +78,8 @@ alapértéket kapnak; a `save()`/`backup()`/`restore()` viszi őket).
   a lista sorára koppintva az adott nap szerkeszthető). A felhő-szinkron
   per-kulcs (dátum) unióban viszi (`auth.js` `bw` mező); törlés nincs, csak
   felülírás, így tombstone sem kell. `bwKey(t)` a helyi dátumkulcs.
+  A **Haladás** fülön `bwProgCard()` mutatja a trendet (lásd
+  „Testsúly-trend a Haladás fülön").
 - `sleep` – **alvás-napló**: `{ 'YYYY-MM-DD': {min, q} }` (alvott perc +
   minőség 1..5), naponta egy érték (felülírható). Ugyanaz a minta, mint a
   `bw`: additív, edzéstől független, per-kulcs (dátum) unióban szinkronizál
@@ -456,6 +458,29 @@ Kulcsolt, additív mező: a felhő-szinkron per-kulcs unióban viszi, mint a
 menetrendet. Ne találj ki órarendet magadtól – csak azt mutasd, amit a
 felhasználó ténylegesen beállított.
 
+## Testsúly-trend a Haladás fülön
+
+A `bwProgCard()` (a készenlét-görbe UTÁN, a stagnálás-kártya ELŐTT)
+ugyanabból az `S.bw` naplóból számol, mint a főoldali kártya és a készenlét
+`bw` tényezője – **nincs új mező és nincs elmentett trend.** A főoldalon a
+MAI szám a lényeg, itt az IRÁNY, ezért hosszabb (`BW_PROG_DAYS` = 90 napos)
+ablak.
+
+- **Becsületesség:** interpoláció NINCS, csak a ténylegesen mért napok
+  kerülnek a grafikonra, és a kártya ki is írja, hány mérésből van. Két
+  mérés alatt a kártya **el sem készül** – üres grafikont mutatni rosszabb,
+  mint semmit.
+- A grafikon SORSZÁM szerint rajzol (`sparkPath`, mint a többi az appban), a
+  meredekség viszont **valódi napokkal** számol (`bwSlopeWeek` →
+  egyenes-illesztés, kimenet kg/hét), hogy a ritkább mérés ne torzítsa.
+  5 mérés alatt `null` – kevés pontból nem mondunk irányt.
+- A 7 napos átlag az ELŐZŐ 7 naphoz mér, ugyanazzal az elvvel, mint az
+  `rdyBw` – így a két felület ugyanazt a „trendet" érti.
+- A `bwArrow` iránynyila **SZÁNDÉKOSAN semleges színű**: az app nem tudja,
+  hogy a felhasználó fogyni vagy hízni akar, ezért irányt mond, nem ítél.
+  Ezt ne cseréld „jó/rossz" színezésre.
+- A súly mindenhol a `bwNum` magyar alakjában megy ki („79,8 kg").
+
 ## Stagnálás-felismerés
 
 A `stallOf(id)` / `stalledList()` a **naplóból származtatja**, hogy egy
@@ -782,8 +807,19 @@ elárnyékolna, és csak futásidőben derülne ki.
   böngészőt automatikusan „angol" felületre tenni, ami valójában nagyrészt
   magyar, félrevezető. A `navigator.language`-alapú tippelés a `detect()`-ben
   egy sorral bekapcsolható, ha a fordítás teljes lesz.
-- A gyakorlatnevek (PLAN/LIB/REHAB, ~190 db) **még magyarok** – azok az `n`
-  mezőkben élnek, és külön körben kapnak `en` párt.
+- **A gyakorlatnevek le vannak fordítva** (215 db: PLAN + LIB + ARCHIVE +
+  REHAB), de **NEM az adatban**: az `n` mező MARAD magyar, és a szótárban a
+  magyar név a KULCS. Ez azért fontos, mert az `n` egyszerre adat is:
+  az `aiMatchEx(name)` ehhez párosítja az edző által írt gyakorlatnevet, a
+  `customEx` neve a felhasználó saját szövege, a `dayNoteJoin` pedig a
+  visszafelé kompatibilis `note` mezőbe írja. A FELÜLET ezért az
+  `exN(e)` / `trn(n)` segéden át kéri a nevet – ami nincs a szótárban
+  (saját `cx_…` gyakorlat), az magára esik vissza. **Aki nyers nevet ír
+  adatba, az NE használja az `exN`-t.** Ugyanígy fordul a `trmg(mg)` az
+  izomcsoportokhoz: az `mg` DATA-kulcs (sérülés-mód, szűrés) marad magyar,
+  csak a kiírás fordul.
+- A gyakorlatválasztó keresője **mindkét néven talál** (a beírt magyar és
+  az angol alakra is szűr), hogy angol felületen se tűnjön el egy gyakorlat.
 
 ## Téma (világos / sötét)
 

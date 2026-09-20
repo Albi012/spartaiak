@@ -573,7 +573,7 @@ function logRdyBadge(t){
 }
 let physioRegion='';  // Gyógytorna oldal aktív testtáj (üres = első)
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v105';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v106';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -889,7 +889,7 @@ const LIB={}; LIB_ARR.forEach(e=>LIB[e.id]=e);
 const VIDEO={};
 function videoUrl(e){
   if(e && VIDEO[e.id]) return VIDEO[e.id];
-  const q=encodeURIComponent(((e&&e.n)||'')+' helyes technika gyakorlat');
+  const q=encodeURIComponent(exN(e)+' '+tr('helyes technika gyakorlat'));
   return 'https://www.youtube.com/results?search_query='+q;
 }
 // Technika-animáció (GIF) gyakorlatonként. A GIFX térkép exId → fájl-alapnév;
@@ -963,7 +963,7 @@ function gifBox(e,opt){
   const u=gifUrl(e); if(!u) return '';
   const w=(opt&&opt.w)||200;
   return `<figure class="exgif" style="max-width:${w}px">
-    <img src="${u}" alt="${esc(((e&&e.n)||'')+' – technika ábra')}" loading="lazy" decoding="async" width="180" height="180">
+    <img src="${u}" alt="${esc(exN(e)+' – '+tr('technika ábra'))}" loading="lazy" decoding="async" width="180" height="180">
     <figcaption>Ábra © <a href="https://gymvisual.com/" target="_blank" rel="noopener noreferrer">Gym visual</a></figcaption>
   </figure>`;
 }
@@ -981,6 +981,20 @@ function exDef(id){ for(const d of PLAN) for(const e of d.ex) if(e.id===id) retu
   if(LIB[id]) return LIB[id];
   if(id && id.indexOf('rh_')===0){ const p=physioExDef(id); if(p) return p; }
   return ARCHIVE[id] || {id:id,n:id,s:3,r:'10',w:0,rest:90,inc:2.5}; }
+
+/* ---- Gyakorlatnév megjelenítése ------------------------------------ *
+ * A `n` mező MAGYARUL él az adatban (PLAN/LIB/ARCHIVE/REHAB) – ez a
+ * párosítás (`aiMatchEx`), a saját gyakorlat neve és a mentett adat
+ * nyelve, ezért SOHA nem írjuk át. A FELÜLET viszont az `exN()`-en át
+ * kéri a nevet, ami angol nyelvnél a szótárból fordít; ami nincs benne
+ * (saját `cx_…` gyakorlat), az magára esik vissza.
+ * Aki nyers nevet ír adatba (customEx másolás, `dayNoteJoin` legacy
+ * `note` mezője, felhő-export), az NE ezt használja. */
+function exN(e){ return e && e.n ? tr(e.n) : ''; }
+function trn(n){ return n ? tr(n) : ''; }
+// Izomcsoport / testtáj megjelenítése. Az `mg` DATA-kulcs (sérülés-mód,
+// szűrés) – csak a kiírás fordul.
+function trmg(mg){ return mg ? tr(mg) : ''; }
 // Nap (edzés) feloldása: beépített PLAN VAGY saját routine VAGY gyógytorna-
 // rutin (physio_<testtáj>). A visszaadott alak {id,name,sub,ex:[def,…]}.
 function dayDef(id){
@@ -997,7 +1011,7 @@ function dayDef(id){
       return m; }),
     ssLinks:(r.ssLinks||[]).slice()};
   if(id && id.indexOf('physio_')===0){ const reg=REHAB.find(x=>x.id===id.slice(7));
-    if(reg) return {id, name:'Mobilitás – '+reg.name, sub:'5 perces rutin', custom:true, physio:1, ex:reg.ex.map(e=>physioExDef(e.id))}; }
+    if(reg) return {id, name:tr('Mobilitás')+' – '+trn(reg.name), sub:'5 perces rutin', custom:true, physio:1, ex:reg.ex.map(e=>physioExDef(e.id))}; }
   return null;
 }
 // Superset-csoportok származtatása: az `ssLinks`-ben szereplő gyakorlat-ID
@@ -1008,7 +1022,7 @@ function deriveGroups(exIds, links){
   exIds.forEach((id,i)=>{ if(i>0 && ls.has(id) && cur) cur.push(id); else { cur=[id]; groups.push(cur); } });
   return groups.filter(g=>g.length>1);
 }
-function dayName(s){ const d=dayDef(s.day); return (d&&d.name) || s.dayName || 'Edzés'; }
+function dayName(s){ const d=dayDef(s.day); return trn((d&&d.name) || s.dayName) || tr('Edzés'); }
 // Edzéstervek egységes listája: a beépített Alapterv (ha nincs elrejtve) +
 // a saját programok. Ebből választható az aktív terv.
 function progById(id){
@@ -1159,7 +1173,7 @@ function openProgPolicy(id){
   const e=exDef(id), cur=progPolicy(id);
   let h=`<div class="grabber"></div>
     <div class="row"><div class="grow"><span class="eyebrow">Progresszió</span>
-      <h2 style="font-size:22px">${esc(e.n)}</h2>
+      <h2 style="font-size:22px">${esc(exN(e))}</h2>
       <span class="small dim">Hogyan lépjen a súly a következő edzésre</span></div>
       <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>`;
   POLICIES.forEach(p=>{
@@ -1328,7 +1342,7 @@ function renderSchedSheet(){
     h+`<div class="empty" style="padding:18px 0">Az aktív tervedben nincs edzésnap.</div>`);
   ids.forEach(id=>{ const d=dayDef(id); if(!d) return;
     h+=`<div class="card" style="margin-top:10px"><div class="pad">
-      <div class="cond" style="font-size:17px;font-weight:600">${esc(d.name)}</div>
+      <div class="cond" style="font-size:17px;font-weight:600">${esc(trn(d.name))}</div>
       <div class="whyrow" style="margin-top:8px">`
       + WDAY.map((lbl,i)=>`<button class="whyc ${schedOf(id).includes(i)?'on':''}"
           onclick="schedToggle('${id}',${i})">${lbl}</button>`).join('')
@@ -1426,7 +1440,7 @@ function homeView(){
           <circle class="mr-fg" cx="23" cy="23" r="${R}" style="stroke-dasharray:${C.toFixed(1)};stroke-dashoffset:${off}"></circle>
         </svg>
         <span class="mr-ic">${ICON.play}</span></span>
-      <span class="grow"><span class="cond" style="font-size:21px;font-weight:600;display:block">Folytatás – ${esc(d.name)}</span>
+      <span class="grow"><span class="cond" style="font-size:21px;font-weight:600;display:block">${tr('Folytatás')} – ${esc(trn(d.name))}</span>
       <span class="small dim">${doneN}/${exN} gyakorlat kész</span></span>
       <span style="color:var(--brass);font-size:22px">›</span></button></div>`;
   }
@@ -1483,8 +1497,8 @@ function homeView(){
       const isNext = i===nextIdx && !S.active;
       h+=`<div class="card"><button class="daybtn" onclick="startDay('${dId}')">
         <span class="daytag">${tag}</span>
-        <span class="grow"><span class="cond" style="font-size:21px;font-weight:600;display:block">${esc(d.name)}${isNext?'<span class="pill">KÖVETKEZŐ</span>':''}</span>
-        <span class="small dim">${esc(d.sub||(d.ex.length+' gyakorlat'))}${last?' · utoljára '+fmtDate(last.t):' · még nem volt'}</span></span>
+        <span class="grow"><span class="cond" style="font-size:21px;font-weight:600;display:block">${esc(trn(d.name))}${isNext?'<span class="pill">'+tr('KÖVETKEZŐ')+'</span>':''}</span>
+        <span class="small dim">${esc(trn(d.sub)||(d.ex.length+' '+tr('gyakorlat')))}${last?' · utoljára '+fmtDate(last.t):' · még nem volt'}</span></span>
         <span style="color:var(--dim);font-size:22px">›</span></button></div>`;
     });
   }
@@ -1494,7 +1508,7 @@ function homeView(){
   if(loose.length){
     h+=`<div class="top" style="padding:18px 0 8px"><span class="eyebrow">Saját edzések</span></div>`;
     loose.forEach(r=>{ const last=[...S.sessions].reverse().find(s=>s.day===r.id);
-      h+=dayCard(r.id, r.name, r.sub||(r.ex.length+' gyakorlat'), last, true); });
+      h+=dayCard(r.id, r.name, trn(r.sub)||(r.ex.length+' '+tr('gyakorlat')), last, true); });
   }
   // Összeállítás/kezelés a külön „Tervek" fülön. Itt csak akkor mutatunk
   // belépőt, ha nincs mit startolni (különben a főoldal a startolható
@@ -1522,7 +1536,7 @@ function addRehabAsCustom(rid, exid){
   const parts=String(e.r).split('×'); const sets=parseInt(parts[0])||2; const reps=(parts[1]||'10').trim();
   const id=uid('cx_');
   S.customEx[id]={id, n:e.n, mg:REGION_MG[rid]||'törzs', s:sets, r:reps, w:0, inc:2.5, rest:45, bw:1, ...(e.time?{time:1}:{})};
-  save(); uiAlert('„'+e.n+'" felvéve a saját gyakorlataid közé – edzésbe teheted a Tervek fülön.');
+  save(); uiAlert('„'+exN(e)+'" felvéve a saját gyakorlataid közé – edzésbe teheted a Tervek fülön.');
 }
 function physioView(){
   const reg=REHAB.find(r=>r.id===physioRegion)||REHAB[0]; physioRegion=reg.id;
@@ -1534,13 +1548,13 @@ function physioView(){
       Fájdalom, friss vagy tartós sérülés esetén fordulj gyógytornászhoz/orvoshoz. Fájdalmasan soha ne erőltesd.
     </div></div>
     <div class="whyrow" style="flex-wrap:wrap;margin:12px 0 8px">`+
-    REHAB.map(r=>`<button class="whyc ${r.id===reg.id?'on':''}" onclick="setPhysioRegion('${r.id}')">${esc(r.name)}</button>`).join('')
+    REHAB.map(r=>`<button class="whyc ${r.id===reg.id?'on':''}" onclick="setPhysioRegion('${r.id}')">${esc(trn(r.name))}</button>`).join('')
     +`</div>`;
   h+=`<button class="btn pri" style="margin:0 0 12px;display:flex;align-items:center;justify-content:center;gap:8px" onclick="startPhysioRoutine('${reg.id}')">${ICON.play} 5 perces rutin – ${esc(reg.name)}</button>
     <p class="small dim" style="margin:-4px 2px 12px">Vezetett kör: minden gyakorlat 1 sor, rövid váltással; a tartásokat óra méri. Nem kerül a naplóba.</p>`;
   reg.ex.forEach(e=>{
     h+=`<div class="card"><div class="pad">
-      <div class="row" style="align-items:baseline"><span class="cond grow" style="font-size:18px;font-weight:600">${esc(e.n)}</span>
+      <div class="row" style="align-items:baseline"><span class="cond grow" style="font-size:18px;font-weight:600">${esc(exN(e))}</span>
         <span class="small dim" style="white-space:nowrap">${esc(e.r)}</span></div>
       <div class="small mut" style="margin:4px 0 10px">${esc(e.cue)}</div>
       <div class="row" style="gap:8px">
@@ -2067,7 +2081,7 @@ function aiStep3Html(){
       h+=`<div class="row" style="align-items:flex-start;gap:8px;margin-top:8px">
         <button class="grow" style="text-align:left;min-width:0" onclick="aiEditItem(${di},${ii})">
           <span class="small"><span style="color:var(--${utk?'red':(item.match?'sage':'brass')})">${utk?'!':(item.match?'✓':'+')}</span>
-            ${esc(item.match?item.match.n:p.name)}${item.match?'':' <span class="dim">(új)</span>'}</span>
+            ${esc(item.match?trn(item.match.n):p.name)}${item.match?'':' <span class="dim">(új)</span>'}</span>
           <span class="small dim" style="display:block;margin-top:2px">${meta} <span style="color:var(--mut)">· csere ›</span></span>
           ${utk?`<span class="small" style="display:block;margin-top:2px;color:var(--red)">Ez a gyakorlat kétszer szerepel ezen a napon – dobd ki az egyiket, vagy kösd át másikra.</span>`:''}</button>
         <button onclick="aiRemoveItem(${di},${ii})" aria-label="Sor elhagyása" style="color:var(--dim);font-size:20px;padding:2px 6px">×</button>
@@ -2198,8 +2212,8 @@ function builderView(){
     const linked = i>0 && (draft.ssLinks||[]).includes(exId);
     if(i>0) items+=`<button class="sslink ${linked?'on':''}" onclick="draftToggleLink('${exId}')">${linked?'⛓ Superset az előzővel · bontás':'+ Superset az előzővel'}</button>`;
     items+=`<div class="card"${linked?' style="border-color:var(--brass)"':''}><div class="pad row">
-      <span class="grow"><span class="cond" style="font-size:18px;font-weight:600;display:block">${esc(e.n)}</span>
-      <span class="small dim">${e.s}×${e.r}${e.mg?' · '+e.mg:''}</span></span>
+      <span class="grow"><span class="cond" style="font-size:18px;font-weight:600;display:block">${esc(exN(e))}</span>
+      <span class="small dim">${e.s}×${e.r}${e.mg?' · '+esc(trmg(e.mg)):''}</span></span>
       <button class="iconbtn" onclick="draftMove(${i},-1)" ${i===0?'disabled':''} aria-label="fel">↑</button>
       <button class="iconbtn" onclick="draftMove(${i},1)" ${i===draft.ex.length-1?'disabled':''} aria-label="le">↓</button>
       <button class="iconbtn" style="color:var(--red)" onclick="draftRemove(${i})" aria-label="törlés">×</button>
@@ -2235,18 +2249,18 @@ function pickerChoose(id){ return pickerMode==='ai' ? aiBindPick(id) : addToDraf
 function pickerRowsHtml(){
   const q=pickerQ.toLowerCase();
   const lib=exLibrary().filter(e=>
-    (!q || e.n.toLowerCase().includes(q)) &&
+    (!q || e.n.toLowerCase().includes(q) || exN(e).toLowerCase().includes(q)) &&
     (!pickerMg || (e.mg||'')===pickerMg));
   return lib.map(e=>`<button class="btn" style="text-align:left;display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px" onclick="pickerChoose('${e.id}')">
       ${gifThumb(e)}
-      <span class="grow" style="min-width:0"><span style="font-weight:600">${esc(e.n)}</span>
-      <span class="small dim" style="display:block">${e.s}×${e.r}${e.mg?' · '+e.mg:''} · ${e.src}</span></span>
+      <span class="grow" style="min-width:0"><span style="font-weight:600">${esc(exN(e))}</span>
+      <span class="small dim" style="display:block">${e.s}×${e.r}${e.mg?' · '+esc(trmg(e.mg)):''} · ${esc(tr(e.src))}</span></span>
       <span style="color:var(--brass);font-size:24px;flex:none">+</span></button>`).join('')
     || '<div class="empty">Nincs találat ebben az izomcsoportban.</div>';
 }
 function pickerChipsHtml(){
   return `<button class="whyc ${pickerMg===''?'on':''}" onclick="setPickerMg('')">Mind</button>`
-    + MGS.map(m=>`<button class="whyc ${pickerMg===m?'on':''}" onclick="setPickerMg('${m}')">${m}</button>`).join('');
+    + MGS.map(m=>`<button class="whyc ${pickerMg===m?'on':''}" onclick="setPickerMg('${m}')">${esc(trmg(m))}</button>`).join('');
 }
 function renderPickerRows(){ const el=document.getElementById('pickerRows'); if(el) el.innerHTML=pickerRowsHtml(); }
 function renderPickerChips(){ const el=document.getElementById('pickerChips'); if(el) el.innerHTML=pickerChipsHtml(); }
@@ -2271,8 +2285,8 @@ function addToDraft(exId){ draft.ex.push(exId); closeSheet(); render(); }
 function openManageEx(){
   const list=Object.values(S.customEx||{});
   const rows = list.length ? list.map(e=>`<div class="card"><div class="pad row">
-      <span class="grow"><span class="cond" style="font-size:18px;font-weight:600;display:block">${esc(e.n)}</span>
-      <span class="small dim">${e.s}×${e.r}${e.mg?' · '+e.mg:''}${e.bw?' · testsúly':''}</span></span>
+      <span class="grow"><span class="cond" style="font-size:18px;font-weight:600;display:block">${esc(exN(e))}</span>
+      <span class="small dim">${e.s}×${e.r}${e.mg?' · '+esc(trmg(e.mg)):''}${e.bw?' · testsúly':''}</span></span>
       <button class="iconbtn" onclick="openCustomEx('${e.id}','manage')" aria-label="Szerkesztés" title="Szerkesztés">${ICON.edit}</button>
       <button class="iconbtn" style="color:var(--red)" onclick="deleteCustomEx('${e.id}')" aria-label="Törlés" title="Törlés">×</button>
     </div></div>`).join('') : '<div class="empty">Még nincs saját gyakorlatod.</div>';
@@ -2305,7 +2319,7 @@ function openCustomEx(id, ret){
     <button onclick="${back}" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
     <input id="cxName" placeholder="Név (pl. Bolgár kitörés)" value="${e?esc(e.n):''}" style="width:100%;margin-top:12px">
     <div class="small dim" style="margin-top:10px">Izomcsoport (a sérülés-módhoz)</div>
-    <div class="whyrow" id="cxMg" style="margin-top:6px">${MGS.map(m=>`<button class="whyc ${e&&e.mg===m?'on':''}" data-mg="${m}" onclick="pickCxMg(this)">${m}</button>`).join('')}</div>
+    <div class="whyrow" id="cxMg" style="margin-top:6px">${MGS.map(m=>`<button class="whyc ${e&&e.mg===m?'on':''}" data-mg="${m}" onclick="pickCxMg(this)">${esc(trmg(m))}</button>`).join('')}</div>
     <div class="row" style="gap:8px;margin-top:12px">
       <label class="small dim" style="flex:1">Szett<input id="cxSets" type="number" inputmode="numeric" value="${val(e&&e.s,3)}" style="width:100%;margin-top:4px"></label>
       <label class="small dim" style="flex:1">Ismétlés<input id="cxReps" type="text" value="${e?esc(e.r):'10'}" style="width:100%;margin-top:4px"></label>
@@ -2392,7 +2406,7 @@ function openDayPicker(){
   const days=PLAN.map(d=>({id:d.id,name:d.name,src:'beépített'}))
     .concat(S.routines.map(r=>({id:r.id,name:r.name,src:'saját'})));
   const rows=days.map(d=>`<button class="btn" style="text-align:left;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px" onclick="addToProg('${d.id}')">
-      <span><span style="font-weight:600">${esc(d.name)}</span> <span class="small dim">· ${d.src}</span></span>
+      <span><span style="font-weight:600">${esc(d.name)}</span> <span class="small dim">· ${esc(tr(d.src))}</span></span>
       <span style="color:var(--brass);font-size:24px">+</span></button>`).join('');
   document.getElementById('sheetIn').innerHTML=`<div class="grabber"></div>
     <div class="row"><div class="grow"><span class="eyebrow">Edzés hozzáadása a tervhez</span>
@@ -2514,7 +2528,7 @@ function playerView(){
       ${deloadBanner}
       <div>
         <div class="row" style="align-items:flex-start">
-          <div class="grow"><div class="pname">${esc(e.n)}</div>
+          <div class="grow"><div class="pname">${esc(exN(e))}</div>
           <div class="pmeta">${complete?'<span class="done-badge">kész</span>':`<span class="tgt">cél: ${e.s} × ${e.r}${e.time?'':' ism.'}</span>`}${ssBadge}</div></div>
           ${restPillHtml()}
           <button class="iconbtn" onclick="openNoteSheet('ex','${e.id}')" aria-label="Jegyzet és fotó" title="Jegyzet és fotó">${ICON.edit}</button>
@@ -2561,7 +2575,7 @@ function repKbSheet(e,i,t){
   const unit=e.time?'mp':'ismétlés';
   let h=`<div class="grabber"></div>
     <div class="row"><div class="grow"><span class="eyebrow">${i+1}. szett</span>
-    <h2 style="font-size:24px">${esc(e.n)}</h2><span class="small dim">cél: ${esc(e.r)}${e.time?'':' ismétlés'}</span></div>
+    <h2 style="font-size:24px">${esc(exN(e))}</h2><span class="small dim">cél: ${esc(e.r)}${e.time?'':' ismétlés'}</span></div>
     <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
     <div class="kb">`;
   opts.forEach(k=>{ h+=`<button onclick="setRep(${k})" style="${k==t?'border-color:var(--brass);color:var(--brass)':''}">${k}</button>`; });
@@ -2596,7 +2610,7 @@ function openTimerSet(e,i,target){
   clearInterval(stInt); stInt=null;
   const h=`<div class="grabber"></div>
     <div class="row"><div class="grow"><span class="eyebrow">${i+1}. szett · idő</span>
-      <h2 style="font-size:24px">${esc(e.n)}</h2><span class="small dim">cél: ${esc(e.r)}</span></div>
+      <h2 style="font-size:24px">${esc(exN(e))}</h2><span class="small dim">cél: ${esc(e.r)}</span></div>
       <button onclick="closeTimerSet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
     <div style="text-align:center;margin:16px 0 8px">
       <div id="stVal" class="num" style="font-size:66px;font-weight:700;line-height:1">${fmtSec(target)}</div>
@@ -2793,10 +2807,10 @@ function sessionPRs(sess){
     const L=sess.log[id]; if(!L||!L.sets.some(x=>x!=null)) return;
     const e=exDef(id); if(e.bw||!(L.w>0)) return;
     const prevW=Math.max(0,...others.filter(s=>s.log[id]).map(s=>s.log[id].w||0));
-    if(L.w>prevW){ prs.push({name:e.n, kind:'súly-csúcs', val:kgNum(L.w)+' kg'}); return; }
+    if(L.w>prevW){ prs.push({name:exN(e), kind:'súly-csúcs', val:kgNum(L.w)+' kg'}); return; }
     const c=sess1RM(L); if(c==null) return;
     const prev1=Math.max(0,...others.filter(s=>s.log[id]).map(s=>sess1RM(s.log[id])||0));
-    if(c>prev1) prs.push({name:e.n, kind:'becsült 1RM', val:'~'+kgNum(c)+' kg'});
+    if(c>prev1) prs.push({name:exN(e), kind:'becsült 1RM', val:'~'+kgNum(c)+' kg'});
   });
   return prs;
 }
@@ -2873,7 +2887,7 @@ function muscleMap(mgSets, sm){
 function mgChips(mgSets){
   const arr=Object.keys(mgSets).sort((a,b)=>mgSets[b]-mgSets[a]);
   if(!arr.length) return '';
-  return `<div class="mgchips">${arr.map(mg=>`<span class="mgchip"><b>${mgSets[mg]}</b> ${esc(mg)}</span>`).join('')}</div>`;
+  return `<div class="mgchips">${arr.map(mg=>`<span class="mgchip"><b>${mgSets[mg]}</b> ${esc(trmg(mg))}</span>`).join('')}</div>`;
 }
 // Mini hőskála-jelmagyarázat (kevés → sok).
 function mmLegend(){ return `<div class="mmleg"><span>kevés</span><i></i><span>sok</span></div>`; }
@@ -2894,7 +2908,7 @@ function openFinishSummary(sess){
   let h=`<div class="grabber"></div>
     <div class="row"><div class="grow"><span class="eyebrow" style="color:var(--sage)">${ICON.check} Kész</span>
       <h2 style="font-size:24px">Edzés befejezve</h2>
-      <span class="small dim">${esc(sess.dayName||(dayDef(sess.day)||{}).name||'')}</span></div>
+      <span class="small dim">${esc(trn(sess.dayName||(dayDef(sess.day)||{}).name||''))}</span></div>
       <button onclick="closeFinish()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
     <div class="statgrid" style="margin-top:14px">
       ${dur?`<div class="stat"><span class="num">${fmtDur(dur)}</span><span class="statlbl">időtartam</span></div>`:''}
@@ -2916,7 +2930,7 @@ function openFinishSummary(sess){
     h+=`<div class="card" style="margin-top:14px;border-color:var(--brass)"><div class="pad">
       <span class="eyebrow" style="color:var(--brass)">Új csúcs${prs.length>1?'ok':''}</span>`;
     prs.forEach(p=>{ h+=`<div class="row" style="margin-top:8px;align-items:baseline">
-      <span class="cond grow" style="font-size:18px;font-weight:600">${esc(p.name)}<br><span class="small dim" style="font-weight:400">${p.kind}</span></span>
+      <span class="cond grow" style="font-size:18px;font-weight:600">${esc(p.name)}<br><span class="small dim" style="font-weight:400">${esc(tr(p.kind))}</span></span>
       <span class="num" style="font-size:22px;font-weight:700;color:var(--brass)">${p.val}</span></div>`; });
     h+=`</div></div>`;
   }
@@ -2997,15 +3011,15 @@ function logView(){
       <button onclick="del(${idx})" class="small dim" style="padding:8px">${tr('Törlés')}</button></div>
       ${(()=>{ const js=dayNotes(s); if(!js.length) return '';
         return `<div style="padding:0 16px 10px">`+js.map(n=>{ const e=n.ex&&exDef(n.ex);
-          return `<div class="small mut" style="margin-top:2px">${e?`<span style="color:var(--brass)">${esc(e.n)}</span> <span class="dim">közben:</span> `:'<span class="dim">Jegyzet: </span>'}${esc(n.txt)}</div>`;
+          return `<div class="small mut" style="margin-top:2px">${e?`<span style="color:var(--brass)">${esc(exN(e))}</span> <span class="dim">közben:</span> `:'<span class="dim">Jegyzet: </span>'}${esc(n.txt)}</div>`;
         }).join('')+`</div>`; })()}</div>`;
     const seen=new Set();
     d.ex.forEach(e=>{ seen.add(e.id); const l=s.log[e.id]; if(!l||!l.sets.some(x=>x!=null))return;
-      h+=`<div class="hrow"><span class="small grow">${esc(e.n)}${l.why?` <span class="dim" style="font-size:11px">· ${WHY[l.why]}</span>`:''}</span>
+      h+=`<div class="hrow"><span class="small grow">${esc(exN(e))}${l.why?` <span class="dim" style="font-size:11px">· ${WHY[l.why]}</span>`:''}</span>
         <span class="small num mut">${wLabel(e,l.w)}${e.bw&&l.w<=0?'':' kg'} × ${l.sets.map(x=>x==null?'–':x).join(', ')}</span></div>`; });
     Object.keys(s.log).forEach(id=>{ if(seen.has(id))return; const l=s.log[id];
       if(!l||!l.sets.some(x=>x!=null))return; const e=exDef(id);
-      h+=`<div class="hrow"><span class="small grow">${esc(e.n)} <span class="dim" style="font-size:11px">· kivéve</span></span>
+      h+=`<div class="hrow"><span class="small grow">${esc(exN(e))} <span class="dim" style="font-size:11px">· kivéve</span></span>
         <span class="small num mut">${wLabel(e,l.w)}${e.bw&&l.w<=0?'':' kg'} × ${l.sets.map(x=>x==null?'–':x).join(', ')}</span></div>`; });
     const mgSets=sessionMgSets(s);
     h+=`<details class="mmfold"><summary>${tr('Terhelt izmok')}</summary>
@@ -3126,7 +3140,7 @@ function editSessionHtml(){
   ids.forEach(id=>{ const e=exDef(id), L=s.log[id];
     h+=`<div class="card" style="margin-top:10px"><div class="pad">
       <div class="row" style="align-items:flex-start">
-        <span class="grow cond" style="font-size:17px;font-weight:600">${esc(e.n)}</span>
+        <span class="grow cond" style="font-size:17px;font-weight:600">${esc(exN(e))}</span>
         <button class="iconbtn" style="color:var(--red)" onclick="esRemoveEx('${id}')" aria-label="Gyakorlat elhagyása">×</button></div>
       ${e.bw&&!(L.w>0)?`<div class="small dim" style="margin-top:6px">Testsúlyos – nincs súly</div>`
         : `<div class="wt sm" style="margin-top:8px">
@@ -3152,7 +3166,7 @@ function esRepHtml(){
   for(let v=from; v<=to; v++) g+=`<button onclick="esSetRep(${v})"${v===cur?' style="border-color:var(--brass);color:var(--brass)"':''}>${v}</button>`;
   return `<div class="grabber"></div>
     <div class="row"><div class="grow"><span class="eyebrow">${editRep.i+1}. szett</span>
-      <h2 style="font-size:22px">${esc(e.n)}</h2>
+      <h2 style="font-size:22px">${esc(exN(e))}</h2>
       <span class="small dim">cél: ${e.s} × ${esc(e.r)}${e.time?'':' ism.'}</span></div>
       <button onclick="esBackToSession()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
     <div class="kb">${g}</div>
@@ -3182,7 +3196,7 @@ function esBumpW(id,dir){ const s=esSess(); if(!s) return;
 async function esRemoveEx(id){
   const s=esSess(); if(!s) return;
   const e=exDef(id);
-  if(!await uiConfirm('Kiveszed a(z) „'+e.n+'" gyakorlatot ebből az edzésből?\n(A többi gyakorlat marad.)', {ok:'Kivétel', danger:true})) return;
+  if(!await uiConfirm('Kiveszed a(z) „'+exN(e)+'" gyakorlatot ebből az edzésből?\n(A többi gyakorlat marad.)', {ok:'Kivétel', danger:true})) return;
   delete s.log[id]; esTouch();
   // Ha így egyetlen rögzített szett sem maradt, az edzés üres – ezt kimondjuk.
   const ures=!Object.values(s.log).some(l=>(l.sets||[]).some(x=>x!=null));
@@ -3507,6 +3521,81 @@ function bwChart(){ const e=bwEntries(); if(e.length<2) return '';
     <div class="small dim" style="display:flex;justify-content:space-between;margin-top:2px">
       <span>min ${bwNum(mn)}</span><span>${arr.length} nap</span><span>max ${bwNum(mx)}</span></div>
   </div>`;
+}
+
+/* ---- Haladás fül: testsúly-trend kártya ----------------------------
+ * Ugyanabból az `S.bw` naplóból, mint a főoldali kártya és a készenlét
+ * `bw` tényezője – NINCS új mező és nincs elmentett trend, mindent a
+ * mérésekből számolunk. A főoldalon a MAI szám a lényeg, itt az IRÁNY,
+ * ezért hosszabb (90 napos) ablak.
+ * Becsületesség: interpoláció nincs, csak a ténylegesen mért napok
+ * kerülnek a grafikonra, és a kártya ki is írja, hány mérésből van.
+ * Két mérés alatt el sem készül – üres grafikont mutatni rosszabb, mint
+ * semmit. A grafikon SORSZÁM szerint rajzol (mint a többi az appban), a
+ * meredekség viszont VALÓDI NAPOKKAL számol, hogy a ritkább mérés ne
+ * torzítsa a kg/hét értéket. */
+const BW_PROG_DAYS=90;
+function bwTs(k){ return new Date(k+'T00:00:00').getTime(); }
+// Egyenes-illesztés a mért napokra → kg/hét. 5 mérés alatt null:
+// kevés pontból nem mondunk irányt.
+function bwSlopeWeek(arr){
+  if(arr.length<5) return null;
+  const x0=bwTs(arr[0].d);
+  const pts=arr.map(e=>({x:(bwTs(e.d)-x0)/864e5, y:e.kg}));
+  const n=pts.length;
+  const mx=pts.reduce((a,p)=>a+p.x,0)/n, my=pts.reduce((a,p)=>a+p.y,0)/n;
+  let num=0, den=0;
+  pts.forEach(p=>{ num+=(p.x-mx)*(p.y-my); den+=(p.x-mx)*(p.x-mx); });
+  if(!den) return 0;
+  return (num/den)*7;
+}
+// Irány-nyíl. SZÁNDÉKOSAN semleges színnel: az app nem tudja, hogy a
+// felhasználó fogyni vagy hízni akar – a nyíl az irányt mondja, nem ítél.
+function bwArrow(v){ const x=Math.round(v*10)/10;
+  return x>0 ? '▲ +'+bwNum(x) : x<0 ? '▼ −'+bwNum(-x) : '▬ 0'; }
+// Egy sor a testsúly-kártya összegzőjében (címke balra, szám jobbra).
+function bwProgRow(lbl, val){
+  return `<div class="row" style="padding:9px 0;border-top:1px solid var(--line)">
+    <span class="small grow">${esc(lbl)}</span>
+    <span class="num" style="font-weight:700">${val}</span></div>`;
+}
+function bwProgCard(){
+  const all=bwEntries(); if(all.length<2) return '';
+  const arr=all.filter(e=>bwTs(e.d) >= Date.now()-BW_PROG_DAYS*864e5);
+  if(arr.length<2) return '';
+  const pts=arr.map(x=>x.kg), W=300, H=96, pad=10;
+  const mn=Math.min(...pts), mx=Math.max(...pts), cur=pts[pts.length-1];
+  const lastY=(H-pad)-((cur-mn)/((mx-mn)||1))*(H-2*pad);
+  const spanD=Math.round((bwTs(arr[arr.length-1].d)-bwTs(arr[0].d))/864e5)+1;
+  const net=Math.round((cur-pts[0])*10)/10;
+  // 7 napos átlag az előző 7 naphoz – ugyanaz az elv, mint a készenlét
+  // `bw` tényezőjénél, hogy a két felület ugyanazt a „trendet" értse.
+  const end=rdyDayStart(Date.now())+864e5;
+  const mean=(a,b)=>{ const v=all.filter(e=>{ const x=bwTs(e.d); return x>=a && x<b; }).map(e=>e.kg);
+    return v.length ? v.reduce((p,q)=>p+q,0)/v.length : null; };
+  const w1=mean(end-7*864e5,end), w0=mean(end-14*864e5,end-7*864e5);
+  const slope=bwSlopeWeek(arr);
+  const slopeTxt = slope==null ? ''
+    : Math.abs(slope)<0.1 ? tr('nagyjából stabil') : bwArrow(slope)+' '+tr('kg/hét');
+  return `<div class="card"><div class="pad">
+    <div class="row" style="align-items:baseline"><span class="eyebrow grow">${tr('Testsúly')} · ${tr('{n} nap', {n:spanD})}</span>
+      <span class="num" style="font-size:17px;font-weight:700;color:var(--brass)">${bwNum(cur)} kg</span></div>
+    <p class="mut small" style="margin:4px 0 0">${tr('Csak a ténylegesen mért napok')} · ${tr('{n} mérés', {n:arr.length})}</p>
+    <div style="margin-top:10px">
+      <svg class="chartbig" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
+        <path d="${sparkPath(pts,W,H,pad)}" fill="none" stroke="var(--brass)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+        <circle cx="${W}" cy="${lastY.toFixed(1)}" r="3" fill="var(--brass)"/>
+      </svg>
+      <div class="small dim" style="display:flex;justify-content:space-between;margin-top:2px">
+        <span>min ${bwNum(mn)}</span>${slopeTxt?`<span>${slopeTxt}</span>`:''}<span>max ${bwNum(mx)}</span></div>
+    </div>
+    <div style="margin-top:12px">
+      ${w1!=null?bwProgRow(tr('7 napos átlag'), bwNum(w1)+' kg'):''}
+      ${(w1!=null&&w0!=null)?bwProgRow(tr('Az előző héthez'), bwArrow(w1-w0)+' kg'):''}
+      ${bwProgRow(tr('{n} nap alatt', {n:spanD}), bwArrow(net)+' kg')}
+    </div>
+    <button class="btn" style="margin-top:12px" onclick="openBwSheet()">${tr('Testsúly rögzítése')} ›</button>
+  </div></div>`;
 }
 
 let bwDraft=0, bwDate='';
@@ -3870,7 +3959,7 @@ function openRdySheet(){
     r.factors.filter(f=>f.on).forEach((f,i)=>{
       h+=`${i?'<div class="rdysep"></div>':''}<div style="padding:14px 0">
         <div class="row" style="align-items:baseline;gap:10px">
-          <span class="eyebrow grow">${esc(f.n)}</span>
+          <span class="eyebrow grow">${esc(tr(f.n))}</span>
           <span class="num" style="font-size:19px;font-weight:700${f.ok?'':';color:var(--dim)'}">${esc(f.val)}</span>
           <span class="num" style="font-size:15px;font-weight:700;width:36px;text-align:right;color:${f.ok?RDY_TONE[f.tone]:'var(--dim)'}">${f.ok?rdySign(f.delta):'–'}</span></div>
         <span class="rdybar" style="margin-top:9px"><span style="width:${Math.round((f.ok?f.pct:0)*100)}%;background:${RDY_TONE[f.tone]}"></span></span>
@@ -3890,7 +3979,7 @@ function openRdySheet(){
   }
   h+=`<div class="top" style="padding:16px 0 6px"><span class="eyebrow">Mi számítson bele?</span></div>
     <div class="whyrow" style="flex-wrap:wrap">`+
-    RDY_DEF.map(f=>`<button class="whyc ${rdyEnabled(f.id)?'on':''}" onclick="rdyToggle('${f.id}')">${esc(f.n)}</button>`).join('')
+    RDY_DEF.map(f=>`<button class="whyc ${rdyEnabled(f.id)?'on':''}" onclick="rdyToggle('${f.id}')">${esc(tr(f.n))}</button>`).join('')
     +`</div>
     <p class="small dim" style="margin:10px 2px 0">Kikapcsolhatod bármelyiket – a szám akkor a maradékból számol. Ez csak a pontszámot érinti, a naplóadatot soha.</p>`;
   document.getElementById('sheetIn').innerHTML=h;
@@ -3970,7 +4059,7 @@ function stallCard(){
     <p class="mut small" style="margin:4px 0 10px">${tr('A naplóból, súly és ismétlés alapján. Koppints a részletekért.')}</p>`;
   list.slice(0,6).forEach(x=>{ const e=exDef(x.id), fail=x.state==='fail';
     h+=`<button class="btn" style="text-align:left;margin-bottom:8px" onclick="openProgDetail('${x.id}')">
-      <span style="font-weight:600">${esc(e.n)}</span>
+      <span style="font-weight:600">${esc(exN(e))}</span>
       <span class="small" style="display:block;margin-top:2px;color:var(--${fail?'red':'brass'})">${esc(x.txt)}</span>
       <span class="small dim" style="display:block;margin-top:2px">${fail
         ? 'A progresszió innen −10% visszaépítést ajánl – onnan újra fel.'
@@ -4010,6 +4099,7 @@ function progView(){
       <div class="row small dim" style="justify-content:space-between;margin-top:8px"><span>30 napja</span>${trend?`<span>${trend}</span>`:''}<span>ma</span></div>
       </div></div>`;
   }
+  h+=bwProgCard();
   h+=stallCard();
   const WEEKS=16, cols=trainingHeatmap(WEEKS);
   h+=`<div class="card"><div class="pad">
@@ -4028,9 +4118,9 @@ function progView(){
       <span class="eyebrow">Heti terhelés · izomtérkép</span>
       <p class="mut small" style="margin:4px 0 6px">Ezen a héten (hétfőtől) · a színek erőssége a szettszámot mutatja</p>
       ${muscleMap(wmap)}${mmLegend()}
-      <div class="small" style="margin:8px 0 12px;text-align:center;color:${missing.length?'var(--mut)':'var(--sage)'}">${missing.length?('Ezen a héten kimaradt: <b>'+missing.map(esc).join(', ')+'</b>'):'Minden fő izomcsoport kapott terhelést ezen a héten'}</div>`;
+      <div class="small" style="margin:8px 0 12px;text-align:center;color:${missing.length?'var(--mut)':'var(--sage)'}">${missing.length?('Ezen a héten kimaradt: <b>'+missing.map(m=>esc(trmg(m))).join(', ')+'</b>'):'Minden fő izomcsoport kapott terhelést ezen a héten'}</div>`;
     wv.forEach(v=>{ const pct=Math.max(8,Math.round(v.sets/mx*100)), good=v.sets>=10;
-      h+=`<div class="mgrow"><span class="mglbl">${esc(v.mg)}</span>
+      h+=`<div class="mgrow"><span class="mglbl">${esc(trmg(v.mg))}</span>
         <span class="mgtrack"><span class="mgfill" style="width:${pct}%;background:${good?'var(--sage)':'var(--brass)'}"></span></span>
         <span class="mgval num">${v.sets}</span></div>`; });
     h+=`</div></div>`;
@@ -4052,7 +4142,7 @@ function progView(){
       <span class="eyebrow">Legtöbbet fejlődő gyakorlatok</span>
       <p class="mut small" style="margin:4px 0 8px">Az első és a legutóbbi munkasúly különbsége</p>`;
     imp.forEach(x=>{ h+=`<div class="row" style="padding:8px 0;border-bottom:1px solid var(--line)">
-      <span class="grow cond" style="font-weight:600">${esc(x.n)}</span>
+      <span class="grow cond" style="font-weight:600">${esc(trn(x.n))}</span>
       <span class="small num" style="color:var(--sage);font-weight:700">+${kgNum(x.gain)} kg</span></div>`; });
     h+=`</div></div>`;
   }
@@ -4076,7 +4166,7 @@ function progView(){
     const ex=pts.length>1? 100 : 50, ey=(44-6)-((last-mn)/rng)*(44-12);
     const delta=last-pts[0];
     h+=`<div class="card pcard" onclick="openProgDetail('${id}')"><div class="pad">
-      <div class="row" style="align-items:baseline"><span class="cond grow" style="font-size:19px;font-weight:600">${esc(e.n)}</span>
+      <div class="row" style="align-items:baseline"><span class="cond grow" style="font-size:19px;font-weight:600">${esc(exN(e))}</span>
       <span class="num" style="font-size:24px;font-weight:700">${wLabel(e,last)}<span class="small dim" style="font-weight:400">${e.bw&&last<=0?'':' kg'}</span></span></div>
       <div class="small ${delta>0?'':'dim'}" style="${delta>0?'color:var(--sage)':''}">${delta>0?'+'+kgNum(delta)+' kg az indulás óta':delta<0?kgNum(delta)+' kg':'változatlan'} · ${pts.length} alkalom</div>
       ${pts.length>1?`<svg class="spark" viewBox="0 0 100 44" preserveAspectRatio="none"><path d="${d}" fill="none" stroke="var(--brass)" stroke-width="1.6" vector-effect="non-scaling-stroke" stroke-linejoin="round"/><circle cx="${ex.toFixed(1)}" cy="${ey.toFixed(1)}" r="2.4" fill="var(--brass)" vector-effect="non-scaling-stroke"/></svg>`:''}
@@ -4117,7 +4207,7 @@ function openProgDetail(id, metric){
   const seg=(k,lbl)=>`<button class="${metric===k?'on':''}" onclick="openProgDetail('${id}','${k}')">${lbl}</button>`;
   let h=`<div class="grabber"></div>
     <div class="row"><div class="grow"><span class="eyebrow">Haladás</span>
-      <h2 style="font-size:22px">${esc(e.n)}</h2>
+      <h2 style="font-size:22px">${esc(exN(e))}</h2>
       <span class="small dim">Csúcs ${wLabel(e,pr)}${e.bw&&pr<=0?'':' kg'} · ${rows.length} alkalom</span>${(()=>{const b=best1RM(id);return b?`<br><span class="small" style="color:var(--brass)">Becsült 1RM ~${b.est} kg <span class="dim">(${b.w}×${b.r})</span></span>`:'';})()}</div>
       <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
     <div class="seg">${seg('w','Súly')}${seg('vol','Térfogat')}${e.bw?'':seg('1rm','1RM')}</div>
@@ -4216,7 +4306,7 @@ function openWarmup(exId){
   const steps=warmupSets(W, plateBar);
   let h=`<div class="grabber"></div>
     <div class="row"><div class="grow"><span class="eyebrow">Bemelegítés</span>
-      <h2 style="font-size:22px">${esc(e.n)}</h2>
+      <h2 style="font-size:22px">${esc(exN(e))}</h2>
       <span class="small dim">Munkasúly: ${kgNum(W)} kg · ${plateBar} kg rúd</span></div>
       <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>`;
   if(!steps.length){
@@ -4298,7 +4388,7 @@ function openNoteSheet(kind,id,fromPlayer){
   if(kind==='ex'){
     const e=exDef(id), pn=S.notes[id]||'', ph=S.photos[id];
     h+=`<div class="row"><div class="grow"><span class="eyebrow">Gyakorlat-jegyzet</span>
-      <h2 style="font-size:22px">${esc(e.n)}</h2><span class="small dim">Állandó – padszög, ülésmagasság, technika</span></div>
+      <h2 style="font-size:22px">${esc(exN(e))}</h2><span class="small dim">Állandó – padszög, ülésmagasság, technika</span></div>
       <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
       ${noteSegment('ex', fromPlayer)}
       ${gifBox(e)}
@@ -4334,7 +4424,7 @@ function openNoteSheet(kind,id,fromPlayer){
         const e=n.ex&&exDef(n.ex);
         rows+=`<div class="card" style="margin-bottom:8px${n.t===dayNoteEdit?';border-color:var(--brass)':''}"><div class="pad row" style="align-items:flex-start;gap:10px">
           <button class="grow" style="text-align:left" onclick="dayNoteStartEdit(${n.t})">
-            <span class="small" style="color:var(--brass)">${e?esc(e.n):'Általános'}</span>
+            <span class="small" style="color:var(--brass)">${e?esc(exN(e)):'Általános'}</span>
             <span class="small dim"> · ${jotTime(n.t)}</span>
             <div class="small mut" style="margin-top:3px">${esc(n.txt)}</div></button>
           <button onclick="dayNoteDelete(${n.t})" aria-label="Törlés" style="color:var(--dim);font-size:20px;padding:2px 6px">×</button>
@@ -4494,7 +4584,7 @@ function openInjury(){
     <h2 style="font-size:22px">Terhelt testtáj</h2><span class="small dim">Az érintett gyakorlatok kimaradnak, a többi súlya csökken</span></div>
     <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
     <div class="whyrow" style="margin-top:12px">`;
-  MGS.forEach(m=>{ h+=`<button class="whyc ${parts.indexOf(m)>=0?'on':''}" onclick="toggleInjury('${m}')">${m}</button>`; });
+  MGS.forEach(m=>{ h+=`<button class="whyc ${parts.indexOf(m)>=0?'on':''}" onclick="toggleInjury('${m}')">${esc(trmg(m))}</button>`; });
   h+=`</div><p class="small dim" style="margin:12px 0 0">Az új edzés indításakor lép életbe. A folyamatban lévő edzést nem módosítja.</p>
     <button class="btn" style="margin-top:12px" onclick="clearInjury()">Sérülés-mód kikapcsolása</button>`;
   document.getElementById('sheetIn').innerHTML=h;

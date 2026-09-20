@@ -1376,6 +1376,73 @@ ok('33 a profil-lapon ott a nyelvválasztó', await page.evaluate(()=>{
   openAuthSheet(); const t=document.getElementById('sheetIn').textContent; closeSheet();
   return /Nyelv/.test(t) && /Magyar/.test(t) && /Angol/.test(t); }));
 
+// ---- 34. Testsúly-trend kártya a Haladás fülön ----
+// Mindent a `S.bw` mérésekből számol – nincs új mező, nincs elmentett trend.
+const bwKeyOf=(t)=>{ const d=new Date(t); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
+const bwSeed=(napok, fn)=>{ const b={}, D=864e5, now=Date.now();
+  for(let i=napok-1;i>=0;i--) b[bwKeyOf(now-i*D)]=fn(i); return b; };
+const alapSess=[0,3,6,9].map(i=>({day:'pa', t:Date.now()-i*864e5, log:{bench:{w:60,sets:[5,5,5,5]}}}));
+
+await seed({sessions:alapSess, active:null, weights:{bench:60},
+            bw: bwSeed(40, i=>Math.round((80-i*0.05)*10)/10)});
+await nav('prog');
+ok('34 a kártya kikerül a Haladás fülre', await page.evaluate(()=>
+  /Testsúly · \d+ nap/.test(document.getElementById('app').textContent)));
+ok('34 a mai súly és a mérésszám is ki van írva', await page.evaluate(()=>{
+  const t=document.getElementById('app').textContent;
+  return /80,0 kg/.test(t) && /40 mérés/.test(t); }));
+ok('34 a kg magyar alakban megy ki (tizedes VESSZŐ)', await page.evaluate(()=>{
+  const c=bwProgCard();
+  return /\d,\d/.test(c) && !/\d\.\d\s*kg/.test(c); }));
+ok('34 a meredekség valódi NAPOKKAL számol, nem sorszámmal', await page.evaluate(()=>{
+  // +1 kg 14 nap alatt = +0,5 kg/hét, akkor is, ha csak 5 mérés van.
+  const D=864e5, k=t=>{const d=new Date(t);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+  const arr=[14,10,7,3,0].map(i=>({d:k(Date.now()-i*D), kg:80+(14-i)/14}));
+  const s=bwSlopeWeek(arr);
+  return Math.abs(s-0.5)<0.02; }));
+ok('34 5 mérés alatt NEM mond irányt', await page.evaluate(()=>
+  bwSlopeWeek([{d:'2026-01-01',kg:80},{d:'2026-01-02',kg:81}])===null));
+ok('34 a 7 napos átlag az előző héthez mér', await page.evaluate(()=>{
+  const c=bwProgCard();
+  return /7 napos átlag/.test(c) && /Az előző héthez/.test(c); }));
+ok('34 a kártya a testsúly-lapot nyitja', await page.evaluate(()=>
+  /openBwSheet\(\)/.test(bwProgCard())));
+
+// Becsületesség: kevés mérésből nincs kártya, és nincs kitalált pont.
+await seed({sessions:alapSess, active:null, weights:{bench:60},
+            bw: bwSeed(1, ()=>80)});
+await nav('prog');
+ok('34 EGY mérésből nincs kártya (üres grafikont nem mutatunk)', await page.evaluate(()=>
+  bwProgCard()==='' && !/Testsúly · /.test(document.getElementById('app').textContent)));
+await seed({sessions:alapSess, active:null, weights:{bench:60}, bw:{}});
+await nav('prog');
+ok('34 testsúly-napló nélkül a Haladás fül ugyanúgy megvan', await page.evaluate(()=>{
+  const t=document.getElementById('app').textContent;
+  return bwProgCard()==='' && /Edzésnaptár/.test(t); }));
+// Csak a MÉRT napok kerülnek a grafikonra – interpoláció nincs.
+await seed({sessions:alapSess, active:null, weights:{bench:60},
+            bw: (()=>{ const D=864e5, b={}; [60,30,10,4,0].forEach(i=>{
+              const d=new Date(Date.now()-i*D);
+              b[d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')]=80; }); return b; })()});
+await nav('prog');
+ok('34 a ritka mérés nem lesz kitalált napokkal kitöltve', await page.evaluate(()=>
+  /5 mérés/.test(bwProgCard())));
+ok('34 a 90 napos ablakon kívüli mérés kimarad', await page.evaluate(()=>{
+  const D=864e5, d=new Date(Date.now()-200*D);
+  S.bw[d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')]=99;
+  const c=bwProgCard(); return /5 mérés/.test(c) && !/99/.test(c); }));
+ok('34 angolul is olvasható (nem fél-magyar)', await page.evaluate(()=>{
+  S.bw={}; const D=864e5;
+  for(let i=39;i>=0;i--){ const d=new Date(Date.now()-i*D);
+    S.bw[d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')]=80; }
+  I18N.setLang('en'); const c=bwProgCard(); I18N.setLang('hu');
+  return /Bodyweight · 40 days/.test(c) && /40 measurements/.test(c)
+    && /7-day average/.test(c) && /Vs. previous week/.test(c) && /Log bodyweight/.test(c) && !/nap/.test(c.replace(/[a-z]/g,'')); }));
+ok('34 a kártya NEM tárol semmit (a napló változatlan)', await page.evaluate(()=>{
+  const elotte=localStorage.getItem('gymlog_v1');
+  bwProgCard(); bwProgCard();
+  return localStorage.getItem('gymlog_v1')===elotte; }));
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));
