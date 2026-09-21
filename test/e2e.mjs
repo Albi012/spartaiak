@@ -1961,6 +1961,88 @@ ok('40 a javító-lapon az RPE is állítható és üríthető', await page.eval
   return beallt && torolt; }));
 await wait(300);
 
+// ---- 41. RPE-tudatos becsült 1RM + erő-fejlődés ----
+// A legfontosabb garancia: a RÉGI, RPE nélküli napló becslései NEM
+// íródnak át – a felhasználónak hetekre visszamenő adata van.
+await seed({sessions:[], active:null, weights:{}});
+
+ok('41 RPE nélkül a becslés pontosan a régi marad', await page.evaluate(()=>
+  est1RM(100,5)===116.7 && est1RM(100,1)===100 && est1RM(100,12)===140
+  && est1RM(100,13)===null && est1RM(0,5)===null));
+ok('41 az RPE 10 (nincs tartalék) ugyanazt adja, mint a jelöletlen szett', await page.evaluate(()=>
+  est1RM(100,5,10)===est1RM(100,5)));
+ok('41 a tartalék felfelé viszi a becslést', await page.evaluate(()=>
+  est1RM(100,5,8)>est1RM(100,5,10) && est1RM(100,5,7)>est1RM(100,5,8)));
+ok('41 a tartalék a képlet szerint ismétlésnek számít (5 @ RPE 8 = 7-es max)', await page.evaluate(()=>
+  est1RM(100,5,8)===est1RM(100,7)));
+ok('41 12 EFFEKTÍV ismétlés fölött nem becsülünk', await page.evaluate(()=>
+  est1RM(100,10,8)!==null && est1RM(100,11,8)===null));
+ok('41 értelmetlen RPE-t figyelmen kívül hagy', await page.evaluate(()=>
+  est1RM(100,5,0)===est1RM(100,5) && est1RM(100,5,99)===est1RM(100,5)));
+
+// A szetteket egyenként kell nézni: RPE-vel a legtöbb ismétlésű már nem
+// feltétlenül a legjobb.
+ok('41 az edzés 1RM-je a LEGJOBB szettből jön, nem a legtöbb ismétlésűből', await page.evaluate(()=>{
+  const a=sess1RM({w:100,sets:[5,6],rpe:[10,7]});   // 6 @ RPE 7 → 9-es max
+  return a===est1RM(100,9); }));
+ok('41 RPE nélkül továbbra is a legtöbb ismétlésű szett nyer', await page.evaluate(()=>
+  sess1RM({w:100,sets:[5,6]})===est1RM(100,6)));
+ok('41 nem becsülhető edzésre null, nem nulla', await page.evaluate(()=>
+  sess1RM({w:0,sets:[5]})===null && sess1RM({w:100,sets:[null,null]})===null));
+
+// A HIBÁS MÉRCE javítása: azonos súlyon az ismétlés-fejlődés is fejlődés.
+ok('41 azonos súlyon az ismétlés-fejlődés MOST beleszámít', await page.evaluate(()=>{
+  const D=864e5, now=Date.now();
+  S.sessions=[
+    {day:'pa',t:now-20*D,log:{bench:{w:60,sets:[5,5,5]}}},
+    {day:'pa',t:now-6*D, log:{bench:{w:60,sets:[8,8,8]}}}];
+  const r=mostImproved(3);
+  return r.length===1 && r[0].gain>0 && r[0].times===2; }));
+ok('41 a testsúlyos gyakorlat KIMARAD, nem „nulla fejlődés"-ként jelenik meg', await page.evaluate(()=>{
+  const D=864e5, now=Date.now();
+  S.sessions=[
+    {day:'la',t:now-10*D,log:{pull:{w:0,sets:[5,5]}, bench:{w:60,sets:[5,5]}}},
+    {day:'la',t:now-3*D, log:{pull:{w:0,sets:[9,9]}, bench:{w:70,sets:[5,5]}}}];
+  const r=mostImproved(5);
+  return r.length===1 && r[0].id==='bench'; }));
+ok('41 egyetlen mérhető alkalomból nem mondunk fejlődést', await page.evaluate(()=>{
+  S.sessions=[{day:'pa',t:Date.now(),log:{bench:{w:60,sets:[5,5]}}}];
+  return mostImproved(5).length===0; }));
+ok('41 a visszaesést nem tünteti fel fejlődésként', await page.evaluate(()=>{
+  const D=864e5, now=Date.now();
+  S.sessions=[
+    {day:'pa',t:now-10*D,log:{bench:{w:80,sets:[5,5]}}},
+    {day:'pa',t:now-3*D, log:{bench:{w:60,sets:[5,5]}}}];
+  return mostImproved(5).length===0; }));
+
+// Becsületesség: az idősorban CSAK mért pont van, nincs interpoláció.
+ok('41 az idősor csak a becsülhető edzéseket tartalmazza', await page.evaluate(()=>{
+  const D=864e5, now=Date.now();
+  S.sessions=[
+    {day:'pa',t:now-20*D,log:{bench:{w:60,sets:[5,5]}}},
+    {day:'pa',t:now-13*D,log:{bench:{w:60,sets:[null,null]}}},   // nincs rögzítve
+    {day:'pa',t:now-6*D, log:{bench:{w:60,sets:[6,6]}}}];
+  const ser=e1rmSeries('bench');
+  return ser.length===2 && ser[0].t<ser[1].t; }));
+
+// A kártya
+await page.evaluate(()=>{
+  const D=864e5, now=Date.now();
+  S.sessions=[
+    {day:'pa',t:now-20*D,log:{bench:{w:60,sets:[5,5,5]}}},
+    {day:'pa',t:now-6*D, log:{bench:{w:70,sets:[5,5,5]}}}];
+  save(); tab='prog'; render(); });
+await wait(400);
+ok('41 a kártya kikerül a Haladás fülre', await page.evaluate(()=>
+  /ERŐ-FEJLŐDÉS|Erő-fejlődés/i.test(document.getElementById('app').textContent)));
+ok('41 a sor átvisz a gyakorlat 1RM-görbéjére', await page.evaluate(()=>{
+  const app=document.getElementById('app');
+  return /openProgDetail\('bench','1rm'\)/.test(app.innerHTML); }));
+ok('41 kevés adatnál a kártya el sem készül', await page.evaluate(()=>{
+  S.sessions=[{day:'pa',t:Date.now(),log:{bench:{w:60,sets:[5,5]}}}];
+  save(); render();
+  return !/Erő-fejlődés/i.test(document.getElementById('app').textContent); }));
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));

@@ -383,6 +383,13 @@
       '10 = egy ismétlés sem maradt benne · 8 = még kettő belefért':
         '10 = nothing left in the tank · 8 = two reps in reserve',
 
+
+      // — Erő-fejlődés (Haladás fül) —
+      'Erő-fejlődés':'Strength progress',
+      'Becsült 1RM – az ismétlés is beleszámít, RPE-vel a tartalék is':
+        'Estimated 1RM — reps count too, and reps in reserve where RPE is logged',
+      '{n} alkalom':'{n} sessions',
+
       // — Mértékegységek —
       'kg':'kg', 'mp':'s', 'ism.':'reps', 'testsúly':'bodyweight'
     }

@@ -518,6 +518,39 @@ jegyzi fel, és így a chipsor EGY sorba fér).
 - A készenlét (`rdyLoad`) SZÁNDÉKOSAN nem használja: az a szettek számát
   méri, és RPE-vel súlyozni csak akkor volna becsületes, ha a szettek
   többségén lenne érték. Amíg ez nincs, a pontszám jelentése ne változzon.
+- **A becsült 1RM viszont IGEN** – lásd „Erő-fejlődés és becsült 1RM".
+
+## Erő-fejlődés és becsült 1RM
+
+`est1RM(w, r, rpe)` – Epley (`w·(1+r/30)`), **RPE-tudatosan**: ahol van RPE,
+a tartalék (`RIR = 10 − RPE`) hozzáadódik az ismétléshez, mintha a szett a
+határig ment volna. Így az 5 @ RPE 8 hetes maximumként becsülődik, az
+5 @ RPE 10 pedig ötösként – **eddig a kettő ugyanazt adta**, pedig az egyik
+jóval erősebb teljesítmény.
+
+- **RPE nélkül minden pontosan a régiben marad** (a képlet eleve azt
+  feltételezi, hogy a szett a határig ment). A felhasználónak hetekre
+  visszamenő, RPE nélküli naplója van – annak a becslései NEM írhatók át.
+  E2E-teszt őrzi (41. szekció).
+- **12 EFFEKTÍV ismétlés fölött `null`**, nem becslés: ott a képletek
+  szétnyílnak. Tehát a 10 @ RPE 8 még megy (12 effektív), a 11 @ RPE 8 már nem.
+- A `sess1RM` és a `best1RM` a szetteket **egyenként** nézi: RPE-vel a
+  legtöbb ismétlésű szett már nem feltétlenül a legjobb (egy 6 @ RPE 7
+  többet ér, mint egy 5 @ RPE 10). RPE nélkül ez változatlanul a legtöbb
+  ismétlésűt adja.
+
+**A Haladás fül „Erő-fejlődés" kártyája** (`mostImproved` + `e1rmSeries`) az
+első és a legutóbbi BECSÜLT 1RM különbségét mutatja, gyakorlatonként egy
+sparkline-nal; a sor átvisz a részletlap 1RM-görbéjére.
+
+- Korábban a MUNKASÚLY különbségét mutatta, ami **hibás mérce**: a
+  60 kg × 5 → 60 kg × 8 fejlődés nulla növekményként jelent meg. Ne vezesd
+  vissza a súly-alapú összehasonlítást.
+- **Testsúlyos gyakorlat kimarad** (`e.bw`), mert ott nincs értelmes 1RM –
+  ez nem ugyanaz, mint „nulla fejlődés".
+- Legalább 2 becsülhető alkalom kell, és csak pozitív növekmény kerül ki;
+  az idősorban **csak mért pont van, nincs interpoláció** (ugyanaz az elv,
+  mint a testsúly-trendnél). Ha nincs mit mondani, a kártya el sem készül.
 
 ## Stagnálás-felismerés
 

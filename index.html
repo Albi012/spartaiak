@@ -657,7 +657,7 @@ function logRdyBadge(t){
 }
 let physioRegion='';  // Gyógytorna oldal aktív testtáj (üres = első)
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v112';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v113';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -3647,21 +3647,32 @@ function levelCard(){
   </div></div>`;
 }
 
-// Becsült 1RM egy szettből (Epley: w·(1+r/30)). 1 ismétlés = maga a mérés.
-// 12 ismétlés felett nem becslünk – ott a képletek szétnyílnak, a szám
-// fantázia lenne. (Standard, közkincs képlet – nem az openGym kódja.)
-function est1RM(w,r){ w=+w; r=Math.round(+r);
-  if(!(w>0)||!(r>=1)||r>12) return null;
-  if(r===1) return Math.round(w*10)/10;   // 1 ismétlés = maga a mérés, nem becslés
-  return Math.round(w*(1+r/30)*10)/10; }
+/* Becsült 1RM egy szettből (Epley: w·(1+r/30)). 1 ismétlés = maga a mérés.
+ * 12 EFFEKTÍV ismétlés felett nem becslünk – ott a képletek szétnyílnak, a
+ * szám fantázia lenne. (Standard, közkincs képlet – nem az openGym kódja.)
+ *
+ * RPE-TUDATOS: ha az adott szetthez van RPE, a tartalék (RIR = 10 − RPE)
+ * hozzáadódik az ismétléshez, mintha a szett a határig ment volna. Így az
+ * 5 @ RPE 8 (2 maradt) hetes maximumként becsülődik, az 5 @ RPE 10 pedig
+ * ötösként – eddig a kettő UGYANAZT az 1RM-et adta, pedig az egyik jóval
+ * erősebb teljesítmény.
+ * RPE NÉLKÜL minden marad a régiben (a képlet eleve azt feltételezi, hogy
+ * a szett a határig ment) – a régi napló becslései nem íródnak át. */
+function est1RM(w,r,rpe){ w=+w; r=Math.round(+r);
+  if(!(w>0)||!(r>=1)) return null;
+  const rir = (rpe!=null && rpe>=1 && rpe<=10) ? (10-rpe) : 0;
+  const eff = r + rir;
+  if(eff>12) return null;
+  if(eff===1) return Math.round(w*10)/10;   // 1 ismétlés = maga a mérés, nem becslés
+  return Math.round(w*(1+eff/30)*10)/10; }
 // Egy gyakorlat valaha volt legjobb becsült 1RM-je. A szetten belül a súly
 // azonos, így a legtöbb ismétlésű (de max 12) szett adja a legjobb becslést.
 function best1RM(id){
   let best=null;
   S.sessions.forEach(s=>{ const L=s.log[id]; if(!L||!(L.w>0)) return;
-    const reps=(L.sets||[]).filter(x=>x!=null&&x<=12); if(!reps.length) return;
-    const r=Math.max(...reps), e=est1RM(L.w,r);
-    if(e!=null&&(!best||e>best.est)) best={est:e,w:L.w,r,t:s.t}; });
+    (L.sets||[]).forEach((r,i)=>{ if(r==null) return;
+      const e=est1RM(L.w, r, L.rpe?L.rpe[i]:null);
+      if(e!=null&&(!best||e>best.est)) best={est:e,w:L.w,r,t:s.t}; }); });
   return best;
 }
 // Edzésnaptár-hőtérkép: az utolsó N hét napjai, naponta a rögzített
@@ -3708,20 +3719,33 @@ function monthlyCounts(n){
     if(idx[k]!=null) out[idx[k]].count++; });
   return out;
 }
-// Legtöbbet fejlődő gyakorlatok: az első és a legutóbbi rögzített munkasúly
-// különbsége (csak súlyos gyakorlat, legalább 2 alkalom, pozitív növekmény).
+/* Egy gyakorlat becsült 1RM-jének idősora, edzésenként egy pont.
+ * Csak ott van pont, ahol becsülhető – nincs interpoláció, és a hézagot
+ * nem töltjük ki (ugyanaz az elv, mint a testsúly-trendnél). */
+function e1rmSeries(id){
+  return S.sessions.slice().sort((a,b)=>a.t-b.t)
+    .map(s=>({t:s.t, v:sess1RM(s.log&&s.log[id])}))
+    .filter(x=>x.v!=null);
+}
+/* Erő-fejlődés: az első és a legutóbbi BECSÜLT 1RM különbsége.
+ * Korábban a MUNKASÚLY-különbséget mutattuk, ami hibás mérce: ha 60 kg ×
+ * 5-ről 60 kg × 8-ra jutsz, az nulla fejlődésként jelent meg, pedig az
+ * egyértelmű erősödés. Az 1RM-becslés az ismétlést is beszámítja – és ahol
+ * van RPE, ott a tartalékot is.
+ * Testsúlyos gyakorlat kimarad: ott nincs értelmes 1RM (a `bw` szűrő), nem
+ * pedig „nulla fejlődés". Legalább 2 becsülhető alkalom kell. */
 function mostImproved(k){
-  const map={};
-  S.sessions.slice().sort((a,b)=>a.t-b.t).forEach(s=>{
-    Object.keys(s.log||{}).forEach(id=>{ const L=s.log[id];
-      if(!L||!(L.w>0)||!(L.sets||[]).some(x=>x!=null)) return;
-      if(exDef(id).bw) return;
-      if(!map[id]) map[id]={first:L.w, last:L.w, n:1};
-      else { map[id].last=L.w; map[id].n++; } });
+  const out=[];
+  const ids=new Set();
+  S.sessions.forEach(s=>Object.keys(s.log||{}).forEach(id=>ids.add(id)));
+  ids.forEach(id=>{
+    const e=exDef(id); if(e.bw) return;
+    const ser=e1rmSeries(id); if(ser.length<2) return;
+    const gain=Math.round((ser[ser.length-1].v-ser[0].v)*10)/10;
+    if(!(gain>0)) return;
+    out.push({id, n:exN(e), gain, times:ser.length, ser:ser.map(x=>x.v)});
   });
-  return Object.keys(map).map(id=>({n:exDef(id).n,
-      gain:Math.round((map[id].last-map[id].first)*10)/10, times:map[id].n}))
-    .filter(x=>x.gain>0 && x.times>=2).sort((a,b)=>b.gain-a.gain).slice(0,k);
+  return out.sort((a,b)=>b.gain-a.gain).slice(0,k);
 }
 // Terv-kontra-valóság eltérés-okok összesítése a teljes naplóból.
 function whyBreakdown(){
@@ -4411,11 +4435,20 @@ function progView(){
   const imp=mostImproved(3);
   if(imp.length){
     h+=`<div class="card"><div class="pad">
-      <span class="eyebrow">Legtöbbet fejlődő gyakorlatok</span>
-      <p class="mut small" style="margin:4px 0 8px">Az első és a legutóbbi munkasúly különbsége</p>`;
-    imp.forEach(x=>{ h+=`<div class="row" style="padding:8px 0;border-bottom:1px solid var(--line)">
-      <span class="grow cond" style="font-weight:600">${esc(trn(x.n))}</span>
-      <span class="small num" style="color:var(--sage);font-weight:700">+${kgNum(x.gain)} kg</span></div>`; });
+      <span class="eyebrow">${tr('Erő-fejlődés')}</span>
+      <p class="mut small" style="margin:4px 0 10px">${tr('Becsült 1RM – az ismétlés is beleszámít, RPE-vel a tartalék is')}</p>`;
+    imp.forEach(x=>{
+      // A vonal a gyakorlat SAJÁT tartományán belül skálázódik: a kérdés az
+      // alak, nem az, hogy a fekvenyomás nagyobb szám-e, mint az oldalemelés.
+      const sp = x.ser.length>1
+        ? `<svg width="72" height="26" viewBox="0 0 72 26" style="flex:none;color:var(--sage)" aria-hidden="true">
+             <path d="${sparkPath(x.ser,72,26,4)}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+        : '';
+      h+=`<button class="row" style="width:100%;padding:8px 0;border-bottom:1px solid var(--line);gap:10px;text-align:left" onclick="openProgDetail('${x.id}','1rm')">
+        <span class="grow cond" style="font-weight:600;min-width:0">${esc(trn(x.n))}
+          <span class="small dim" style="display:block;font-weight:400">${tr('{n} alkalom', {n:x.times})}</span></span>
+        ${sp}
+        <span class="small num" style="color:var(--sage);font-weight:700;flex:none">+${kgNum(x.gain)} kg</span></button>`; });
     h+=`</div></div>`;
   }
   // Terv-kontra-valóság: miért tért el
@@ -4449,11 +4482,15 @@ function progView(){
 
 // Egy edzés–gyakorlat metrikája a részletlap görbéjéhez. 'w' = munkasúly;
 // 'vol' = térfogat (súly×ismétlés; testsúlyosnál az összes ismétlés).
-// Egy edzés legjobb becsült 1RM-je (a szetten belül a súly azonos, így a
-// legtöbb ismétlésű, de max 12-es szett adja). null, ha nem becsülhető.
+// Egy edzés legjobb becsült 1RM-je. A szetteket EGYENKÉNT nézzük: RPE-vel
+// a legtöbb ismétlésű szett már nem feltétlenül a legjobb (egy 6 @ RPE 7
+// többet ér, mint egy 5 @ RPE 10). null, ha egyik szett sem becsülhető.
 function sess1RM(L){ if(!L||!(L.w>0)) return null;
-  const reps=(L.sets||[]).filter(x=>x!=null&&x<=12); if(!reps.length) return null;
-  return est1RM(L.w, Math.max(...reps)); }
+  let best=null;
+  (L.sets||[]).forEach((r,i)=>{ if(r==null) return;
+    const e=est1RM(L.w, r, L.rpe?L.rpe[i]:null);
+    if(e!=null && (best==null || e>best)) best=e; });
+  return best; }
 function progMetric(L, metric){
   if(metric==='vol') return L.w>0 ? L.w*repSum(L.sets) : repSum(L.sets);
   if(metric==='1rm') return sess1RM(L);
