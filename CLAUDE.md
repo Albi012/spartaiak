@@ -1,6 +1,6 @@
 # Edzésnapló – projektkontextus
 
-Egyfájlos webalkalmazás (`index.html`), amit telefonon, edzés közben,
+Webalkalmazás (`index.html` + `js/*.js`), amit telefonon, edzés közben,
 egy kézzel használnak. Netlifyra van deployolva, a kezdőképernyőről indul.
 
 ## ⚠️ ÉLES ADAT VAN BENNE – ezt ne törd el
@@ -166,6 +166,66 @@ következő súlyt + indoklást a naplóból származtatja (nincs elmentett
 számláló). A `startW` és a player-hint ezt használja; a hintre koppintva
 az `openProgPolicy` választó nyílik (a gyakorlat-jegyzet lapról is elérhető).
 Szinkron: per-kulcs unió a `weights`/`notes`/… mellett.
+
+## Fájlszerkezet
+
+Az app **build nélkül**, a gyökérből fut (Netlify, `publish = "."`). Nincs
+npm, nincs bundler, nincs keretrendszer – ez szándékos.
+
+- `index.html` – a HTML-váz, a **teljes CSS** (`<style>`) és a
+  `<script src>` sorok. Kódot már nem tartalmaz.
+- `js/*.js` – az app kódja 22 modulra bontva. Korábban egyetlen, 4800 soros
+  `<script>` blokk volt az `index.html`-ben; a viselkedés a bontáskor
+  **bitre változatlan** maradt (sorhatáron vágva, átrendezés nélkül).
+
+**Ezek KLASSZIKUS scriptek, NEM ES-modulok.** Nincs `import`/`export`, nincs
+`type="module"` – egyetlen közös globális névtérben futnak, mint korábban.
+Ez nem lustaság: a sablonokban **239 inline eseménykezelő** van
+(`onclick="startDay('pa')"`), ezek pedig csak globális függvényt látnak.
+ES-modulra váltva mind a 352 függvényhez `window.x = x` kellene. Ha
+mégis modulokra térsz át, ezt a 239 helyet kell először átkötni.
+
+**A betöltés SORRENDJE számít** (az `index.html` adja meg): a `boot.js` fut
+utoljára, az indítja el az appot. Egy fájl top-level `const`-ja a többiből
+hívási időben elérhető, betöltési időben viszont csak akkor, ha korábban
+töltődött be. A `boot.js`-en kívül nincs top-level végrehajtás.
+
+| fájl | mi van benne |
+|---|---|
+| `plan.js` | a beépített terv (`PLAN`) és az ikonok |
+| `state.js` | az `S` állapot, tárolás (`load`/`save`), felhő-push, `APP_VERSION` |
+| `library.js` | `REHAB`, `LIB`, `VIDEO`, `GIFX` katalógusok |
+| `exercises.js` | `exDef`/`dayDef`, súlyjavaslat, `progNext`, stagnálás |
+| `render.js` | a központi `render()`, nézet-átmenet, belépő animáció |
+| `home.js` | főoldal, heti nézet, beosztás, gyógytorna, `startDay` |
+| `ai-import.js` | kész sablonok és az AI-terv importálása |
+| `builder.js` | edzés-összeállító, gyakorlatválasztó, `customEx`, programok |
+| `player.js` | a lejátszó, superset, RPE, szett-rögzítő lap |
+| `sheet.js` | alsó lap, idő-alapú óra, modál |
+| `timer.js` | `setRep`, hang, értesítés, pihenő-óra |
+| `finish.js` | befejezés, izomtérkép, összegző |
+| `log.js` | napló, mentés/visszaállítás, síremlékek, javítás |
+| `report.js` | heti összefoglaló edzőnek |
+| `stats.js` | térfogat, szint/XP, becsült 1RM, heatmap, sparkline |
+| `daily.js` | testsúly- és alvás-napló |
+| `readiness.js` | a készenlét-pontszám |
+| `progress.js` | a Haladás fül nézete és a gyakorlat-részletlap |
+| `tools.js` | tárcsa-kalkulátor, bemelegítő-lépcső |
+| `notes.js` | jegyzetek (állandó + napi) és a gépbeállítás-fotó |
+| `account.js` | sérülés-mód, fiók, barátok, terv-megosztás, onboarding |
+| `boot.js` | téma, ikonok, eseménykötések, **az app indítása** |
+
+Rajtuk kívül: `js/i18n.js` (fordítás), `js/auth.js` (felhő-szinkron),
+`js/health.js` (natív Health-híd) – ezek korábban is külön fájlok voltak.
+
+> **Új `js/` fájlt három helyre kell felvenni:** `<script src>` az
+> `index.html`-be (a HELYES sorrendbe), `APP_SHELL` a `sw.js`-be (különben
+> offline nem tölt be), és emelni a verziót. **E2E-teszt őrzi mindhármat**
+> (42. szekció): elbukik, ha egy modul kimarad a `sw.js`-ből, ha árva
+> bejegyzés marad benne, ha nem a `boot.js` tölt be utoljára, vagy ha a
+> `sw.js` VERSION és az APP_VERSION elcsúszik. A többi teszt nem igényel
+> módosítást: a forrás-szintű állítások a `__src()` segéden át a héjat és az
+> ÖSSZES modult összefűzve nézik.
 
 ## Gyakorlat-azonosítók – NE nevezd át őket
 
@@ -1169,8 +1229,8 @@ Az app telepíthető és offline is fut. Fájlok:
 - `manifest.webmanifest` – app metaadat (név, ikonok, `display: standalone`,
   `theme_color`/`background_color`).
 - `sw.js` – service worker. **Csak a statikus app-héjat cache-eli**
-  (`index.html`, ikonok, manifest, `vendor/`). A `localStorage`-t
-  (`gymlog_v1`) NEM érinti – az edzésadat a böngészőé.
+  (`index.html`, **az összes `js/*.js`**, ikonok, manifest, `vendor/`).
+  A `localStorage`-t (`gymlog_v1`) NEM érinti – az edzésadat a böngészőé.
 - `vendor/` – a harmadik féltől származó fájlok a REPÓBAN vannak, nem CDN-en:
   `supabase.js` (a hivatalos UMD build, MIT) és `fonts.css` + `fonts/*.woff2`
   (Barlow / Barlow Condensed, latin + latin-ext). **Az app nem kér semmit

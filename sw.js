@@ -3,7 +3,7 @@
  * azt a böngésző kezeli – a service worker csak a statikus fájlokat
  * cache-eli, az éles edzésadatot nem érinti.
  */
-const VERSION = 'v113';
+const VERSION = 'v114';
 const APP_CACHE = 'edzesnaplo-app-' + VERSION;
 const FONT_CACHE = 'edzesnaplo-fonts';
 
@@ -14,6 +14,29 @@ const APP_SHELL = [
   './js/i18n.js',
   './js/auth.js',
   './js/health.js',
+  // Az app kódja modulokra bontva (betöltési sorrendben). Új fájl ide is kell!
+  './js/plan.js',
+  './js/state.js',
+  './js/library.js',
+  './js/exercises.js',
+  './js/render.js',
+  './js/home.js',
+  './js/ai-import.js',
+  './js/builder.js',
+  './js/player.js',
+  './js/sheet.js',
+  './js/timer.js',
+  './js/finish.js',
+  './js/log.js',
+  './js/report.js',
+  './js/stats.js',
+  './js/daily.js',
+  './js/readiness.js',
+  './js/progress.js',
+  './js/tools.js',
+  './js/notes.js',
+  './js/account.js',
+  './js/boot.js',
   './vendor/supabase.js',   // a felhő-réteg a repóból jön, nem CDN-ről (offline + áruház)
   './vendor/fonts.css',     // a betűk is a repóból – nincs Google Fonts kérés
   './vendor/fonts/Barlow-400-latin-ext.woff2',

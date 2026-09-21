@@ -38,6 +38,20 @@ const nav=async t=>{ await page.evaluate(()=>{['modal','sheet'].forEach(id=>{con
 
 // A vágólapos beillesztéshez engedély kell (az egykoppintásos import útja).
 try{ await page.context().grantPermissions(['clipboard-read','clipboard-write'], {origin:BASE}); }catch(e){}
+// Az app kódja modulokra van bontva (js/*.js, a sorrendet az index.html adja).
+// A FORRÁS-szintű állítások ezért a héj + az ÖSSZES modul összefűzött szövegét
+// nézik – pontosan azt, ami korábban egyetlen index.html volt. Így a tesztek a
+// tagolástól függetlenek: új fájl felvétele nem igényel teszt-módosítást.
+// addInitScript kell (nem evaluate), mert a seed() újratölti a lapot.
+await page.addInitScript(() => {
+  window.__src = async () => {
+    if (window.__srcCache) return window.__srcCache;
+    const shell = await (await fetch('index.html')).text();
+    const mods = [...shell.matchAll(/<script src="(js\/[a-z0-9-]+\.js)"/g)].map(m => m[1]);
+    const parts = await Promise.all(mods.map(u => fetch(u).then(r => r.text()).catch(() => '')));
+    return (window.__srcCache = shell + '\n' + parts.join('\n'));
+  };
+});
 await page.goto(BASE+'/index.html'); await wait(300);
 await seed(backup);
 
@@ -988,10 +1002,9 @@ ok('25 a felismerés nem ír a naplóba', await page.evaluate(()=>{
      kulso.length===0 || (console.log('   külső:', [...new Set(kulso)]), false));
 }
 ok('26 nincs CDN-hivatkozás a forrásban', await page.evaluate(async ()=>{
-  const f=async u=>(await fetch(u)).text();
-  const [html, auth, sw] = await Promise.all([f('index.html'), f('js/auth.js'), f('sw.js')]);
+  const [html, sw] = await Promise.all([__src(), fetch('sw.js').then(r=>r.text())]);
   const tilos=/esm\.sh|unpkg\.com|cdn\.jsdelivr|cdnjs\.cloudflare/;
-  return !tilos.test(html) && !tilos.test(auth) && !tilos.test(sw)
+  return !tilos.test(html) && !tilos.test(sw)
       && !/fonts\.googleapis\.com/.test(html); }));
 ok('26 a Supabase a repóból jön és működik', await page.evaluate(async ()=>{
   const r=await fetch('vendor/supabase.js'); if(!r.ok) return false;
@@ -1185,7 +1198,7 @@ await wait(200);
 
 // 30. Mentés/visszaállítás: a TELJES állapot menjen, ne vesszen el mező
 ok('30 a mentés ugyanazokat a mezőket viszi, mint amit a save() eltesz', await page.evaluate(async ()=>{
-  const src=await (await fetch('index.html')).text();
+  const src=await __src();
   const mezok = blokk => [...blokk.matchAll(/([a-zA-Z]+)\s*:\s*S\.[a-zA-Z]+/g)].map(m=>m[1]);
   const saveB  = src.slice(src.indexOf('async function save()'), src.indexOf('const ok=await writeKey'));
   const backB  = src.slice(src.indexOf('function backup()'), src.indexOf('const b=new Blob'));
@@ -1196,7 +1209,7 @@ ok('30 a mentés ugyanazokat a mezőket viszi, mint amit a save() eltesz', await
   window.__hianyzoMentes = kell.filter(x=>!van.has(x));
   return kell.length>=14 && window.__hianyzoMentes.length===0; }));
 ok('30 a visszaállítás vissza is olvassa a kritikus mezőket', await page.evaluate(async ()=>{
-  const src=await (await fetch('index.html')).text();
+  const src=await __src();
   const r=src.slice(src.indexOf('function restore()'), src.indexOf('function loadBundled'));
   return ['prog','injury','hidePlan','activeProgram','deleted','rdy'].every(k=>
     r.includes('d.'+k) && r.includes('S.'+k+'=')); }));
@@ -1213,13 +1226,13 @@ ok('30 körbe-teszt: a progresszió, az aktív terv és a síremlékek túlélik
   return v.prog.bench==='linear' && v.activeProgram==='p_teszt'
       && v.deleted[0].k==='r_torolt' && v.injury.parts[0]==='váll' && v.hidePlan===true; }));
 ok('30 a RÉGI, szűkebb mentésfájl is betölthető marad', await page.evaluate(async ()=>{
-  const src=await (await fetch('index.html')).text();
+  const src=await __src();
   const r=src.slice(src.indexOf('function restore()'), src.indexOf('function loadBundled'));
   // minden új mező feltételes olvasás – különben a régi fájl felülírná üressel
   return /if\(d\.prog\)/.test(r) && /if\(d\.injury!==undefined\)/.test(r)
       && /if\(Array\.isArray\(d\.deleted\)\)/.test(r); }));
 ok('30 a mentés jelzi, melyik appverzió írta', await page.evaluate(async ()=>{
-  const src=await (await fetch('index.html')).text();
+  const src=await __src();
   const b=src.slice(src.indexOf('function backup()'), src.indexOf('const b=new Blob'));
   return /app:\s*APP_VERSION/.test(b); }));
 
@@ -1329,7 +1342,7 @@ ok('32 a beosztás mentődik és szinkronizál (kulcsolt unió)', await page.eva
   const m=JSON.parse(window.Auth.mergeGym(JSON.stringify(A), JSON.stringify(B)));
   return JSON.stringify(mentve.pa)==='[0]' && !!m.sched.pa && !!m.sched.lb; }));
 ok('32 a mentésfájl is viszi', await page.evaluate(async ()=>{
-  const src=await (await fetch('index.html')).text();
+  const src=await __src();
   const b=src.slice(src.indexOf('function backup()'), src.indexOf('const b=new Blob'));
   return /sched:S\.sched/.test(b); }));
 ok('32 törölt saját edzés nem hagy árva beosztást', await page.evaluate(async ()=>{
@@ -1452,7 +1465,7 @@ ok('34 a kártya NEM tárol semmit (a napló változatlan)', await page.evaluate
 // a CSS SZÖVEGÉRE is állítunk feltételeket, nem csak a viselkedésre.
 // A megjegyzéseket kivágjuk: a szabályokról ÍRNI szabad, csak használni nem.
 const css = await page.evaluate(async ()=>{
-  const html = await (await fetch('index.html')).text();
+  const html = await __src();
   const raw = (html.match(/<style>([\s\S]*?)<\/style>/)||[])[1]||'';
   return raw.replace(/\/\*[\s\S]*?\*\//g,' '); });
 
@@ -1510,7 +1523,7 @@ ok('35 a belépő animáció 300 ms alatt marad', /riseIn \.2\ds/.test(css));
 ok('35 a lépcső a 6. kártyánál megáll (nem várakoztat a 9-ig)',
   /nth-child\(n\+6\)\{animation-delay:\.15s\}/.test(css) && !/animation-delay:\.2\ds/.test(css));
 ok('35 a készenlét-szám nem tartja vissza magát fél másodpercig', await page.evaluate(async ()=>{
-  const html=await (await fetch('index.html')).text();
+  const html=await __src();
   const m=html.match(/const dur=(\d+), t0=performance\.now/);
   return m && +m[1] <= 400; }));
 
@@ -1577,7 +1590,7 @@ ok('36 a kilépés gyorsabb, mint a belépés', await page.evaluate(async ()=>{
   const pill=document.querySelector('.restpill');
   if(!pill) return false;
   // az `animRestPill` időzítései: be 160 ms, ki 120 ms
-  const src=await (await fetch('index.html')).text();
+  const src=await __src();
   const m=src.match(/duration:\s*dir==='in'\?(\d+):(\d+)/);
   stopTimer();
   return m && +m[2] < +m[1]; }));
@@ -1585,12 +1598,12 @@ await wait(400);
 
 // A gyűrű a KIJELZŐ, nem dísz: csökkentett mozgásnál is mennie kell.
 ok('36 a gyűrű nincs a prefers-reduced-motion blokkba zárva', await page.evaluate(async ()=>{
-  const html=await (await fetch('index.html')).text();
+  const html=await __src();
   const css=(html.match(/<style>([\s\S]*?)<\/style>/)||[])[1]||'';
   // nincs rá CSS-animáció egyáltalán – WAAPI viszi, ami mindig fut
   return !/restDrain/.test(css) && !/\.rp-fg\{[^}]*transition/.test(css); }));
 ok('36 a v101-ben leváltott pihenő-overlay maradéka kitakarítva', await page.evaluate(async ()=>{
-  const html=await (await fetch('index.html')).text();
+  const html=await __src();
   return !/\.rest\.on/.test(html) && !/rest-card/.test(html); }));
 await page.evaluate(()=>{ stopTimer(); playing=false; tab='home'; S.active=null; render(); });
 await wait(300);
@@ -1616,7 +1629,7 @@ ok('37 a TARTALOM nem halványul, csak a sötétítés', await page.evaluate(asy
   await new Promise(r=>setTimeout(r,250));
   return tartalom===1 && sotetites<0.8; }));
 ok('37 a kilépés gyorsabb, mint a belépés', await page.evaluate(async ()=>{
-  const html=await (await fetch('index.html')).text();
+  const html=await __src();
   const be=(html.match(/sheetUp \.(\d+)s/)||[])[1];          // .26s
   const ki=(html.match(/const SHEET_OUT=(\d+)/)||[])[1];     // 200
   return be && ki && +ki < +be*10; }));
@@ -1634,10 +1647,10 @@ ok('37 a kilépés közben nyitott új lap megmarad', await page.evaluate(async 
 
 // Egy felület, egy kimeneti út: a lehúzás is a closeSheet-en megy.
 ok('37 a lehúzásnak nincs külön kilépése', await page.evaluate(async ()=>{
-  const html=await (await fetch('index.html')).text();
+  const html=await __src();
   return !/translateY\(110%\)/.test(html); }));
 ok('37 minden lapnyitás egy belépési ponton megy', await page.evaluate(async ()=>{
-  const html=await (await fetch('index.html')).text();
+  const html=await __src();
   // csak a teszt-segéd és az openSheet maga nyúlhat közvetlenül az osztályhoz
   return !/getElementById\('sheet'\)\.classList\.add\('on'\)/.test(html); }));
 
@@ -1685,7 +1698,7 @@ await page.evaluate(()=>{ closeSheet(); playing=false; tab='home'; S.active=null
 await wait(350);
 
 // ---- 38. Mobil-alapok (hogy ne „weboldal a böngészőben" legyen) ----
-const html38 = await page.evaluate(()=>fetch('index.html').then(r=>r.text()));
+const html38 = await page.evaluate(()=>__src());
 const css38 = ((html38.match(/<style>([\s\S]*?)<\/style>/)||[])[1]||'').replace(/\/\*[\s\S]*?\*\//g,' ');
 
 ok('38 SEMMI beviteli mező nem megy 16px alá (iOS különben ráközelít)', await page.evaluate(async ()=>{
@@ -1774,7 +1787,7 @@ ok('39 a válasz után azonnal nyitott modál megmarad', await page.evaluate(asy
   _closeModal(); return ok2; }));
 await wait(300);
 ok('39 a modál KÖZÉPRE húzódik össze (nem triggerhez kötött)', await page.evaluate(async ()=>{
-  const html=await (await fetch('index.html')).text();
+  const html=await __src();
   const css=(html.match(/<style>([\s\S]*?)<\/style>/)||[])[1]||'';
   // se transform-origin felülírás, se trigger-alapú origó a modálon
   return !/\.modal[^{]*\{[^}]*transform-origin/.test(css); }));
@@ -1795,7 +1808,7 @@ ok('39 a lépcső CSAK az összegzőn van, más lapon nincs', await page.evaluat
   closeSheet(); return !van; }));
 await wait(350);
 ok('39 az összegző a `#sheet`-ben van, ezért kell a saját horog', await page.evaluate(async ()=>{
-  const html=await (await fetch('index.html')).text();
+  const html=await __src();
   // a `#app.enter .mgfill` sosem érne el a lapon belülre – a `.finish` igen
   return /\.finish \.mgfill\{animation:growX/.test(html.replace(/\s+/g,''))
       || /\.finish\s+\.mgfill\s*\{\s*animation:\s*growX/.test(html); }));
@@ -1823,7 +1836,7 @@ const press3 = await (async ()=>{
 ok('39 a chipek (.whyc) is visszajeleznek koppintásra',
   press3['.whyc']!=null && Math.abs(press3['.whyc']-0.94)<0.005);
 ok('39 a `.seg` és a `.tool` is megkapta a rendszerértéket', await page.evaluate(async ()=>{
-  const html=await (await fetch('index.html')).text();
+  const html=await __src();
   const css=(html.match(/<style>([\s\S]*?)<\/style>/)||[])[1]||'';
   return /\.seg button:active\{transform:scale\(var\(--press-sm\)\)\}/.test(css)
       && /\.tool:active\{[^}]*scale\(var\(--press-sm\)\)/.test(css); }));
@@ -1864,7 +1877,7 @@ ok('39 egy véletlen koppintás nem zárja be', await (async ()=>{
   await page.evaluate(()=>closeSheet()); await wait(350);
   return nyitva; })());
 ok('39 a 0 fölé húzás fékez, nem szakítja meg a gesztust', await page.evaluate(async ()=>{
-  const html=await (await fetch('index.html')).text();
+  const html=await __src();
   return /dy>0 \? dy : dy\*0\.2/.test(html); }));
 
 // ---- 40. RPE (érzékelt nehézség) – OPCIONÁLIS ----
@@ -2042,6 +2055,51 @@ ok('41 kevés adatnál a kártya el sem készül', await page.evaluate(()=>{
   S.sessions=[{day:'pa',t:Date.now(),log:{bench:{w:60,sets:[5,5]}}}];
   save(); render();
   return !/Erő-fejlődés/i.test(document.getElementById('app').textContent); }));
+
+// ---- 42. Fájlszerkezet: a modulok és az offline app-héj összhangja ----
+// Az app kódja js/*.js modulokban van. Ha valaki felvesz egy újat, de
+// kihagyja a sw.js APP_SHELL-jéből, az app ONLINE tökéletesen működik, és
+// csak OFFLINE romlik el – némán. Ezt a csapdát ez a szekció őrzi.
+{
+  const mod42 = await page.evaluate(async ()=>{
+    const shell = await (await fetch('index.html')).text();
+    const sw    = await (await fetch('sw.js')).text();
+    const mods  = [...shell.matchAll(/<script src="(js\/[a-z0-9-]+\.js)"/g)].map(m=>m[1]);
+    const cached= [...sw.matchAll(/'\.\/(js\/[a-z0-9-]+\.js)'/g)].map(m=>m[1]);
+    // Tényleg letölthető-e mind? (elgépelt fájlnév ONLINE is 404-et ad)
+    const status = await Promise.all(mods.map(u=>fetch(u).then(r=>r.status).catch(()=>0)));
+    return {mods, cached, status,
+            inline: [...shell.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)].map(m=>m[1].length)};
+  });
+
+  // Egyetlen beágyazott script maradhat: a <head>-beli, villódzás elleni
+  // téma-őr (~550 karakter). Bármi ennél nagyobb visszacsempészett app-kód.
+  ok('42 az index.html-ben csak a rövid téma-őr script maradt beágyazva',
+     mod42.inline.length===1 && mod42.inline[0]<1200
+     || (console.log('   beágyazott scriptek hossza:', mod42.inline), false));
+  ok('42 minden hivatkozott modul letölthető (nincs elgépelt fájlnév)',
+     mod42.status.every(x=>x===200) || (console.log('   nem 200:', mod42.mods.filter((_,i)=>mod42.status[i]!==200)), false));
+
+  const hianyzo = mod42.mods.filter(m=>mod42.cached.indexOf(m)<0);
+  ok('42 MINDEN modul benne van a sw.js app-héjában (különben offline elromlik)',
+     hianyzo.length===0 || (console.log('   hiányzik a sw.js-ből:', hianyzo), false));
+
+  const arva = mod42.cached.filter(c=>mod42.mods.indexOf(c)<0);
+  ok('42 a sw.js nem cache-el olyan modult, amit az index.html már nem tölt be',
+     arva.length===0 || (console.log('   árva a sw.js-ben:', arva), false));
+
+  // A boot.js indítja az appot – ha nem ő az utolsó, a rá épülő
+  // eseménykötések olyan függvényt hívnának, ami még nincs betöltve.
+  ok('42 a boot.js tölt be UTOLJÁRA (az indítja el az appot)',
+     mod42.mods[mod42.mods.length-1]==='js/boot.js');
+
+  // A sw.js VERSION és az APP_VERSION együtt kell emelkedjen, különben a
+  // frissítés nem jut el a klienshez (régi cache marad).
+  ok('42 a sw.js VERSION és az APP_VERSION egyezik', await page.evaluate(async ()=>{
+    const sw = await (await fetch('sw.js')).text();
+    const v  = (sw.match(/const VERSION\s*=\s*'([^']+)'/)||[])[1];
+    return v === APP_VERSION; }));
+}
 
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
