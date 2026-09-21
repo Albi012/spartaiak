@@ -376,6 +376,13 @@
       'nagyjából stabil':'roughly stable', 'kg/hét':'kg/week',
       'Testsúly rögzítése':'Log bodyweight',
 
+
+      // — RPE (érzékelt nehézség) —
+      'Mennyire volt nehéz?':'How hard was it?',
+      '(nem kötelező)':'(optional)',
+      '10 = egy ismétlés sem maradt benne · 8 = még kettő belefért':
+        '10 = nothing left in the tank · 8 = two reps in reserve',
+
       // — Mértékegységek —
       'kg':'kg', 'mp':'s', 'ism.':'reps', 'testsúly':'bodyweight'
     }

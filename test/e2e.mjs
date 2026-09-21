@@ -1867,6 +1867,100 @@ ok('39 a 0 fölé húzás fékez, nem szakítja meg a gesztust', await page.eval
   const html=await (await fetch('index.html')).text();
   return /dy>0 \? dy : dy\*0\.2/.test(html); }));
 
+// ---- 40. RPE (érzékelt nehézség) – OPCIONÁLIS ----
+// A legfontosabb garancia: aki nem használja, annak SEMMI nem változik.
+await seed({sessions:[], active:null, weights:{}});
+await page.evaluate(()=>{ startDay('pa'); render(); }); await wait(350);
+
+ok('40 RPE nélkül a rögzítés két koppintás marad, és nem keletkezik mező', await page.evaluate(async ()=>{
+  openSet('bench',0); await new Promise(r=>setTimeout(r,250));
+  setRep(5); await new Promise(r=>setTimeout(r,250));
+  const L=S.active.log.bench;
+  return L.sets[0]===5 && L.rpe===undefined; }));
+ok('40 az RPE kiválasztása NEM rögzít – a lap nyitva marad', await page.evaluate(async ()=>{
+  openSet('bench',1); await new Promise(r=>setTimeout(r,250));
+  pickRpe(8.5); await new Promise(r=>setTimeout(r,200));
+  const nyitva=document.getElementById('sheet').classList.contains('on');
+  const meg=S.active.log.bench.sets[1]==null;        // még semmi nincs rögzítve
+  return nyitva && meg; }));
+ok('40 a szám-koppintás rögzíti az ismétlést ÉS az RPE-t', await page.evaluate(async ()=>{
+  setRep(5); await new Promise(r=>setTimeout(r,250));
+  const L=S.active.log.bench;
+  return L.sets[1]===5 && L.rpe[1]===8.5 && L.rpe[0]==null; }));
+ok('40 a chip kiírja az RPE-t, ahol van', await page.evaluate(()=>{
+  const c=[...document.querySelectorAll('.chip')].slice(0,2).map(x=>x.textContent);
+  return /1\. sz/.test(c[0]) && /@8,5/.test(c[1]); }));
+ok('40 visszanyitva a RÖGZÍTETT érték van kiválasztva, új szettnél semmi', await page.evaluate(async ()=>{
+  openSet('bench',1); await new Promise(r=>setTimeout(r,250));
+  const megvan=_rpePick===8.5;
+  closeSheet(); await new Promise(r=>setTimeout(r,300));
+  openSet('bench',2); await new Promise(r=>setTimeout(r,250));
+  const ures=_rpePick===null;
+  closeSheet(); return megvan && ures; }));
+await wait(300);
+ok('40 a szett törlése az RPE-jét is viszi', await page.evaluate(async ()=>{
+  openSet('bench',1); await new Promise(r=>setTimeout(r,250));
+  setRep(null); await new Promise(r=>setTimeout(r,250));
+  const L=S.active.log.bench;
+  return L.sets[1]==null && L.rpe[1]==null; }));
+
+// --- Autoreguláció: az RPE felülírja a következtetést, de csak az „okos" ágon ---
+const mk = `((sets,rpe)=>({w:60,sets,rpe}))`;
+ok('40 RPE 7 → nagyobb lépés (bőven maradt benne)', await page.evaluate(m=>{
+  const r=progNext('bench', eval(m)([5,5,5,5],[7,7,7,7]));
+  return r.delta===5 && /RPE 7/.test(r.reason); }, mk));
+ok('40 RPE 8,5 → szokásos lépés', await page.evaluate(m=>{
+  const r=progNext('bench', eval(m)([5,5,5,5],[8,8,8.5,8.5]));
+  return r.delta===2.5 && /RPE 8,5/.test(r.reason); }, mk));
+ok('40 RPE 10 → marad a súlyon (a cél megvolt, de alig)', await page.evaluate(m=>{
+  const r=progNext('bench', eval(m)([5,5,5,5],[9,9.5,10,10]));
+  return r.delta===0 && /RPE 10/.test(r.reason); }, mk));
+ok('40 RPE NÉLKÜL minden a régiben marad', await page.evaluate(m=>{
+  const r=progNext('bench', eval(m)([5,5,5,5]));
+  return /Okos/.test(r.reason) && !/RPE/.test(r.reason); }, mk));
+ok('40 a nevesített programokat az RPE NEM írja felül', await page.evaluate(m=>{
+  S.prog=S.prog||{}; S.prog.bench='linear';
+  const r=progNext('bench', eval(m)([5,5,5,5],[7,7,7,7]));
+  delete S.prog.bench;
+  return /Lineáris/.test(r.reason) && !/RPE/.test(r.reason); }, mk));
+
+// --- Visszafelé kompatibilitás + szinkron ---
+ok('40 a régi, RPE nélküli napló változatlanul betöltődik', await page.evaluate(()=>{
+  const L={w:60,sets:[5,5,null]};
+  return lastRpe(L)===null && setsTxt(L)==='5, 5, –'; }));
+ok('40 az export CSAK ott írja ki, ahol tényleg van', await page.evaluate(()=>
+  setsTxt({w:60,sets:[5,5]})==='5, 5'
+  && setsTxt({w:60,sets:[5,5],rpe:[8,null]})==='5, 5 (RPE 8, –)'));
+ok('40 az RPE túléli az összefésülést egy RPE nélküli másolattal', await page.evaluate(()=>{
+  if(!window.Auth||!Auth.mergeGym) return true;    // nincs felhő-réteg, nincs mit védeni
+  const t=Date.now();
+  const A={sessions:[{day:'pa',t,log:{bench:{w:60,sets:[5,5,5],rpe:[8,8,9]}}}]};
+  const B={sessions:[{day:'pa',t,log:{bench:{w:60,sets:[5,5,5]}}}]};
+  const m1=JSON.parse(Auth.mergeGym(JSON.stringify(A), JSON.stringify(B)));
+  const m2=JSON.parse(Auth.mergeGym(JSON.stringify(B), JSON.stringify(A)));
+  const r1=m1.sessions[0].log.bench.rpe, r2=m2.sessions[0].log.bench.rpe;
+  return JSON.stringify(r1)==='[8,8,9]' && JSON.stringify(r2)==='[8,8,9]'; }));
+ok('40 a mentés/visszaállítás viszi (a sessions részeként)', await page.evaluate(()=>{
+  S.sessions=[{day:'pa',t:Date.now(),log:{bench:{w:60,sets:[5,5],rpe:[8,9]}}}];
+  const b=JSON.parse(JSON.stringify({sessions:S.sessions}));
+  return b.sessions[0].log.bench.rpe[1]===9; }));
+
+// --- Utólagos javítás ---
+ok('40 a javító-lapon az RPE is állítható és üríthető', await page.evaluate(async ()=>{
+  S.active=null; playing=false;
+  S.sessions=[{day:'pa',t:Date.now()-864e5,log:{bench:{w:60,sets:[5,5]}}}];
+  save(); tab='log'; render();
+  await new Promise(r=>setTimeout(r,250));
+  openEditSession(0); await new Promise(r=>setTimeout(r,250));
+  esOpenRep('bench',0); await new Promise(r=>setTimeout(r,250));
+  esSetRpe(9); await new Promise(r=>setTimeout(r,200));
+  const beallt = S.sessions[0].log.bench.rpe[0]===9;
+  esSetRpe(null); await new Promise(r=>setTimeout(r,200));
+  const torolt = S.sessions[0].log.bench.rpe===undefined;   // csupa null tömb nem marad
+  closeEditSession(); await new Promise(r=>setTimeout(r,350));
+  return beallt && torolt; }));
+await wait(300);
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));

@@ -657,7 +657,7 @@ function logRdyBadge(t){
 }
 let physioRegion='';  // Gyógytorna oldal aktív testtáj (üres = első)
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v111';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v112';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -1237,7 +1237,17 @@ function progNext(id,L){
     case 'double': { const hi=t, lo=Math.max(1,hi-3);
       if(allDone) return up(1, `Dupla: minden szett elérte a ${hi}-t → +${kgNum(inc)} kg (ismétlések vissza ${lo}-re).`);
       return same(`Dupla: dolgozz ${lo}–${hi} ism között azonos súllyal, amíg mind ${hi} nem lesz.`); }
-    default: { const d=smartInc(e,L);
+    default: {
+      // Ha VAN RPE az utolsó rögzített szetten, az felülírja a
+      // túlteljesítésből való következtetést: az RPE közvetlen jelentés,
+      // a `smartInc` csak becslés. RPE nélkül minden marad a régiben.
+      const rp=lastRpe(L);
+      if(allDone && rp!=null){
+        if(rp<=7)   return up(2, `RPE ${rpeNum(rp)} – bőven maradt benned → +${kgNum(inc*2)} kg.`);
+        if(rp<=9)   return up(1, `RPE ${rpeNum(rp)} – megvolt, van még tér → +${kgNum(inc)} kg.`);
+        return same(`RPE ${rpeNum(rp)} – a cél megvolt, de alig. Maradj a súlyon.`);
+      }
+      const d=smartInc(e,L);
       if(d>0){ const over=Math.min(...filled)-t; return {w:R(cur+d), delta:d, reason:`Okos: +${over} a célon → +${kgNum(d)} kg.`}; }
       // Egyszer nem jött össze → maradj. HÁROMSZOR egymás után viszont nem
       // „próbáld újra" kérdés: onnan már csak lefelé van hely, ahonnan
@@ -2543,8 +2553,11 @@ function playerView(){
 
   let chips='';
   L.sets.forEach((v,i)=>{ const cls=v==null?'':(v>=t?'done':'miss');
+    // Ahol van RPE, az informatívabb, mint a szett sorszáma – a sorrend
+    // amúgy is látszik a chipek helyzetéből.
+    const r=L.rpe&&L.rpe[i]!=null ? L.rpe[i] : null;
     chips+=`<button class="chip ${cls}" data-i="${i}" onclick="openSet('${e.id}',${i})">
-      <span class="r">${v==null?'·':v}</span><span class="l">${i+1}. sz</span></button>`; });
+      <span class="r">${v==null?'·':v}</span><span class="l">${r!=null?'@'+rpeNum(r):(i+1)+'. sz'}</span></button>`; });
 
   const physioMode=isPhysioActive();   // mobilitás: nincs súlyállító/eszköz
   let wt='';
@@ -2649,9 +2662,44 @@ function setWhy(id,k){ const L=S.active.log[id]; L.why=(L.why===k?null:k); save(
 function bump(id,dir){ const e=exDef(id),L=S.active.log[id];
   L.w=Math.max(0, Math.round((L.w+dir*e.inc)*10)/10); S.weights[id]=L.w; save(); render(); }
 
+/* ---- RPE (érzékelt nehézség) – OPCIONÁLIS ---------------------------
+ * `log[exId].rpe = [8, null, 9.5, …]` – a `sets` tömbbel PÁRHUZAMOS,
+ * additív mező. Hiánya = sosem rögzítetted; `null` egy elemben = azt a
+ * szettet nem minősítetted. A régi napló migráció nélkül betöltődik.
+ *
+ * A LEGFONTOSABB megkötés: a szett-rögzítés MARAD két koppintás. Az RPE
+ * nem kötelező lépés – ha nem nyúlsz hozzá, semmi nem változik. Aki
+ * használja, előbb koppint egy RPE-chipre (a lap NYITVA marad), aztán a
+ * számra: az rögzíti mindkettőt. Vagyis 2 koppintás → 3, de csak annak,
+ * aki kéri.
+ *
+ * Skála: 10 = egy ismétlés sem maradt benne, 8 = kb. 2 maradt.
+ * SOHA nem előválasztott érték – egy tippelt RPE rosszabb, mint a semmi. */
+const RPE_VALS=[7,7.5,8,8.5,9,9.5,10];
+let _rpePick=null;
+// Az utolsó rögzített szett RPE-je (a progresszióhoz). null = nincs.
+function lastRpe(L){
+  if(!L || !L.rpe || !L.sets) return null;
+  for(let i=L.sets.length-1;i>=0;i--) if(L.sets[i]!=null && L.rpe[i]!=null) return L.rpe[i];
+  return null;
+}
+// „8" és „7,5" – a magyar tizedes itt is vessző, mint a súlynál.
+function rpeNum(v){ return String(v).replace('.',','); }
+// Az RPE-chipsor. `sel` a kiválasztott érték, `fn` a koppintás kezelője.
+function rpeRow(sel, fn){
+  return `<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:12px">
+    <span class="small dim" style="flex:0 0 100%">${tr('Mennyire volt nehéz?')} <span class="dim">${tr('(nem kötelező)')}</span></span>
+    <span class="small dim" style="flex:0 0 100%;margin-bottom:4px;font-size:12px">${tr('10 = egy ismétlés sem maradt benne · 8 = még kettő belefért')}</span>
+    ${RPE_VALS.map(v=>`<button class="whyc${sel===v?' on':''}" onclick="${fn}(${v})">${rpeNum(v)}</button>`).join('')}
+    <button class="whyc${sel==null?' on':''}" onclick="${fn}(null)">–</button>
+  </div>`;
+}
+
 let cur=null, justSet=null;
 function openSet(id,i){
   cur={id,i}; const e=exDef(id), t=parseInt(e.r);
+  const _L=S.active.log[id];
+  _rpePick = (_L && _L.rpe && _L.rpe[i]!=null) ? _L.rpe[i] : null;
   if(e.time){ openTimerSet(e,i,t); return; }    // idő-alapú gyakorlat → visszaszámláló
   document.getElementById('sheetIn').innerHTML=repKbSheet(e,i,t);
   openSheet();
@@ -2667,6 +2715,7 @@ function repKbSheet(e,i,t){
     <div class="row"><div class="grow"><span class="eyebrow">${i+1}. szett</span>
     <h2 style="font-size:24px">${esc(exN(e))}</h2><span class="small dim">cél: ${esc(e.r)}${e.time?'':' ismétlés'}</span></div>
     <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
+    ${rpeRow(_rpePick,'pickRpe')}
     <div class="kb">`;
   opts.forEach(k=>{ h+=`<button onclick="setRep(${k})" style="${k==t?'border-color:var(--brass);color:var(--brass)':''}">${k}</button>`; });
   h+=`</div>
@@ -2804,8 +2853,20 @@ function uiAlert(msg, opts){ opts=opts||{};
       <div class="modal-actions"><button class="btn pri" style="flex:1;margin:0" onclick="_closeModal()">${esc(opts.ok||'Rendben')}</button></div>`;
     openModal(); });
 }
+// Az RPE kiválasztása NEM rögzít: a lap nyitva marad, hogy utána a
+// szám-koppintás zárja le a dolgot. Így a nem-RPE-s út 2 koppintás marad.
+function pickRpe(v){ _rpePick=v; const el=document.getElementById('sheetIn');
+  if(el) el.innerHTML=repKbSheet(exDef(cur.id), cur.i, parseInt(exDef(cur.id).r)||8); }
 function setRep(v){
-  const e=exDef(cur.id); S.active.log[cur.id].sets[cur.i]=v; S.activeT=Date.now();
+  const e=exDef(cur.id), L=S.active.log[cur.id];
+  L.sets[cur.i]=v;
+  // Az `rpe` tömb csak akkor keletkezik, ha tényleg van mit belerakni –
+  // üres napló ne hízzon üres tömbökkel.
+  if(_rpePick!=null || (L.rpe && L.rpe[cur.i]!=null)){
+    if(!L.rpe) L.rpe=[];
+    L.rpe[cur.i] = (v==null) ? null : _rpePick;   // a szett törlése az RPE-t is viszi
+  }
+  S.activeT=Date.now();
   closeSheet(); save();
   if(v==null){ render(); return; }
   if(navigator.vibrate) navigator.vibrate(12);   // rövid haptikus visszajelzés a rögzítésre
@@ -3208,11 +3269,11 @@ function logView(){
     const seen=new Set();
     d.ex.forEach(e=>{ seen.add(e.id); const l=s.log[e.id]; if(!l||!l.sets.some(x=>x!=null))return;
       h+=`<div class="hrow"><span class="small grow">${esc(exN(e))}${l.why?` <span class="dim" style="font-size:11px">· ${WHY[l.why]}</span>`:''}</span>
-        <span class="small num mut">${wLabel(e,l.w)}${e.bw&&l.w<=0?'':' kg'} × ${l.sets.map(x=>x==null?'–':x).join(', ')}</span></div>`; });
+        <span class="small num mut">${wLabel(e,l.w)}${e.bw&&l.w<=0?'':' kg'} × ${setsTxt(l)}</span></div>`; });
     Object.keys(s.log).forEach(id=>{ if(seen.has(id))return; const l=s.log[id];
       if(!l||!l.sets.some(x=>x!=null))return; const e=exDef(id);
       h+=`<div class="hrow"><span class="small grow">${esc(exN(e))} <span class="dim" style="font-size:11px">· kivéve</span></span>
-        <span class="small num mut">${wLabel(e,l.w)}${e.bw&&l.w<=0?'':' kg'} × ${l.sets.map(x=>x==null?'–':x).join(', ')}</span></div>`; });
+        <span class="small num mut">${wLabel(e,l.w)}${e.bw&&l.w<=0?'':' kg'} × ${setsTxt(l)}</span></div>`; });
     const mgSets=sessionMgSets(s);
     h+=`<details class="mmfold"><summary>${tr('Terhelt izmok')}</summary>
       <div class="pad" style="padding-top:0">${muscleMap(mgSets,true)}${mmLegend()}${mgChips(mgSets)}</div></details>`;
@@ -3350,6 +3411,24 @@ function editSessionHtml(){
 }
 // A szett-érték megadása: ugyanaz a logika, mint a lejátszóban (cél körüli
 // tartomány egy koppintással + kézi mező), csak a naplóra kötve.
+// „62,5 kg × 5, 5, 4" → „62,5 kg × 5, 5, 4 (RPE 8, 8, 9)" – csak ha van.
+function setsTxt(l){
+  const base=(l.sets||[]).map(x=>x==null?'–':x).join(', ');
+  if(!l.rpe || !l.rpe.some(x=>x!=null)) return base;
+  const r=(l.sets||[]).map((_,i)=> l.rpe[i]==null?'–':rpeNum(l.rpe[i])).join(', ');
+  return base+' (RPE '+r+')';
+}
+// A javító-lapon az RPE AZONNAL mentődik (mint minden más ott), ezért
+// nem kell külön „rögzítés" – a `esTouch` viszi a felhőbe is.
+function esSetRpe(v){
+  const s=esSess(); if(!s) return;
+  const L=s.log[editRep.id]; if(!L) return;
+  if(v==null && !L.rpe) return;
+  if(!L.rpe) L.rpe=[];
+  L.rpe[editRep.i]=v;
+  if(!L.rpe.some(x=>x!=null)) delete L.rpe;   // ne maradjon csupa null tömb
+  esTouch(); renderEditSheet();
+}
 function esRepHtml(){
   const s=esSess(); if(!s) return editSessionHtml();
   const e=exDef(editRep.id), L=s.log[editRep.id]||{sets:[]};
@@ -3361,6 +3440,7 @@ function esRepHtml(){
       <h2 style="font-size:22px">${esc(exN(e))}</h2>
       <span class="small dim">cél: ${e.s} × ${esc(e.r)}${e.time?'':' ism.'}</span></div>
       <button onclick="esBackToSession()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
+    ${rpeRow(L.rpe&&L.rpe[editRep.i]!=null?L.rpe[editRep.i]:null,'esSetRpe')}
     <div class="kb">${g}</div>
     <input id="esRepMan" type="number" inputmode="numeric" min="0" max="999" placeholder="Egyéb szám…"
       style="width:100%;margin-top:12px" value="${cur==null?'':cur}">
@@ -3409,10 +3489,10 @@ function copyAll(){
     t+=fmtDate(s.t)+' — '+dayName(s)+'\n';
     const seen=new Set();
     d.ex.forEach(e=>{seen.add(e.id); const l=s.log[e.id]; if(l&&l.sets.some(x=>x!=null))
-      t+='  '+e.n+': '+wLabel(e,l.w)+(e.bw&&l.w<=0?'':' kg')+' × '+l.sets.map(x=>x==null?'–':x).join(', ')+'\n';});
+      t+='  '+e.n+': '+wLabel(e,l.w)+(e.bw&&l.w<=0?'':' kg')+' × '+setsTxt(l)+'\n';});
     Object.keys(s.log).forEach(id=>{ if(seen.has(id))return; const l=s.log[id];
       if(!l.sets.some(x=>x!=null))return; const e=exDef(id);
-      t+='  '+e.n+' (kivéve): '+wLabel(e,l.w)+(e.bw&&l.w<=0?'':' kg')+' × '+l.sets.map(x=>x==null?'–':x).join(', ')+'\n';});
+      t+='  '+e.n+' (kivéve): '+wLabel(e,l.w)+(e.bw&&l.w<=0?'':' kg')+' × '+setsTxt(l)+'\n';});
     t+='\n'; });
   navigator.clipboard.writeText(t).then(()=>uiAlert('Vágólapra másolva. Beillesztheted a chatbe.'),()=>uiAlert('Nem sikerült a másolás.'));
 }

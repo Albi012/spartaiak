@@ -101,6 +101,10 @@ alapértéket kapnak; a `save()`/`backup()`/`restore()` viszi őket).
   (`RDY_DEF`). SKALÁR preferencia: a felhő-összefésülésben az újabb állapotból
   jön (mint az `injury`/`hidePlan`), nincs külön kezelés. Maga a PONTSZÁM
   NEM tárolódik – mindig a naplóból számoljuk (lásd „Készenlét").
+- Log-szinten `rpe` – **érzékelt nehézség, OPCIONÁLIS**: `[8, null, 9.5, …]`,
+  a `sets` tömbbel PÁRHUZAMOS. Hiánya = sosem rögzítetted; `null` egy elemben
+  = azt a szettet nem minősítetted. A `sessions` részeként megy a mentésbe és
+  a felhőbe, nincs külön kezelés – lásd „RPE".
 - Session-szinten: `dayNotes` (**a nap jegyzetei – TÖBB bejegyzés**,
   `[{t, ex, txt}]`: időbélyeg + a gyakorlat ID-ja, AMELYIKNÉL írtad + a
   szöveg), `note`/`noteEx` (a régi, EGYbejegyzéses alak – lásd lentebb),
@@ -480,6 +484,40 @@ ablak.
   hogy a felhasználó fogyni vagy hízni akar, ezért irányt mond, nem ítél.
   Ezt ne cseréld „jó/rossz" színezésre.
 - A súly mindenhol a `bwNum` magyar alakjában megy ki („79,8 kg").
+
+## RPE (érzékelt nehézség) – OPCIONÁLIS
+
+`log[exId].rpe` a `sets`-szel párhuzamos tömb. 10 = egy ismétlés sem maradt
+benne, 8 = még kettő belefért. A skála `RPE_VALS` = 7…10 félpontonként; a
+6 szándékosan kimaradt (négy ismétlés tartalék – munkaszettre senki nem
+jegyzi fel, és így a chipsor EGY sorba fér).
+
+- **A szett-rögzítés MARAD két koppintás.** Ez a legfontosabb megkötés: az
+  RPE nem kötelező lépés. Aki nem nyúl hozzá, annak semmi nem változik, és
+  az `rpe` mező LÉTRE SEM JÖN. Aki használja, előbb koppint egy RPE-chipre
+  (`pickRpe` – a lap NYITVA marad), aztán a számra: az rögzíti mindkettőt.
+  Vagyis 2 → 3 koppintás, de csak annak, aki kéri. **Ne tedd kötelezővé.**
+- **SOHA nincs előválasztott érték új szettnél** – egy tippelt RPE rosszabb,
+  mint a semmi. Egy MÁR rögzített szett visszanyitásakor viszont a tárolt
+  érték van kiválasztva: az nem tippelés, hanem a te adatod.
+- A szett törlése az RPE-jét is viszi; a javító-lapon (`esSetRpe`) állítható
+  és üríthető, és ha csupa `null` maradna, a tömb törlődik.
+- **Autoreguláció (`progNext`):** ahol van RPE az utolsó rögzített szetten,
+  az FELÜLÍRJA a `smartInc` következtetését – az RPE közvetlen jelentés, a
+  túlteljesítésből számolt lépés csak becslés. RPE ≤7 → dupla lépés, ≤9 →
+  szokásos, felette → marad a súlyon. **Csak az alapértelmezett „okos" ágon**;
+  a nevesített programok (lineáris/greyskull/dupla/fix) definíciója sérthetetlen.
+  RPE nélkül minden pontosan a régiben marad.
+- A chip az RPE-t írja ki a szett sorszáma helyett, ahol van (`@8,5`) – a
+  sorrend a chipek helyzetéből amúgy is látszik. A `setsTxt` a naplóban és az
+  edzői exportban csak akkor fűzi hozzá, ha tényleg van érték.
+- **Szinkron:** a `_mergeSession` a `log[id]`-t egyben cseréli, tehát az `rpe`
+  magától utazik. A „gazdagabb verzió nyer" mércéje (`_filled` az `auth.js`-ben)
+  viszont HOLTVERSENYNÉL az RPE-set részesíti előnyben – enélkül egy másik
+  eszköz RPE nélküli másolata elnyelné a minősítést.
+- A készenlét (`rdyLoad`) SZÁNDÉKOSAN nem használja: az a szettek számát
+  méri, és RPE-vel súlyozni csak akkor volna becsületes, ha a szettek
+  többségén lenne érték. Amíg ez nincs, a pontszám jelentése ne változzon.
 
 ## Stagnálás-felismerés
 
@@ -1076,6 +1114,17 @@ rögzíti a tartott mp-et; korai leállítás = a ténylegesen tartott idő; a
 „Kézi megadás" a szám-billentyűzetre – `repKbSheet` – vált vissza), valamint a
 főoldali „Mit edzek ma?" ajánló (`suggestDay`), ami a heti izomtérkép
 hiányait lefedő edzésnapot javasolja.
+
+**NYITOTT KOCKÁZAT – a technika-ábrák joga.** A `gif/` 145 fájlja
+© Gym visual, és a saját `gif/ATTRIBUTION.md` szerint továbbterjesztés előtt
+tisztázni kell a feltételeket – az app viszont nyilvánosan fut (Netlify +
+GitHub Pages). Felmért alternatíva: a **free-exercise-db** (Unlicense,
+közkincs, 873 képes gyakorlat) jogilag tiszta, de 850×567-es FÉNYKÉPEKET ad
+2 állóképben, nem 180×180-as, témakövető vonalrajz-animációt – 44 px-es
+bélyegképként olvashatatlan, és az automatikus név-párosítás sem megbízható
+(a `bench`-re „Machine Bench Press"-t adott). A harmadik út a beépített
+ábrák elhagyása: a `videoUrl()` minden gyakorlatra ad „Technika videó"
+linket, tehát a funkció nem veszne el teljesen. **Döntés még nincs.**
 
 **Amit ne csinálj elsőre:** ne írd át React/Vue keretrendszerre.
 A keretrendszer nulla új funkciót adna.

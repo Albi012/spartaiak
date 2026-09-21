@@ -102,7 +102,14 @@
   // A skalár preferenciák (injury, activeProgram, hidePlan, rdy, active) és a
   // kulcsolt mezők per-kulcs az ÚJABB állapotból jönnek (a legutóbbi edzés
   // időbélyege a frisseség-proxy) – az edzéslistát ez sosem csonkítja.
-  function _filled(L){ return (L&&L.sets||[]).filter(x=>x!=null).length; }
+  // „Gazdagabb verzió nyer": a rögzített szettek száma dönt, és HOLTVERSENYNÉL
+  // az RPE. Ugyanaz a napló RPE-vel szigorúan többet tud, mint anélkül –
+  // enélkül egy másik eszköz RPE nélküli másolata elnyelné a minősítést.
+  function _filled(L){
+    const n=(L&&L.sets||[]).filter(x=>x!=null).length;
+    const r=(L&&L.rpe||[]).filter(x=>x!=null).length;
+    return n + (r>0 ? 0.5 : 0);
+  }
   function _mergeSession(x, y){
     const out = Object.assign({}, x, y);     // y a bázis a skalárokhoz (note, w, why…)
     // A nap jegyzetei (dayNotes) bejegyzés-lista: időbélyeg szerinti UNIÓ,
