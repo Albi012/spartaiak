@@ -1478,7 +1478,7 @@ const press = await (async ()=>{
     const {nodeId} = await cdp.send('DOM.querySelector', {nodeId:root.nodeId, selector:sel});
     if(!nodeId){ out[sel]=null; continue; }
     await cdp.send('CSS.forcePseudoState', {nodeId, forcedPseudoClasses:['active']});
-    await wait(120);
+    await wait(300);          // > a 120 ms-os átmenet, hogy a végértéket lássuk
     out[sel] = await page.evaluate(s=>{
       const el=document.querySelector(s);
       const t = s==='.daybtn' ? el.parentElement : el;   // a nagy kártya húzódik össze
@@ -1670,7 +1670,7 @@ const press2 = await (async ()=>{
     const {nodeId}=await cdp.send('DOM.querySelector',{nodeId:root.nodeId,selector:sel});
     if(!nodeId){ out[sel]=null; continue; }
     await cdp.send('CSS.forcePseudoState',{nodeId,forcedPseudoClasses:['active']});
-    await wait(120);
+    await wait(300);          // > a 120 ms-os átmenet, hogy a végértéket lássuk
     out[sel]=await page.evaluate(x=>{
       const m=getComputedStyle(document.querySelector(x)).transform.match(/matrix\(([\d.]+)/);
       return m?+m[1]:1; }, sel);
@@ -1680,9 +1680,65 @@ const press2 = await (async ()=>{
 ok('37 a szett-rács gombja összehúzódik lenyomva', press2['.kb button']!=null && press2['.kb button']<1);
 ok('37 a súlyállító gombja összehúzódik lenyomva', press2['.wt button']!=null && press2['.wt button']<1);
 ok('37 mindkettő a --press-sm rendszerértéket kapja',
-  press2['.kb button']===press2['.wt button'] && Math.abs(press2['.kb button']-0.94)<0.005);
+  Math.abs(press2['.kb button']-0.94)<0.005 && Math.abs(press2['.wt button']-0.94)<0.005);
 await page.evaluate(()=>{ closeSheet(); playing=false; tab='home'; S.active=null; render(); });
 await wait(350);
+
+// ---- 38. Mobil-alapok (hogy ne „weboldal a böngészőben" legyen) ----
+const html38 = await page.evaluate(()=>fetch('index.html').then(r=>r.text()));
+const css38 = ((html38.match(/<style>([\s\S]*?)<\/style>/)||[])[1]||'').replace(/\/\*[\s\S]*?\*\//g,' ');
+
+ok('38 SEMMI beviteli mező nem megy 16px alá (iOS különben ráközelít)', await page.evaluate(async ()=>{
+  openSheet(); openCustomEx();
+  await new Promise(r=>setTimeout(r,200));
+  const kicsi=[...document.querySelectorAll('#sheetIn input, #sheetIn select, #sheetIn textarea')]
+    .filter(i=>parseFloat(getComputedStyle(i).fontSize)<16);
+  closeSheet();
+  return kicsi.length===0; }));
+await wait(300);
+// CSAK a viewport-metát nézzük: a szabályról ÍRNI szabad, csak használni nem.
+const vp38 = (html38.match(/<meta name="viewport"[^>]*>/)||[''])[0];
+ok('38 a zoom NINCS letiltva (az akadálymentességi hiba, nem megoldás)',
+  !!vp38 && !/user-scalable\s*=\s*no/.test(vp38) && !/maximum-scale/.test(vp38));
+ok('38 viewport-fit=cover (enélkül az env(safe-area-*) mind 0px)',
+  /viewport-fit=cover/.test(html38));
+ok('38 a billentyűzet Androidon is összehúzza a layoutot',
+  /interactive-widget=resizes-content/.test(html38));
+ok('38 a gyökéren nincs lehúzás-frissítés és oldal-gumizás', await page.evaluate(()=>
+  getComputedStyle(document.documentElement).overscrollBehavior==='none'));
+ok('38 fekvő nézetben nem nagyít magától a szöveg', await page.evaluate(()=>
+  (getComputedStyle(document.documentElement).webkitTextSizeAdjust||'')==='100%'));
+ok('38 nincs koppintás-villanás', await page.evaluate(()=>
+  getComputedStyle(document.querySelector('.btn')).webkitTapHighlightColor==='rgba(0, 0, 0, 0)'));
+ok('38 a koppintásnak nincs 300 ms-os késleltetése', await page.evaluate(()=>
+  getComputedStyle(document.querySelector('.btn')).touchAction==='manipulation'));
+
+// A KONTROLL felirata vezérlő, a TARTALOM viszont másolható kell maradjon.
+ok('38 a kontrollok felirata nem jelölődik ki hosszan nyomva', await page.evaluate(()=>
+  getComputedStyle(document.querySelector('.btn')).userSelect==='none'
+  && getComputedStyle(document.querySelector('.nav')).userSelect==='none'));
+ok('38 a TARTALOM viszont másolható marad (napló, jegyzet, barát-kód)', await page.evaluate(()=>
+  getComputedStyle(document.body).userSelect!=='none'
+  && getComputedStyle(document.querySelector('.card .small')||document.body).userSelect!=='none'));
+
+// A `vh` a LEGNAGYOBB viewport: az URL-sáv miatt túlcsordul.
+ok('38 a magasságok a látható területet követik (dvh, nem vh)',
+  !/[^d]\b\d+vh\b/.test(css38) && /100dvh/.test(css38));
+
+// A státuszsáv színe már az ELSŐ festésnél stimmeljen – a kézi váltó miatt
+// a média-query-s meta önmagában nem elég.
+ok('38 a státuszsáv színét a villódzás elleni script is beállítja',
+  /theme-color/.test(html38.slice(0, html38.indexOf('<style>')))
+  && /_m\.content=_d\?/.test(html38));
+ok('38 a témaváltó is frissíti a státuszsáv színét',
+  /meta\[name="theme-color"\]/.test(html38.slice(html38.indexOf('<style>'))));
+
+// Érintős app: `:hover` szabály csak képesség-kapun belül lehet, különben
+// az első koppintás után beragad.
+ok('38 nincs kapu nélküli :hover szabály', (()=>{
+  const gated = css38.split('@media (hover: hover)');
+  // egyszerűsítve: ha egyáltalán nincs :hover a CSS-ben, az is rendben
+  return !/:hover/.test(css38) || gated.length>1; })());
 
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);

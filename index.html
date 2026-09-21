@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="hu">
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <title>Edzésnapló</title>
 <meta name="theme-color" content="#0F1317">
 <meta name="description" content="Push/pull edzésnapló telefonra – egy kézzel, edzés közben.">
@@ -12,7 +12,13 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Edzésnapló">
-<script>try{var _t=localStorage.getItem('gymlog_theme');if(_t==='light'||_t==='dark')document.documentElement.dataset.theme=_t;}catch(e){}</script>
+<script>try{var _t=localStorage.getItem('gymlog_theme');if(_t==='light'||_t==='dark')document.documentElement.dataset.theme=_t;
+/* A státuszsáv színe már az ELSŐ festésnél stimmeljen: enélkül egy világos
+   témás telefon sötét sávval villan fel, amíg a fő script le nem fut.
+   A kézi váltó miatt média-query-s meta nem elég – itt is a tényleges
+   állapotból számolunk. */
+var _d=_t?_t==='dark':!matchMedia('(prefers-color-scheme: light)').matches;
+var _m=document.querySelector('meta[name="theme-color"]');if(_m)_m.content=_d?'#0F1317':'#F4F2EC';}catch(e){}</script>
 <!-- A betűk a repóból jönnek (vendor/fonts), nem a Google Fonts CDN-ről:
      így az app első indításkor is offline-kész, nem függ idegen hoszttól, és
      nem kér le semmit a felhasználóról egy harmadik félnél. -->
@@ -76,13 +82,33 @@
 
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 html,body{margin:0;padding:0}
+/* Mobil-alapok. `overscroll-behavior:none` a gyökéren: az app saját görgető
+   dobozokkal dolgozik, a lehúzás-frissítés és a teljes oldal gumizása itt
+   csak elveszi a gesztust. A `text-size-adjust` az iOS fekvő nézetben
+   magától felnagyítaná a szöveget. */
+html{overscroll-behavior:none;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+/* A KONTROLLOK felirata nem szöveg, hanem vezérlő: hosszan nyomva ne
+   jelölődjön ki, és ne jöjjön föl a másolás-buborék. A TARTALOM (napló,
+   jegyzet, barát-kód, edzői export) marad kijelölhető – azt másolni kell. */
+button,[role="button"],.seg,.kb,.wt,.whyc,.mgchip,.daytag,.pill,.nav,summary{
+  user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 body{background:var(--bg);color:var(--ink);font-family:Barlow,system-ui,sans-serif;font-size:16px;line-height:1.5;padding-bottom:120px;overscroll-behavior-y:contain;transition:background .25s,color .25s}
 body.playing{padding-bottom:0}
 body.playing .appbar,body.playing .nav{display:none}
 .num,.cond{font-family:'Barlow Condensed',Barlow,sans-serif;font-variant-numeric:tabular-nums}
 h1,h2,h3{font-family:'Barlow Condensed',sans-serif;font-weight:600;letter-spacing:.01em;margin:0}
 button{font-family:inherit;font-size:inherit;color:inherit;background:none;border:none;cursor:pointer}
-input,select{font-family:inherit;font-size:inherit;color:var(--ink);background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:10px}
+/* MINDEN beviteli mező legalább 16px: iOS Safari ez alatt ráközelít a
+   mezőre fókuszkor, és kilépéskor NEM zoomol vissza – a felhasználó egy
+   elcsúszott, levágott felületen marad. A `.small` címkébe ágyazott mezők
+   (saját gyakorlat: szett/ism./súly/lépés/pihenő) ezért 13px-en álltak,
+   mert az `input{font-size:inherit}` a 13px-es címkétől örökölt.
+   Nem `(pointer: coarse)` mögé tettük: ez az app telefonra készült, nincs
+   asztali elrendezés, amit védeni kellene – és így mérhető is.
+   A megoldás SOHA nem a `user-scalable=no` / `maximum-scale=1` – az
+   akadálymentességi hiba, ráadásul csak a tünetet takarja el. */
+input,select,textarea{font-size:16px}
+input,select{font-family:inherit;color:var(--ink);background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:10px}
 input:focus,select:focus,button:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
 .wrap{max-width:560px;margin:0 auto;padding:0 16px}
 
@@ -287,7 +313,7 @@ a.btn{text-decoration:none;color:var(--ink)}
 /* A sötétítés `ease`-zel megy (ez színváltás-jellegű, nem be/kilépő elem),
    így a lap csúszásával együtt halványul, nem szalad el előle. */
 .sheet.on.closing::before{animation:sheetFadeOut 200ms ease both}
-.sheet .inner{position:relative;background:var(--card);width:100%;max-width:560px;margin:0 auto;border-radius:22px 22px 0 0;padding:12px 16px calc(20px + env(safe-area-inset-bottom));box-shadow:0 -8px 30px var(--shadow);max-height:90vh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+.sheet .inner{position:relative;background:var(--card);width:100%;max-width:560px;margin:0 auto;border-radius:22px 22px 0 0;padding:12px 16px calc(20px + env(safe-area-inset-bottom));box-shadow:0 -8px 30px var(--shadow);max-height:90dvh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 .grabber{width:40px;height:5px;border-radius:3px;background:var(--line);margin:0 auto 12px}
 .kb{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px}
 .kb button{padding:16px 0;border-radius:13px;background:var(--card2);border:1px solid var(--line);font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:700}
@@ -608,7 +634,7 @@ function logRdyBadge(t){
 }
 let physioRegion='';  // Gyógytorna oldal aktív testtáj (üres = első)
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v109';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v110';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -2316,7 +2342,7 @@ function renderPicker(){
     <div class="whyrow" id="pickerChips" style="margin-bottom:12px">${pickerChipsHtml()}</div>
     ${ai?`<button class="btn" style="margin-bottom:12px" onclick="aiBindNew()">Maradjon új gyakorlat</button>`
         :`<button class="btn pri" style="margin-bottom:12px" onclick="openCustomEx()">+ Új saját gyakorlat</button>`}
-    <div id="pickerRows" style="max-height:40vh;overflow-y:auto">${pickerRowsHtml()}</div>
+    <div id="pickerRows" style="max-height:40dvh;overflow-y:auto">${pickerRowsHtml()}</div>
     <p class="small dim" style="text-align:center;margin:10px 0 0">Ábrák © <a href="https://gymvisual.com/" target="_blank" rel="noopener noreferrer" style="color:var(--dim)">Gym visual</a></p>`;
 }
 function addToDraft(exId){ draft.ex.push(exId); closeSheet(); render(); }
@@ -2336,7 +2362,7 @@ function openManageEx(){
     <h2 style="font-size:22px">Kezelés</h2></div>
     <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
     <button class="btn pri" style="margin:12px 0" onclick="openCustomEx(null,'manage')">+ Új saját gyakorlat</button>
-    <div style="max-height:52vh;overflow-y:auto">${rows}</div>`;
+    <div style="max-height:52dvh;overflow-y:auto">${rows}</div>`;
   openSheet();
 }
 async function deleteCustomEx(id){
@@ -2453,7 +2479,7 @@ function openDayPicker(){
     <div class="row"><div class="grow"><span class="eyebrow">Edzés hozzáadása a tervhez</span>
     <h2 style="font-size:22px">Válassz edzést</h2></div>
     <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
-    <div style="max-height:52vh;overflow-y:auto;margin-top:12px">${rows}</div>`;
+    <div style="max-height:52dvh;overflow-y:auto;margin-top:12px">${rows}</div>`;
   openSheet();
 }
 function addToProg(dId){ prog.days.push(dId); closeSheet(); render(); }

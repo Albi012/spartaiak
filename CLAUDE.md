@@ -636,6 +636,48 @@ közben látni akarsz: hol tartasz, mennyi szett van hátra, mi a súly.
   `render` kitörölné az elemet, mielőtt bármit mutatna. Csökkentett
   mozgásnál elmarad, de maga a GYŰRŰ megy – az nem dísz, hanem a kijelző.
 
+## Mobil-alapok (hogy ne „weboldal a böngészőben" legyen)
+
+Ezek platform-szintű beállítások: pár sor dönti el, hogy az app telepítettnek
+érződik-e. **Egyik sem reprodukálható asztali böngésző eszköz-emulációjában**
+– valódi telefonon kell ellenőrizni. E2E-teszt őrzi őket (38. szekció).
+
+- **Minden beviteli mező legalább 16px.** iOS Safari ez alatt fókuszkor
+  RÁKÖZELÍT a mezőre, és kilépéskor NEM zoomol vissza – a felhasználó egy
+  elcsúszott felületen marad. A saját gyakorlat lapján öt mező `.small`
+  címkébe van ágyazva, és az `input{font-size:inherit}` miatt 13px-en állt.
+  **A megoldás SOHA nem a `user-scalable=no` / `maximum-scale=1`** – az
+  akadálymentességi hiba, és csak a tünetet takarja el.
+- **`viewport-fit=cover`** a viewport-metában – enélkül az `env(safe-area-*)`
+  értékek mind `0px`-ek, és a bekötött kitöltések nem csinálnak semmit.
+- **`interactive-widget=resizes-content`** – így a szoftverbillentyűzet
+  Androidon is összehúzza a layoutot, mint iOS-en (a `100dvh` és az alulra
+  rögzített elemek erre reagálnak).
+- **`overscroll-behavior:none` a `html`-en** – az app saját görgető dobozokkal
+  dolgozik; a lehúzás-frissítés és a teljes oldal gumizása itt csak elveszi a
+  gesztust. A `.sheet .inner` `contain`-t kap: megmarad a saját bounce-a, de
+  nem mozdul mögötte az oldal.
+- **`-webkit-text-size-adjust:100%`** – iOS fekvő nézetben magától
+  felnagyítaná a szöveget.
+- **`user-select:none` a KONTROLLOKON** (gomb, nav, szett-rács, súlyállító,
+  chipek, `summary`) + `-webkit-touch-callout:none`. **SOHA a `body`-n:** a
+  napló, a jegyzet, a barát-kód és az edzői export MÁSOLHATÓ kell maradjon –
+  az tartalom, nem vezérlő.
+- **Magasságok `dvh`-ban, nem `vh`-ban.** A `vh` a LEGNAGYOBB viewport (az
+  URL-sáv összecsukott állapota), ezért betöltéskor túlcsordul. A lapok
+  `max-height`-je és a lejátszó `min-height`-je is `dvh`.
+- **A státuszsáv színét a villódzás elleni `<head>` script is beállítja.**
+  A kézi témaváltó miatt a média-query-s `theme-color` meta önmagában nem
+  elég, a fő script pedig későn fut – enélkül egy világos témás telefon
+  sötét sávval villan fel. A `switchTheme` is frissíti.
+- **`:hover` szabály nincs az appban**, és ne is legyen kapu nélkül: érintésen
+  az első koppintás után beragadna. Ha kell, `@media (hover: hover) and
+  (pointer: fine)` mögé.
+- `-webkit-tap-highlight-color:transparent` és `touch-action:manipulation`
+  a `*`-on: nincs szürke villanás és nincs 300 ms-os koppintás-késleltetés.
+  Cserébe MINDEN nyomható elemnek kell saját `:active` visszajelzés – lásd
+  „Mozgás-rendszer".
+
 ## Mozgás-rendszer (tokenek, koppintás, belépés)
 
 A mozgás nem elemenkénti ízlés kérdése – **rendszer**, tokenekkel. Új
