@@ -5,6 +5,15 @@
 function setLogFilter(id){ logKind=null; logFilter=(id===logFilter?null:id); render(); window.scrollTo(0,0); }
 const HU_MONTHS=['január','február','március','április','május','június','július','augusztus','szeptember','október','november','december'];
 function monthLabel(t){ const d=new Date(t); return d.getFullYear()+'. '+HU_MONTHS[d.getMonth()]; }
+// A lenyitott edzések nyilvántartása. NÉZET-állapot, NEM tárolódik – mint a
+// `logKind`. `null` = még nem nyúlt hozzá a felhasználó, ilyenkor a legfrissebb
+// edzés van nyitva. A toggle a DOM-ból olvassa vissza az igazságot, így nem
+// kell külön könyvelni: a `toggle` esemény a váltás UTÁN sül el.
+let _logOpen=null;
+function logIsOpen(t, elso){ return _logOpen ? _logOpen.has(t) : elso; }
+function logToggle(){
+  _logOpen = new Set([...document.querySelectorAll('#app .lgfold[open]')].map(d=>+d.dataset.t));
+}
 function logView(){
   if(!S.sessions.length) return `<div class="wrap"><div class="top"><h1 style="font-size:34px">Napló</h1></div>
     <div class="empty">Még nincs lezárt edzés.<br>Kezdd az Edzés fülön.</div>
@@ -13,8 +22,14 @@ function logView(){
   // Elavult szűrő visszaállítása (ha a típus utolsó edzését is töröltük).
   if(logFilter && !S.sessions.some(s=>s.day===logFilter)) logFilter=null;
   const shownCount = S.sessions.filter(s=>!logFilter||s.day===logFilter).length;
-  let h=`<div class="wrap"><div class="top"><h1 style="font-size:34px">Napló</h1>
-    <p class="mut small" style="margin:6px 0 0">${logFilter?shownCount+' / '+S.sessions.length:S.sessions.length} edzés</p></div>`;
+  // A küldés/mentés MŰVELETEK a fejlécbe kerültek egy menü mögé. Korábban
+  // négy gomb állt a lap ALJÁN – 3400 px-re a tetejétől, ahova senki nem
+  // görget le azért, hogy elküldje a heti összefoglalót az edzőjének.
+  let h=`<div class="wrap"><div class="top"><div class="row" style="align-items:flex-start">
+    <div class="grow"><h1 style="font-size:34px">Napló</h1>
+    <p class="mut small" style="margin:6px 0 0">${logFilter?shownCount+' / '+S.sessions.length:S.sessions.length} edzés</p></div>
+    <button class="iconbtn" aria-label="Küldés és mentés" onclick="openLogTools()">${ICON.more}</button>
+    </div></div>`;
   // Összegző sáv (a teljes naplóból, a szűrőtől függetlenül).
   const st=progStats(), wk=S.sessions.filter(s=>weekStart(s.t)===weekStart(Date.now())).length;
   h+=`<div class="card"><div class="pad"><div class="statgrid" style="grid-template-columns:1fr 1fr 1fr">
@@ -44,7 +59,7 @@ function logView(){
   const loads=S.sessions.map(sessionLoad);
   const avg=loads.reduce((a,b)=>a+b,0)/(loads.length||1);
   const WHY={busy:'gép foglalt',heavy:'túl nehéz',time:'kevés idő'};
-  let curMonth=null;
+  let curMonth=null, nyitottVolt=false;
   const items=[];
   if(logKind!=='rest') [...S.sessions].filter(s=>!logFilter||s.day===logFilter).forEach(s=>items.push({t:s.t,kind:'ex',s}));
   if(logKind!=='ex' && !logFilter) restAll.forEach(r=>items.push(Object.assign({kind:'rest'},r)));
@@ -57,15 +72,16 @@ function logView(){
     const d=dayDef(s.day)||{ex:[]}; const dn=dayName(s); const idx=S.sessions.indexOf(s);
     const tot=Object.values(s.log).reduce((a,l)=>a+l.sets.filter(x=>x!=null).length,0);
     const load=loads[idx], hi=avg>0 && load>avg*1.3; const dur=sessionDur(s);
-    h+=`<div class="card"><div class="pad" style="border-bottom:1px solid var(--line)">
-      <div class="row"><div class="grow"><span class="cond" style="font-size:20px;font-weight:600">${esc(dn)}</span>
-      <div class="small dim">${fmtDate(s.t)}${dur?' · '+fmtDur(dur):''} · ${tot} szett · <span class="num">${load.toLocaleString('hu')}</span> kg${hi?' <span style="color:var(--red);font-weight:600">· kiugró</span>':''}${logRdyInline(s.t)}</div></div>
-      <button onclick="openEditSession(${idx})" class="small" style="padding:8px;color:var(--mut)">${tr('Javítás')}</button>
-      <button onclick="del(${idx})" class="small dim" style="padding:8px">${tr('Törlés')}</button></div>
+    // A LEGFRISSEBB (első kirajzolt) edzés van nyitva, a többi csukva –
+    // amíg a felhasználó nem nyúl hozzá; onnantól az ő választása számít.
+    const nyitva = logIsOpen(s.t, !nyitottVolt); nyitottVolt = true;
+    h+=`<details class="card lgfold" data-t="${s.t}"${nyitva?' open':''} ontoggle="logToggle()">
+      <summary><div class="grow"><span class="cond" style="font-size:20px;font-weight:600">${esc(dn)}</span>
+      <div class="small dim">${fmtDate(s.t)}${dur?' · '+fmtDur(dur):''} · ${tot} szett · <span class="num">${load.toLocaleString('hu')}</span> kg${hi?' <span style="color:var(--red);font-weight:600">· kiugró</span>':''}${logRdyInline(s.t)}</div>
       ${(()=>{ const js=dayNotes(s); if(!js.length) return '';
-        return `<div style="padding:0 16px 10px">`+js.map(n=>{ const e=n.ex&&exDef(n.ex);
-          return `<div class="small mut" style="margin-top:2px">${e?`<span style="color:var(--brass)">${esc(exN(e))}</span> <span class="dim">közben:</span> `:'<span class="dim">Jegyzet: </span>'}${esc(n.txt)}</div>`;
-        }).join('')+`</div>`; })()}</div>`;
+        return js.map(n=>{ const e=n.ex&&exDef(n.ex);
+          return `<div class="small mut" style="margin-top:4px">${e?`<span style="color:var(--brass)">${esc(exN(e))}</span> <span class="dim">közben:</span> `:'<span class="dim">Jegyzet: </span>'}${esc(n.txt)}</div>`;
+        }).join(''); })()}</div></summary>`;
     const seen=new Set();
     d.ex.forEach(e=>{ seen.add(e.id); const l=s.log[e.id]; if(!l||!l.sets.some(x=>x!=null))return;
       h+=`<div class="hrow"><span class="small grow">${esc(exN(e))}${l.why?` <span class="dim" style="font-size:11px">· ${WHY[l.why]}</span>`:''}</span>
@@ -77,13 +93,26 @@ function logView(){
     const mgSets=sessionMgSets(s);
     h+=`<details class="mmfold"><summary>${tr('Terhelt izmok')}</summary>
       <div class="pad" style="padding-top:0">${muscleMap(mgSets,true)}${mmLegend()}${mgChips(mgSets)}</div></details>`;
-    h+='</div>';
+    // Javítás/Törlés: a naplót olvasni szoktad, nem szerkeszteni – ezért
+    // ezek csak a lenyitott edzésen látszanak, nem mind a hét kártyán.
+    h+=`<div class="lgact">
+      <button class="btn ghost" style="flex:1;margin:0" onclick="openEditSession(${idx})">${tr('Javítás')}</button>
+      <button class="btn ghost" style="flex:0 0 38%;margin:0;color:var(--mut)" onclick="del(${idx})">${tr('Törlés')}</button></div>`;
+    h+='</details>';
   });
-  h+=`<button class="btn pri" onclick="openWeeklyExport()" style="margin-bottom:8px">${tr('Heti összefoglaló edzőnek')}</button>
-      <button class="btn" onclick="copyAll()" style="margin-bottom:8px">Napló másolása szövegként</button>
-      <button class="btn" onclick="backup()" style="margin-bottom:8px;color:var(--mut)">Biztonsági mentés (adatfájl)</button>
-      <button class="btn" onclick="restore()" style="margin-bottom:20px;color:var(--mut)">Visszaállítás mentésből</button>`;
-  return h+'</div>';
+  return h+'<div style="height:12px"></div></div>';
+}
+// A napló küldés/mentés műveletei egy lapon, a fejléc menü-gombja mögött.
+function openLogTools(){
+  document.getElementById('sheetIn').innerHTML=`
+    <div class="row" style="align-items:baseline"><span class="eyebrow grow">Napló</span>
+      <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
+    <h2 style="font-size:24px;margin:2px 0 14px">Küldés és mentés</h2>
+    <button class="btn pri" style="margin-bottom:8px" onclick="closeSheet();openWeeklyExport()">${tr('Heti összefoglaló edzőnek')}</button>
+    <button class="btn" style="margin-bottom:8px" onclick="closeSheet();copyAll()">Napló másolása szövegként</button>
+    <button class="btn" style="margin-bottom:8px;color:var(--mut)" onclick="closeSheet();backup()">Biztonsági mentés (adatfájl)</button>
+    <button class="btn" style="margin-bottom:6px;color:var(--mut)" onclick="closeSheet();restore()">Visszaállítás mentésből</button>`;
+  openSheet();
 }
 // A mentés a TELJES állapotot viszi – azt, amit a `save()` is eltesz. Korábban
 // hat mező kimaradt, és a visszaállítás némán elvette őket: a `prog`

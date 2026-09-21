@@ -268,6 +268,29 @@ a.btn{text-decoration:none;color:var(--ink)}
 .mmfold>summary::after{content:'';margin-left:auto;width:8px;height:8px;border-right:2px solid var(--dim);border-bottom:2px solid var(--dim);transform:rotate(45deg);transition:transform 180ms var(--ease-out)}
 .mmfold[open]>summary::after{transform:rotate(-135deg)}
 
+/* ---- Napló: lenyitható edzés-kártya --------------------------------
+   A naplóban a hét edzés 42 gyakorlat-sort jelentett: a lap 54%-a volt
+   szett-részlet, amit négy képernyőn át kellett görgetni. A részlet akkor
+   kell, ha azt kérded, „mennyit nyomtam múltkor?" – de sokkal gyakrabban
+   azt kérded, „edzettem-e ezen a héten". Ezért a lista alapból CSUKVA van,
+   a LEGFRISSEBB edzés viszont nyitva: azt szoktad megnézni.
+   A fejléc (név, dátum, szettszám, összterhelés, készenlét) és a nap
+   jegyzetei csukva is látszanak – azok a „mi történt", nem a részlet. */
+.lgfold>summary{list-style:none;cursor:pointer;padding:15px 16px;display:flex;
+  align-items:flex-start;gap:10px;box-sizing:border-box;
+  transition:transform 120ms var(--ease-out)}
+.lgfold>summary::-webkit-details-marker{display:none}
+.lgfold>summary::after{content:'';flex:0 0 auto;margin-top:7px;width:8px;height:8px;
+  border-right:2px solid var(--dim);border-bottom:2px solid var(--dim);
+  transform:rotate(45deg);transition:transform 180ms var(--ease-out)}
+.lgfold[open]>summary::after{transform:rotate(-135deg)}
+.lgfold[open]>summary{border-bottom:1px solid var(--line)}
+/* Koppintás-visszajelzés: a kártya nagy felület, ezért a legkisebb lépés. */
+.lgfold>summary:active{transform:scale(var(--press-lg))}
+/* A karbantartó gombok (Javítás/Törlés) a LENYITOTT állapotba kerültek:
+   a naplót olvasni szoktad, nem szerkeszteni. */
+.lgact{display:flex;gap:8px;padding:10px 16px 14px;border-top:1px solid var(--line)}
+
 /* Napló sorok */
 .hrow{display:flex;justify-content:space-between;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line)}
 .hrow:last-child{border-bottom:none}

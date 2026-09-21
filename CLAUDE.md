@@ -937,6 +937,50 @@ alatt kikapcsol (`reducedMotion()`), a haptika opcionális (`navigator.vibrate`)
   a modál-kártya és a fotó `popIn` rugóval; az alsó nav aktív ikonja
   `navPop`-ot pukkan váltáskor. Mind csak megjelenés, funkciót nem érint.
 
+## Napló: lenyitható edzés-kártyák
+
+A napló hét edzésnél 3469 px volt (négy képernyő), és ebből **1869 px – az
+oldal 54%-a – a 42 gyakorlat-sor.** A részletes szett-lista akkor kell, ha
+azt kérded, „mennyit nyomtam múltkor?"; sokkal gyakrabban viszont azt, hogy
+„edzettem ezen a héten" – és a második kérdést az elsőn keresztül kellett
+megválaszolni.
+
+A kártya mostantól `<details class="card lgfold">`:
+
+- **Csukva is látszik**, ami a „mi történt"-hez kell: a nap neve, dátum,
+  időtartam, szettszám, összterhelés, „kiugró" jelölés, készenlét ÉS a nap
+  jegyzetei. A jegyzet szándékosan kint maradt – az a „miért", nem részlet.
+- **A legfrissebb edzés NYITVA** indul: azt szoktad megnézni.
+- **A `Javítás`/`Törlés` a lenyitott állapotba került.** Korábban minden
+  kártyán ott volt (hét edzés = 14 karbantartó gomb) egy olyan nézetben,
+  amit olvasni szoktál, nem szerkeszteni. A `Törlés` egyúttal elvesztette a
+  piros főszerepet – a megerősítő modál változatlan.
+- Eredmény: **3469 px → 1415 px.**
+
+**A nyitott állapot NÉZET-állapot** (`_logOpen`), nem tárolódik – mint a
+`logKind`. `null` = a felhasználó még nem nyúlt hozzá (ilyenkor a legfrissebb
+nyitva). A `logToggle()` a DOM-ból olvassa vissza az igazságot
+(`.lgfold[open]`), mert a `toggle` esemény a váltás UTÁN sül el – így nincs
+külön könyvelés, és **egy `render()` nem dobja el, amit kinyitottál**
+(különben egy javítás után becsukódna, amit épp nézel). E2E-teszt őrzi
+mindhármat (44. szekció).
+
+**A küldés/mentés a fejlécbe került** (`openLogTools`, `ICON.more`): a négy
+gomb (heti összefoglaló, másolás, biztonsági mentés, visszaállítás) korábban
+a lap ALJÁN állt, 3400 px-re a tetejétől – oda senki nem görget le azért,
+hogy elküldje a heti összefoglalót az edzőjének.
+
+## Tervek: egyetlen „+ Új" gomb
+
+A lap alján öt egyforma, teljes szélességű gomb állt egymás alatt, pedig
+négy közülük **ugyanarra a kérdésre válaszol**: „hogyan csinálok újat?".
+Most egy elsődleges gomb (`openNewPlan`) nyitja a lapot a négy úttal: kész
+sablon → AI-import → új edzés → új terv, valószínűség szerinti sorrendben.
+
+A **„Saját gyakorlatok kezelése" KÜLÖN maradt** – az nem új dolog
+létrehozása, hanem karbantartás; a lapra téve elrejtené egy olyan menü
+mögé, aminek a címe nem illik rá.
+
 ## Toast kontra modál – mikor melyik
 
 Az `uiAlert` DÖNTÉST kér: rátakar a felületre, és egy „Rendben" koppintást

@@ -345,13 +345,28 @@ function plansView(){
         </div></div></div>`;
     });
   }
-  h+=`<button class="btn pri" style="margin-top:14px" onclick="openStarters()">Kész edzések és tervek ›</button>
-      <button class="btn" style="margin-top:8px" onclick="openBuilder()">+ Új edzés</button>
-      <button class="btn" style="margin-top:8px" onclick="openProgram()">+ Új edzésterv</button>
-      <button class="btn" style="margin-top:8px" onclick="openAiImport()">AI-terv importálása ›</button>
+  // Korábban öt egyforma, teljes szélességű gomb állt itt egymás alatt,
+  // pedig négy közülük ugyanazt a kérdést válaszolja meg: „hogyan csinálok
+  // újat?". Egy elsődleges gomb, mögötte a négy út – a „Saját gyakorlatok"
+  // marad külön, mert az nem új dolog létrehozása, hanem karbantartás.
+  h+=`<button class="btn pri" style="margin-top:14px" onclick="openNewPlan()">+ Új edzés vagy terv</button>
       ${S.hidePlan?`<button class="btn ghost" style="margin-top:8px;color:var(--mut)" onclick="restorePlan()">Beépített alapterv visszaállítása</button>`:''}
       <button class="btn ghost" style="margin-top:8px;margin-bottom:4px;color:var(--mut)" onclick="openManageEx()">Saját gyakorlatok kezelése${(S.customEx&&Object.keys(S.customEx).length)?' ('+Object.keys(S.customEx).length+')':''}</button>`;
   return h+'</div>';
+}
+// A négy „újat csinálok" út egy lapon. A sorrend a valószínűség szerint:
+// a kész sablon a leggyorsabb kiindulás, a nulláról építés a legritkább.
+function openNewPlan(){
+  document.getElementById('sheetIn').innerHTML=`
+    <div class="row" style="align-items:baseline"><span class="eyebrow grow">Összeállítás</span>
+      <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
+    <h2 style="font-size:24px;margin:2px 0 4px">Új edzés vagy terv</h2>
+    <p class="mut small" style="margin:0 0 14px">Indulj kész sablonból, hozz be AI-tervet, vagy állítsd össze magad.</p>
+    <button class="btn pri" style="margin-bottom:8px" onclick="closeSheet();openStarters()">Kész edzések és tervek ›</button>
+    <button class="btn" style="margin-bottom:8px" onclick="closeSheet();openAiImport()">AI-terv importálása ›</button>
+    <button class="btn" style="margin-bottom:8px" onclick="closeSheet();openBuilder()">+ Új edzés</button>
+    <button class="btn" style="margin-bottom:6px" onclick="closeSheet();openProgram()">+ Új edzésterv</button>`;
+  openSheet();
 }
 async function deletePlan(){ if(!await uiConfirm('Elrejted a beépített alaptervet (Push/Pull)?\nA naplózott edzéseid megmaradnak, és bármikor visszaállíthatod.', {ok:'Elrejtés', danger:true})) return;
   S.hidePlan=true; save(); render(); window.scrollTo(0,0); }

@@ -106,7 +106,17 @@ await page.evaluate(()=>closeSheet());
 // ---- 4. Napló fül + lenyitható izomtérkép ----
 await nav('log'); await wait(250);
 ok('4 napló renderel', (await page.$$('#app .card')).length>0);
-ok('4 heti export gomb', await page.$$eval('#app button',bs=>bs.some(b=>/Heti összefoglaló/.test(b.textContent))));
+// A küldés/mentés műveletek a fejléc menü-gombja mögé kerültek (v116),
+// hogy ne a lap ALJÁN, 3400 px-re a tetejétől kelljen őket megkeresni.
+ok('4 a napló fejlécében van a küldés/mentés menü',
+   await page.$$eval('#app .top button', bs=>bs.some(b=>/openLogTools/.test(b.getAttribute('onclick')||''))));
+ok('4 a menüben ott a heti export', await page.evaluate(async ()=>{
+  openLogTools(); await new Promise(r=>setTimeout(r,120));
+  const van=[...document.querySelectorAll('#sheetIn button')].some(b=>/Heti összefoglaló/.test(b.textContent));
+  const mind=['copyAll','backup()','restore()'].every(f=>
+    [...document.querySelectorAll('#sheetIn button')].some(b=>(b.getAttribute('onclick')||'').includes(f)));
+  closeSheet(); return van && mind; }));
+await wait(260);
 ok('4 izomtérkép lenyitható (details)', (await page.$$('#app details.mmfold')).length>0);
 ok('4 térkép alapból zárva', await page.evaluate(()=>!document.querySelector('#app details.mmfold').open));
 const sB=await page.evaluate(()=>S.sessions.length);
@@ -2186,6 +2196,82 @@ ok('41 kevés adatnál a kártya el sem készül', await page.evaluate(()=>{
 
   await page.evaluate(()=>{ S.routines=[]; S.programs=[]; save(); tab='home'; render(); });
   await wait(300);
+}
+
+// ---- 44. Napló: lenyitható kártyák, Tervek: egy „+ Új" gomb ----
+// A napló 54%-a szett-részlet volt, négy képernyőn át. A részlet MARAD,
+// csak alapból csukva – a legfrissebb edzés viszont nyitva, mert azt
+// szoktad megnézni.
+{
+  // Korábbi szekciók átírták a naplót – ehhez több edzés kell.
+  await seed(backup);
+  await page.evaluate(()=>{ _logOpen=null; playing=false; tab='log'; render(); }); await wait(400);
+
+  ok('44 minden edzés-kártya lenyitható', await page.evaluate(()=>{
+    const f=[...document.querySelectorAll('#app .lgfold')];
+    return f.length===S.sessions.length && f.every(d=>d.tagName==='DETAILS'); }));
+
+  ok('44 a LEGFRISSEBB edzés van nyitva, a többi csukva', await page.evaluate(()=>{
+    const f=[...document.querySelectorAll('#app .lgfold')];
+    return f[0].open && f.slice(1).every(d=>!d.open); }));
+
+  ok('44 a szett-részlet nem VESZETT el, csak a lenyitottban látszik',
+     await page.evaluate(()=>{
+       const f=[...document.querySelectorAll('#app .lgfold')];
+       return f[0].querySelectorAll('.hrow').length>0
+           && f[1].querySelectorAll('.hrow').length>0; }));
+
+  ok('44 csukva is ott a név, dátum, szettszám és összterhelés',
+     await page.evaluate(()=>{
+       const sum=document.querySelectorAll('#app .lgfold')[1].querySelector('summary').textContent;
+       return /szett/.test(sum) && /kg/.test(sum) && /\d{4}\.\d{2}\.\d{2}/.test(sum); }));
+
+  ok('44 a Javítás és a Törlés a LENYITOTT állapotba került',
+     await page.evaluate(()=>{
+       const f=[...document.querySelectorAll('#app .lgfold')];
+       const act=f[0].querySelector('.lgact');
+       const on=[...act.querySelectorAll('button')].map(b=>b.getAttribute('onclick')||'').join(' ');
+       return /openEditSession/.test(on) && /del\(/.test(on); }));
+
+  // A nyitott állapot NÉZET-állapot: egy render() nem dobhatja el, különben
+  // egy javítás után becsukódna, amit épp nézel.
+  ok('44 a kézzel kinyitott kártya túléli az újrarajzolást', await page.evaluate(async ()=>{
+    const f=[...document.querySelectorAll('#app .lgfold')];
+    f[2].open=true; f[2].dispatchEvent(new Event('toggle'));
+    await new Promise(r=>setTimeout(r,60));
+    render(); await new Promise(r=>setTimeout(r,250));
+    return document.querySelectorAll('#app .lgfold')[2].open; }));
+
+  ok('44 a becsukás is túléli az újrarajzolást', await page.evaluate(async ()=>{
+    const f=[...document.querySelectorAll('#app .lgfold')];
+    f[0].open=false; f[0].dispatchEvent(new Event('toggle'));
+    await new Promise(r=>setTimeout(r,60));
+    render(); await new Promise(r=>setTimeout(r,250));
+    return !document.querySelectorAll('#app .lgfold')[0].open; }));
+
+  ok('44 a nyitott állapot NEM kerül a mentett adatba', await page.evaluate(()=>{
+    const raw=localStorage.getItem('gymlog_v1')||'';
+    return !/lgfold|_logOpen/.test(raw) && !('logOpen' in S); }));
+
+  // Tervek: öt egyforma gomb helyett egy, mögötte a négy út.
+  await page.evaluate(()=>{ _logOpen=null; tab='plans'; render(); }); await wait(350);
+  ok('44 a Terveken EGY elsődleges „+ Új" gomb van', await page.evaluate(()=>{
+    const b=[...document.querySelectorAll('#app > .wrap > button')];
+    const pri=b.filter(x=>x.classList.contains('pri'));
+    return pri.length===1 && /Új edzés vagy terv/.test(pri[0].textContent); }));
+
+  ok('44 a négy út a lapon érhető el, nem veszett el', await page.evaluate(async ()=>{
+    openNewPlan(); await new Promise(r=>setTimeout(r,120));
+    const on=[...document.querySelectorAll('#sheetIn button')].map(b=>b.getAttribute('onclick')||'').join(' ');
+    const jo=['openStarters','openAiImport','openBuilder','openProgram'].every(f=>on.includes(f));
+    closeSheet(); return jo; }));
+  await wait(260);
+
+  ok('44 a gyakorlat-kezelés KÜLÖN maradt (az nem új dolog létrehozása)',
+     await page.evaluate(()=>[...document.querySelectorAll('#app > .wrap > button')]
+       .some(b=>/openManageEx/.test(b.getAttribute('onclick')||''))));
+
+  await page.evaluate(()=>{ tab='home'; render(); }); await wait(300);
 }
 
 console.log('\n==== ÖSSZEGZÉS ====');
