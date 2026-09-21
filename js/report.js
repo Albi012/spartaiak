@@ -89,7 +89,7 @@ function openWeeklyExport(){
     </div>`;
   openSheet();
 }
-function copyWeekly(){ navigator.clipboard.writeText(_weeklyText).then(()=>uiAlert('Vágólapra másolva – beillesztheted az AI edződnek.'),()=>uiAlert('Nem sikerült a másolás.')); }
+function copyWeekly(){ navigator.clipboard.writeText(_weeklyText).then(()=>toast('Vágólapra másolva – beillesztheted az AI edződnek.'),()=>uiAlert('Nem sikerült a másolás.')); }
 async function shareWeekly(){
   if(navigator.share){ try{ await navigator.share({title:'Edzésnapló – heti összefoglaló', text:_weeklyText}); return; }
     catch(e){ if(e&&e.name==='AbortError') return; } }

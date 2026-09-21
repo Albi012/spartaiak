@@ -118,6 +118,49 @@ function uiAlert(msg, opts){ opts=opts||{};
       <div class="modal-actions"><button class="btn pri" style="flex:1;margin:0" onclick="_closeModal()">${esc(opts.ok||'Rendben')}</button></div>`;
     openModal(); });
 }
+/* ---- Toast: nyugtázás, ami nem állít meg ---------------------------
+ * A `uiAlert` DÖNTÉST kér: rátakar a felületre, és egy „Rendben"
+ * koppintást vár. Ami viszont csak annyit közöl, hogy MEGTÖRTÉNT
+ * („Név elmentve.", „Vágólapra másolva.", „hozzáadva az edzéseidhez"),
+ * ott nincs mit eldönteni – az a koppintás tiszta veszteség, edzés
+ * közben pedig kifejezetten zavaró.
+ *
+ * A HATÁR: ha a felhasználónak tennie kell valamit (hiba, hiányzó név,
+ * sikertelen mentés, egy hosszabb magyarázat, amit végig kell olvasni),
+ * az MARAD modál. A toast csak a megtörtént dolgot nyugtázza.
+ *
+ * Nem ad vissza promise-t, és SOHA ne is adjon: aki `await`-elni akarja,
+ * az valójában modált keres.
+ */
+const TOAST_OUT=160;                       // ki: gyorsabb, mint a 220 ms-os be
+let _toastGen=0, _toastT=null, _toastOutT=null;
+function toast(msg){
+  const el=document.getElementById('toast'); if(!el) return;
+  const gen=++_toastGen;
+  clearTimeout(_toastT); clearTimeout(_toastOutT);
+  // Ha épp látszik, csak a szöveget cseréljük és újraindítjuk az időzítőt –
+  // kifelé-befelé villantani ugyanazt a dobozt fölösleges mozgás volna.
+  const lathato = el.classList.contains('on') && !el.classList.contains('closing');
+  el.textContent = String(msg);
+  if(lathato){ el.classList.remove('closing'); }
+  else { el.classList.remove('on','closing'); void el.offsetWidth; el.classList.add('on'); }
+  // Az olvasási idő a szöveg hosszából jön: egy „Név elmentve." nem kell
+  // annyi ideig a képernyőn, mint egy két tagmondatos mondat.
+  const dur = Math.max(2200, Math.min(5000, 1200 + String(msg).length*45));
+  _toastT = setTimeout(()=>{ if(gen===_toastGen) hideToast(); }, dur);
+}
+// Koppintásra azonnal megy. Külön `:active` visszajelzés nem kell: MAGA a
+// kilépés (összehúzódik és elhalványul) a válasz a koppintásra.
+function hideToast(){
+  const el=document.getElementById('toast');
+  if(!el || !el.classList.contains('on') || el.classList.contains('closing')) return;
+  const gen=_toastGen;
+  clearTimeout(_toastT);
+  el.classList.add('closing');
+  // Nemzedék-őr: ha a 160 ms alatt ÚJ toast jött, a régi kilépés már nem
+  // nyúlhat a DOM-hoz – különben eltüntetné a frisset.
+  _toastOutT = setTimeout(()=>{ if(gen===_toastGen) el.classList.remove('on','closing'); }, TOAST_OUT);
+}
 // Az RPE kiválasztása NEM rögzít: a lap nyitva marad, hogy utána a
 // szám-koppintás zárja le a dolgot. Így a nem-RPE-s út 2 koppintás marad.
 function pickRpe(v){ _rpePick=v; const el=document.getElementById('sheetIn');

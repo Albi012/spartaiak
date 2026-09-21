@@ -64,7 +64,7 @@ function addStarterRoutine(key, silent){
   const r=STARTER_ROUTINES[key]; if(!r) return null;
   const id=uid('r_'); if(!S.routines) S.routines=[];
   S.routines.push({ id, name:r.name, sub:r.ex.length+' gyakorlat', ex:r.ex.slice() });
-  if(!silent){ save(); closeSheet(); tab='home'; render(); window.scrollTo(0,0); uiAlert('„'+r.name+'" hozzáadva az edzéseidhez.'); }
+  if(!silent){ save(); closeSheet(); tab='home'; render(); window.scrollTo(0,0); toast('„'+r.name+'" hozzáadva az edzéseidhez.'); }
   return id;
 }
 async function addStarterProgram(i){
@@ -73,7 +73,7 @@ async function addStarterProgram(i){
   if(!S.programs) S.programs=[];
   S.programs.push({ id:uid('p_'), name:p.name, days:dayIds });
   save(); closeSheet(); tab='home'; render(); window.scrollTo(0,0);
-  await uiAlert('„'+p.name+'" terv hozzáadva ('+dayIds.length+' edzéssel).');
+  toast('„'+p.name+'" terv hozzáadva ('+dayIds.length+' edzéssel).');
 }
 
 /* ================= AI-terv importálása =============================== *
@@ -353,7 +353,7 @@ async function aiSharePrompt(){
 }
 function aiCopyFormat(){
   const t=AI_FORMAT_BLOCK;
-  const ok=()=>uiAlert('A formátum-emlékeztető a vágólapon – küldd el az edzőnek, és kérd újra a tervet ebben az alakban.');
+  const ok=()=>toast('A formátum-emlékeztető a vágólapon – küldd el az edzőnek, és kérd újra a tervet ebben az alakban.');
   try{ if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(ok,()=>aiCopyFallback(t)); return; } }catch(e){}
   aiCopyFallback(t);
 }

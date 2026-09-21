@@ -192,7 +192,7 @@ async function saveDispName(){
   const v=(document.getElementById('dispName').value||'').trim();
   if(!v){ uiAlert('Adj meg egy nevet.'); return; }
   await Auth.saveDisplayName(v); if(myProfile) myProfile.display_name=v; else myProfile={display_name:v};
-  syncStats(); uiAlert('Név elmentve.');
+  syncStats(); toast('Név elmentve.');
 }
 // Csak nem érzékeny összefoglaló megy a barátoknak (nincs jegyzet/fotó/sérülés).
 function shareSummary(){
@@ -344,13 +344,16 @@ async function doSharePlan(programId, toId, toName){
   const payload=buildPlanPayload(programId); const p=progById(programId);
   if(!payload){ uiAlert('Előbb mentsd el a tervet.'); return; }
   let ok=false; try{ ok=await Auth.sharePlan(toId, p.name, payload); }catch(e){}
-  closeSheet(); uiAlert(ok? ('Elküldve neki: '+toName) : 'Nem sikerült elküldeni.');
+  closeSheet();
+  // Siker = nyugtázás (toast); a HIBA marad modál, mert ott a
+  // felhasználónak újra kell próbálnia.
+  if(ok) toast('Elküldve neki: '+toName); else uiAlert('Nem sikerült elküldeni.');
 }
 async function doImportPlan(shareId){
   const sp=(sharedPlansData||[]).find(x=>x.id===shareId); if(!sp) return;
   importPlan(sp.payload);
   try{ await Auth.deleteSharedPlan(shareId); }catch(e){}
-  refreshFriends(); uiAlert('Terv importálva – megtalálod a főoldaladon.');
+  refreshFriends(); toast('Terv importálva – megtalálod a főoldaladon.');
 }
 async function doDiscardPlan(shareId){ try{ await Auth.deleteSharedPlan(shareId); }catch(e){} refreshFriends(); }
 

@@ -2101,6 +2101,93 @@ ok('41 kevés adatnál a kártya el sem készül', await page.evaluate(()=>{
     return v === APP_VERSION; }));
 }
 
+// ---- 43. Toast: nyugtázás, ami nem állít meg ----
+// A határ, amit ez a szekció őriz: ami csak KÖZLI, hogy megtörtént, az
+// toast (nem kér koppintást); ami HIBA vagy hiányzó adat, az marad modál.
+{
+  await page.evaluate(()=>{ hideToast(); _closeModal(false); });
+  await wait(250);
+
+  ok('43 a toast megjelenik a szöveggel', await page.evaluate(async ()=>{
+    toast('Teszt üzenet.'); await new Promise(r=>setTimeout(r,60));
+    const el=document.getElementById('toast');
+    return el.classList.contains('on') && el.textContent==='Teszt üzenet.'; }));
+
+  ok('43 a toast NEM modál: nincs benne gomb, és a modál zárva marad',
+     await page.evaluate(()=>{
+       const el=document.getElementById('toast');
+       return el.querySelectorAll('button').length===0
+           && !document.getElementById('modal').classList.contains('on'); }));
+
+  ok('43 a toast nem ad vissza promise-t (aki await-elné, az modált keres)',
+     await page.evaluate(()=>toast('x')===undefined));
+
+  ok('43 koppintásra azonnal indul a kilépés', await page.evaluate(async ()=>{
+    toast('Eltüntetlek.'); await new Promise(r=>setTimeout(r,60));
+    document.getElementById('toast').click();
+    await new Promise(r=>setTimeout(r,20));
+    return document.getElementById('toast').classList.contains('closing'); }));
+
+  ok('43 a kilépés után tényleg eltűnik a DOM-ból', await page.evaluate(async ()=>{
+    await new Promise(r=>setTimeout(r,300));
+    return !document.getElementById('toast').classList.contains('on'); }));
+
+  ok('43 MAGÁTÓL eltűnik, nem vár koppintásra', await page.evaluate(async ()=>{
+    toast('Rövid.');                       // rövid szöveg = 2200 ms minimum
+    await new Promise(r=>setTimeout(r,2700));
+    return !document.getElementById('toast').classList.contains('on'); }));
+
+  ok('43 hosszabb szöveg tovább marad kint (olvasási idő)', await page.evaluate(async ()=>{
+    toast('Ez egy jóval hosszabb üzenet, amit végig kell olvasni ahhoz, hogy bármit is jelentsen.');
+    await new Promise(r=>setTimeout(r,2700));
+    const kint=document.getElementById('toast').classList.contains('on');
+    hideToast(); return kint; }));
+
+  ok('43 egyszerre csak EGY toast van kint', await page.evaluate(async ()=>{
+    await new Promise(r=>setTimeout(r,250));
+    toast('Első.'); toast('Második.');
+    await new Promise(r=>setTimeout(r,60));
+    const el=document.getElementById('toast');
+    const egy = document.querySelectorAll('.toast.on').length===1;
+    const friss = el.textContent==='Második.';
+    hideToast(); return egy && friss; }));
+
+  // Nyitott lap fölött is látszania kell, különben a lapról indított
+  // nyugtázás (pl. „Vágólapra másolva") észrevétlen maradna.
+  ok('43 a toast a nyitott lap FÖLÖTT van', await page.evaluate(async ()=>{
+    await new Promise(r=>setTimeout(r,250));
+    openSheet(); toast('Lap fölött.');
+    await new Promise(r=>setTimeout(r,60));
+    const z = el => parseInt(getComputedStyle(el).zIndex)||0;
+    const jo = z(document.getElementById('toast')) > z(document.getElementById('sheet'));
+    hideToast(); closeSheet(); return jo; }));
+
+  // Az igazi útvonal: sablon hozzáadása nyugtázás, nem megállítás.
+  ok('43 a sablon-edzés hozzáadása toastot ad, nem modált', await page.evaluate(async ()=>{
+    await new Promise(r=>setTimeout(r,300));
+    const kulcs = Object.keys(STARTER_ROUTINES)[0];
+    addStarterRoutine(kulcs);
+    await new Promise(r=>setTimeout(r,80));
+    const t=document.getElementById('toast');
+    return t.classList.contains('on') && /hozzáadva/.test(t.textContent)
+        && !document.getElementById('modal').classList.contains('on'); }));
+
+  // …a HIBA viszont marad modál: ott a felhasználónak tennie kell valamit.
+  ok('43 a hiányzó név továbbra is MODÁLT nyit, nem toastot', await page.evaluate(async ()=>{
+    hideToast(); await new Promise(r=>setTimeout(r,250));
+    openSheet();
+    document.getElementById('sheetIn').innerHTML='<input id="dispName" value="   ">';
+    saveDispName();
+    await new Promise(r=>setTimeout(r,60));
+    const m=document.getElementById('modal');
+    const jo = m.classList.contains('on') && /Adj meg egy nevet/.test(m.textContent)
+            && !document.getElementById('toast').classList.contains('on');
+    _closeModal(false); closeSheet(); return jo; }));
+
+  await page.evaluate(()=>{ S.routines=[]; S.programs=[]; save(); tab='home'; render(); });
+  await wait(300);
+}
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));

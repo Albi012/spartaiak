@@ -35,6 +35,10 @@ var _m=document.querySelector('meta[name="theme-color"]');if(_m)_m.content=_d?'#
   --sage:#63C295; --sage-d:#14291E;
   --red:#E9694C; --miss-bg:#3A241E;
   --bar:rgba(15,19,23,.72); --shadow:rgba(0,0,0,.45);
+  /* Toast = INVERZ felület (a szövegszín a háttér). Sötétben a kártyák
+     mind sötétek, világosban mind fehérek – egy azonos fajsúlyú doboz
+     beleolvadna a tartalomba. Az inverz sosem. */
+  --toast-bg:#E3EAF1; --toast-ink:#141A21;
   --gif-filter:brightness(.8) contrast(1.04);
 }
 
@@ -58,6 +62,7 @@ var _m=document.querySelector('meta[name="theme-color"]');if(_m)_m.content=_d?'#
     --sage:#2C9A64; --sage-d:#DDF0E6;
     --red:#C8492C; --miss-bg:#FBE7E0;
     --bar:rgba(244,242,236,.8); --shadow:rgba(40,50,60,.14);
+  --toast-bg:#242B33; --toast-ink:#F4F2EC;
   --gif-filter:none;
   }
 }
@@ -68,6 +73,7 @@ var _m=document.querySelector('meta[name="theme-color"]');if(_m)_m.content=_d?'#
   --sage:#2C9A64; --sage-d:#DDF0E6;
   --red:#C8492C; --miss-bg:#FBE7E0;
   --bar:rgba(244,242,236,.8); --shadow:rgba(40,50,60,.14);
+  --toast-bg:#242B33; --toast-ink:#F4F2EC;
   --gif-filter:none;
 }
 :root[data-theme="dark"]{
@@ -77,6 +83,10 @@ var _m=document.querySelector('meta[name="theme-color"]');if(_m)_m.content=_d?'#
   --sage:#63C295; --sage-d:#14291E;
   --red:#E9694C; --miss-bg:#3A241E;
   --bar:rgba(15,19,23,.72); --shadow:rgba(0,0,0,.45);
+  /* Toast = INVERZ felület (a szövegszín a háttér). Sötétben a kártyák
+     mind sötétek, világosban mind fehérek – egy azonos fajsúlyú doboz
+     beleolvadna a tartalomba. Az inverz sosem. */
+  --toast-bg:#E3EAF1; --toast-ink:#141A21;
   --gif-filter:brightness(.8) contrast(1.04);
 }
 
@@ -412,6 +422,31 @@ textarea:focus{outline:2px solid var(--brass);outline-offset:2px}
 .modal-actions{display:flex;gap:10px;margin-top:18px}
 .btn.danger{background:var(--red);color:#fff;border-color:var(--red)}
 
+/* ---- Toast: nyugtázás, ami NEM állít meg ---------------------------
+   A modál (`uiAlert`) DÖNTÉST kér: rátakar a felületre és egy „Rendben"
+   koppintást vár. Ami viszont csak annyit közöl, hogy „megtörtént"
+   („Név elmentve.", „Vágólapra másolva."), az nem ér meg egy koppintást –
+   edzés közben végképp nem. Az ilyen a toastra tartozik: megjelenik,
+   elolvasod, magától eltűnik. Hiba és hiányzó adat MARAD modál: ott a
+   felhasználónak tennie kell valamit.
+   A nav FÖLÖTT ül (z-index 100), hogy nyitott lapon is látszódjon. */
+.toast{position:fixed;left:50%;z-index:100;display:none;
+  bottom:calc(76px + env(safe-area-inset-bottom));
+  width:calc(100% - 32px);max-width:400px;
+  transform:translate(-50%,0);
+  background:var(--toast-bg);color:var(--toast-ink);
+  border-radius:14px;box-shadow:0 12px 34px var(--shadow);
+  padding:13px 16px;font-size:14px;line-height:1.4;font-weight:500;
+  user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.toast.on{display:block}
+/* A halványulás MINDIG megy (mint a lapnál), a csúszás csak akkor, ha a
+   felhasználó nem kért csökkentett mozgást. A `.closing` fajsúlyban veri
+   a belépőt, ezért nem kell külön trükk. */
+@keyframes toastFadeIn{from{opacity:0}}
+@keyframes toastFadeOut{to{opacity:0}}
+.toast.on{animation:toastFadeIn 200ms var(--ease-out) both}
+.toast.on.closing{animation:toastFadeOut 160ms var(--ease-out) both;pointer-events:none}
+
 /* ---- Mikro-interakciók: szett-visszajelzés, lap- és nézetváltás -----
    Minden anim csak akkor fut, ha a felhasználó nem kért csökkentett
    mozgást (prefers-reduced-motion). A haptikát a JS adja (navigator.vibrate);
@@ -425,6 +460,13 @@ textarea:focus{outline:2px solid var(--brass);outline-offset:2px}
   .chip.pop{animation:chipPop .3s cubic-bezier(.25,.8,.3,1.35)}
   .sheet.on .inner{animation:sheetUp .26s cubic-bezier(.2,.7,.3,1)}
   .sheet.on.closing .inner{animation:sheetOut 200ms var(--ease-out) both}
+  /* A toast alulról érkezik és lefelé megy ki – ugyanaz az irány, mint a
+     lapnál. A kilépés (160 ms) GYORSABB a belépésnél (220 ms): a
+     megjelenésről az app dönt, az eltűnés a rendszer válasza. */
+  @keyframes toastIn{from{opacity:0;transform:translate(-50%,14px) scale(.96)}}
+  @keyframes toastOut{to{opacity:0;transform:translate(-50%,8px) scale(.98)}}
+  .toast.on{animation:toastIn 220ms var(--ease-out) both}
+  .toast.on.closing{animation:toastOut 160ms var(--ease-out) both}
   ::view-transition-old(appview){animation:vtOut .16s ease both}
   ::view-transition-new(appview){animation:vtIn .24s cubic-bezier(.2,.7,.3,1) both}
 }
@@ -542,6 +584,9 @@ textarea:focus{outline:2px solid var(--brass);outline-offset:2px}
 <div class="photo" id="photo" onclick="this.classList.remove('on')"><img id="photoImg" alt="beállítás fotó"></div>
 
 <div class="modal" id="modal"><div class="modal-card" id="modalIn"></div></div>
+
+<!-- Toast: nem blokkoló nyugtázás. Koppintásra azonnal eltűnik. -->
+<div class="toast" id="toast" role="status" aria-live="polite" onclick="hideToast()"></div>
 
 <!-- Felhő-szinkron (1. fázis). A supabase-config.js opcionális; ha hiányzik,
      az app változatlanul, localStorage-ból fut. Lásd docs/1-fazis-auth-TODO.md -->

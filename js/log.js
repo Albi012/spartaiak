@@ -294,6 +294,7 @@ function copyAll(){
       if(!l.sets.some(x=>x!=null))return; const e=exDef(id);
       t+='  '+e.n+' (kivéve): '+wLabel(e,l.w)+(e.bw&&l.w<=0?'':' kg')+' × '+setsTxt(l)+'\n';});
     t+='\n'; });
-  navigator.clipboard.writeText(t).then(()=>uiAlert('Vágólapra másolva. Beillesztheted a chatbe.'),()=>uiAlert('Nem sikerült a másolás.'));
+  // A másolás SIKERE nyugtázás; a kudarc modál, mert ott kézzel kell másolni.
+  navigator.clipboard.writeText(t).then(()=>toast('Vágólapra másolva. Beillesztheted a chatbe.'),()=>uiAlert('Nem sikerült a másolás.'));
 }
 

@@ -280,7 +280,7 @@ function addRehabAsCustom(rid, exid){
   const parts=String(e.r).split('×'); const sets=parseInt(parts[0])||2; const reps=(parts[1]||'10').trim();
   const id=uid('cx_');
   S.customEx[id]={id, n:e.n, mg:REGION_MG[rid]||'törzs', s:sets, r:reps, w:0, inc:2.5, rest:45, bw:1, ...(e.time?{time:1}:{})};
-  save(); uiAlert('„'+exN(e)+'" felvéve a saját gyakorlataid közé – edzésbe teheted a Tervek fülön.');
+  save(); toast('„'+exN(e)+'" felvéve a saját gyakorlataid közé – edzésbe teheted a Tervek fülön.');
 }
 function physioView(){
   const reg=REHAB.find(r=>r.id===physioRegion)||REHAB[0]; physioRegion=reg.id;

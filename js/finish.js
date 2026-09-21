@@ -6,7 +6,7 @@ function finish(){
   // Mobilitás rutin: nem naplózódik (nem edzés), csak lezárul.
   if(isPhysioActive()){
     S.active=null; S.activeT=Date.now(); playing=false; stopTimer(); tab='home'; save();
-    render(); window.scrollTo(0,0); uiAlert('Mobilitás rutin kész – szép munka!'); return;
+    render(); window.scrollTo(0,0); toast('Mobilitás rutin kész – szép munka!'); return;
   }
   const any=Object.values(S.active.log).some(l=>l.sets.some(x=>x!=null));
   if(!any){ uiAlert('Egyetlen szettet sem rögzítettél.'); return; }

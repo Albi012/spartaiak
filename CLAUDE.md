@@ -201,7 +201,7 @@ töltődött be. A `boot.js`-en kívül nincs top-level végrehajtás.
 | `ai-import.js` | kész sablonok és az AI-terv importálása |
 | `builder.js` | edzés-összeállító, gyakorlatválasztó, `customEx`, programok |
 | `player.js` | a lejátszó, superset, RPE, szett-rögzítő lap |
-| `sheet.js` | alsó lap, idő-alapú óra, modál |
+| `sheet.js` | alsó lap, idő-alapú óra, modál, **toast** |
 | `timer.js` | `setRep`, hang, értesítés, pihenő-óra |
 | `finish.js` | befejezés, izomtérkép, összegző |
 | `log.js` | napló, mentés/visszaállítás, síremlékek, javítás |
@@ -936,6 +936,47 @@ alatt kikapcsol (`reducedMotion()`), a haptika opcionális (`navigator.vibrate`)
 - **Overlay-nyitás:** `.sheet/.modal/.rest/.photo` háttér lágy `fadeIn`,
   a modál-kártya és a fotó `popIn` rugóval; az alsó nav aktív ikonja
   `navPop`-ot pukkan váltáskor. Mind csak megjelenés, funkciót nem érint.
+
+## Toast kontra modál – mikor melyik
+
+Az `uiAlert` DÖNTÉST kér: rátakar a felületre, és egy „Rendben" koppintást
+vár. Sokáig ezt kapta az is, ami csak annyit közölt, hogy MEGTÖRTÉNT
+(„Név elmentve.", „Vágólapra másolva.", „hozzáadva az edzéseidhez") – ott
+viszont nincs mit eldönteni, a koppintás tiszta veszteség. Edzés közben
+végképp: a kezed a súlyon van, nem a telefonon.
+
+**A határ, és ezt ne mosd el:**
+
+- **`toast(msg)`** – ha a felhasználónak NINCS teendője, csak tudnia kell,
+  hogy sikerült. Megjelenik, elolvasod, magától eltűnik; koppintásra
+  azonnal megy. Jelenleg 10 hívási hely.
+- **`uiAlert(msg)`** – ha TENNIE kell valamit: hiba („Nem sikerült a
+  másolás." → kézzel kell), hiányzó adat („Adj nevet a gyakorlatnak."),
+  vagy egy hosszabb magyarázat, amit végig kell olvasni. Ilyen maradt az
+  AI-import záró üzenete is: kimondja, hogy az új terv AKTÍV lett és hogyan
+  válthatsz vissza – ezt egy 3 másodperces sáv elnyelné.
+- A kettő **ugyanabban a mondatban is elválhat**: a vágólapra másolás
+  sikere toast, a kudarca modál.
+
+**Megvalósítás** (`js/sheet.js`, a modál mellett):
+
+- **Nem ad vissza promise-t, és ne is adjon.** Aki `await`-elné, az
+  valójában modált keres. E2E-teszt őrzi (43. szekció).
+- **Egyszerre EGY toast van kint.** Ha látszik és új jön, csak a szöveg
+  cserélődik és az időzítő indul újra – ki-be villantani ugyanazt a dobozt
+  fölösleges mozgás. Nemzedék-számláló (`_toastGen`), mint a lapnál.
+- **Az olvasási idő a szöveg hosszából jön** (2,2–5 mp): egy „Név
+  elmentve." nem kell annyi ideig kint, mint egy két tagmondatos mondat.
+- **Inverz felület** (`--toast-bg`/`--toast-ink`): sötét témában világos,
+  világosban sötét. Az első változat a `--bar`-t használta, és a kártyák
+  közt ELTŰNT – azonos fajsúlyú doboz nem olvasható lebegő üzenetként.
+  Ezt ne vidd vissza téma-egyszínűre.
+- **z-index 100**, a lap (70) és a modál (90) fölött: a lapról indított
+  nyugtázás („Vágólapra másolva") különben a lap mögött maradna.
+- A kilépés (160 ms) gyorsabb a belépésnél (220 ms), a halványulás
+  csökkentett mozgásnál is megy, a csúszás nem – ugyanaz az elv, mint az
+  alsó lapnál. **Külön `:active` visszajelzés nincs:** koppintásra MAGA a
+  kilépés a válasz.
 
 ## Tárolás
 
