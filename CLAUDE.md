@@ -696,11 +696,13 @@ animációnál ezeket használd, ne találj ki újabb görbét vagy időt.
   A `.daybtn` a kártyán BELÜL ül, ezért a **kártyát** húzzuk össze
   (`.card:has(.daybtn:active)`) – különben a tartalom zsugorodna egy álló
   kereten belül. `:has` nélkül csak a háttérváltás marad.
-  **A szett-rács (`.kb button`) és a súlyállító (`.wt button`) is kap
-  `scale`-t, nem csak hátteret.** Teremben a hüvelykujjad ELTAKARJA a
-  gombot: az ujjad ALATTI háttérváltás láthatatlan, a `scale` viszont a
-  gomb SZÉLÉT mozdítja – az ujjad körül az látszik. Ez a két kontroll az
-  app legtöbbet nyomott eleme, ne vedd le róluk.
+  **Minden nyomható osztály benne van a rendszerben** – a szett-rács
+  (`.kb button`), a súlyállító (`.wt button`), a chipek (`.whyc`), a
+  szegmens-kapcsoló (`.seg button`) és az eszközsáv (`.tool`) is `scale`-t
+  kap, nem csak hátteret. Teremben a hüvelykujjad ELTAKARJA a gombot: az
+  ujjad ALATTI háttérváltás láthatatlan, a `scale` viszont a gomb SZÉLÉT
+  mozdítja – az ujjad körül az látszik. A szett-rács és a súlyállító az app
+  legtöbbet nyomott eleme, ne vedd le róluk.
 - **Csak `transform` és `opacity` animálódik.** A kitöltő sávok
   (`.mgfill`, `.rdybar>span`) `scaleX(var(--p))`-pel rajzolnak, ahol a `--p`
   a kitöltés ARÁNYA (0..1), nem százalékos szélesség: a `width` minden
@@ -766,6 +768,30 @@ alatt kikapcsol (`reducedMotion()`), a haptika opcionális (`navigator.vibrate`)
     1-en tartotta az átlátszatlanságot. Ha új szabályt veszel fel, tartsd
     meg ezt a fajsúlyt.
   - Csökkentett mozgásnál a CSÚSZÁS marad el, a halványulás nem.
+- **A modál is kifelé megy** (`MODAL_OUT` = 150 ms, `openModal` +
+  `_modalGen`): összehúzódik (`scale(.96)`) és elhalványul. Kevesebb, mint a
+  lap 200 ms-a – kisebb felület, és a döntést már meghoztad. A
+  `transform-origin` KÖZÉPEN marad: a modál nem triggerhez kötött.
+  **A DÖNTÉS viszont nem vár az animációra:** a `_closeModal` RÖGTÖN feloldja
+  az ígéretet, a kilépés mellette fut – különben az app 150 ms-ot késne
+  minden megerősítés után. A nemzedék-őr azért kell, mert a hívók gyakran
+  nyitnak új modált a válasz után (`await uiConfirm(…)` → `uiAlert(…)`).
+- **Lehúzás-bezárás: a SEBESSÉG is számít, nem csak a távolság.** Tiszta
+  távolság-küszöbbel egy gyors pöccintés 100 px-en nem zárt be, pedig a
+  szándék egyértelmű. Most `dy > min(150, magasság*0.28)` **VAGY**
+  (`dy > 24` és `|dy|/eltelt_ms > 0.11`). A 24 px-es minimum zárja ki a
+  véletlen koppintást.
+  A 0 fölé húzást nem tiltjuk, csak **fékezzük** (`dy*0.2`): a valóságban sem
+  áll meg hirtelen semmi, és így a gesztus nem szakad félbe, ha visszahúzod.
+  A felfelé indított mozdulat viszont továbbra is sima görgetés – azt
+  visszaadjuk a böngészőnek (`moved` zászló).
+- **Az edzés-összegző az app EGYETLEN ünnepi pillanata** (edzésenként egyszer
+  látod), ezért ott belefér a gyönyörködtetés: a `.finish` burokra kötött
+  40 ms-os lépcső, és az XP-sáv KÉSLELTETVE (250 ms) tölt fel, hogy a
+  szintsor elolvasása után induljon. **Ez a burok NEM elrendezés, hanem
+  horog** – és azért kell, mert az `#app.enter .mgfill` sosem ér el a lapon
+  belülre: a `#sheet` az `#app` TESTVÉRE, ezért a sáv korábban egyáltalán
+  nem animálódott. A lépcső szándékosan CSAK itt van, más lapon nincs.
 - **Belépő animáció (`enterAnim`)**: nézetváltáskor (és első festéskor) az
   `#app` kap egy `.enter` osztályt ~1,1 mp-re, amire a CSS a `.wrap>*`
   kártyák **lépcsőzetes beúszását** akasztja (`riseIn`, 35 ms-os lépcsők,

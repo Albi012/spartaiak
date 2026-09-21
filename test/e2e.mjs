@@ -1740,6 +1740,133 @@ ok('38 nincs kapu nélküli :hover szabály', (()=>{
   // egyszerűsítve: ha egyáltalán nincs :hover a CSS-ben, az is rendben
   return !/:hover/.test(css38) || gated.length>1; })());
 
+// ---- 39. Modál-kilépés, összegző, maradék koppintások, gesztus ----
+await seed(backup); await nav('home');
+
+// --- Modál: kifelé is megy, de a DÖNTÉS nem vár rá ---
+ok('39 a modál nem tűnik el egy képkockán', await page.evaluate(async ()=>{
+  uiConfirm('Teszt?');
+  await new Promise(r=>setTimeout(r,300));
+  _closeModal(false);
+  await new Promise(r=>setTimeout(r,70));
+  const m=document.getElementById('modal'), c=document.querySelector('.modal-card');
+  const kozben = m.classList.contains('closing') && +getComputedStyle(m).opacity<0.9
+    && /matrix\(0\.9/.test(getComputedStyle(c).transform);
+  await new Promise(r=>setTimeout(r,250));
+  return kozben && !m.classList.contains('on'); }));
+ok('39 a döntés AZONNAL megjön, nem 150 ms múlva', await page.evaluate(async ()=>{
+  const q=uiConfirm('Gyors?');
+  await new Promise(r=>setTimeout(r,250));
+  const t0=performance.now();
+  _closeModal(true);
+  const v=await q;
+  const eltelt=performance.now()-t0;
+  await new Promise(r=>setTimeout(r,250));
+  return v===true && eltelt<50; }));
+ok('39 a válasz után azonnal nyitott modál megmarad', await page.evaluate(async ()=>{
+  const q=uiConfirm('Első?'); await new Promise(r=>setTimeout(r,250));
+  _closeModal(true); await q;
+  uiAlert('Második');                       // a 150 ms-os kilépésen BELÜL
+  await new Promise(r=>setTimeout(r,400));
+  const m=document.getElementById('modal');
+  const ok2 = m.classList.contains('on') && !m.classList.contains('closing')
+    && /Második/.test(document.getElementById('modalIn').textContent);
+  _closeModal(); return ok2; }));
+await wait(300);
+ok('39 a modál KÖZÉPRE húzódik össze (nem triggerhez kötött)', await page.evaluate(async ()=>{
+  const html=await (await fetch('index.html')).text();
+  const css=(html.match(/<style>([\s\S]*?)<\/style>/)||[])[1]||'';
+  // se transform-origin felülírás, se trigger-alapú origó a modálon
+  return !/\.modal[^{]*\{[^}]*transform-origin/.test(css); }));
+
+// --- Összegző: az app EGYETLEN ünnepi pillanata ---
+ok('39 az XP-sáv tényleg feltöltődik (eddig egyáltalán nem animált)', await page.evaluate(async ()=>{
+  const sess={day:'pa', t:Date.now(), end:Date.now()+3e6, log:{bench:{w:65,sets:[5,5,5,5]}}};
+  S.sessions.push(sess);
+  openSheet(); openFinishSummary(sess);
+  await new Promise(r=>setTimeout(r,120));
+  const bar=document.querySelector('.finish .mgfill');
+  const megy = !!bar && bar.getAnimations().length>0;
+  closeSheet(); return megy; }));
+await wait(350);
+ok('39 a lépcső CSAK az összegzőn van, más lapon nincs', await page.evaluate(async ()=>{
+  openBwSheet(); await new Promise(r=>setTimeout(r,250));
+  const van=!!document.querySelector('#sheetIn .finish');
+  closeSheet(); return !van; }));
+await wait(350);
+ok('39 az összegző a `#sheet`-ben van, ezért kell a saját horog', await page.evaluate(async ()=>{
+  const html=await (await fetch('index.html')).text();
+  // a `#app.enter .mgfill` sosem érne el a lapon belülre – a `.finish` igen
+  return /\.finish \.mgfill\{animation:growX/.test(html.replace(/\s+/g,''))
+      || /\.finish\s+\.mgfill\s*\{\s*animation:\s*growX/.test(html); }));
+
+// --- A maradék nyomható elemek ---
+const press3 = await (async ()=>{
+  await page.evaluate(()=>{ tab='home'; render(); }); await wait(250);
+  await page.evaluate(()=>openRdySheet()); await wait(350);   // .whyc kapcsolók
+  const cdp=await page.context().newCDPSession(page);
+  await cdp.send('DOM.enable'); await cdp.send('CSS.enable');
+  const {root}=await cdp.send('DOM.getDocument');
+  const out={};
+  for(const sel of ['.whyc']){
+    const {nodeId}=await cdp.send('DOM.querySelector',{nodeId:root.nodeId,selector:sel});
+    if(!nodeId){ out[sel]=null; continue; }
+    await cdp.send('CSS.forcePseudoState',{nodeId,forcedPseudoClasses:['active']});
+    await wait(300);
+    out[sel]=await page.evaluate(x=>{
+      const m=getComputedStyle(document.querySelector(x)).transform.match(/matrix\(([\d.]+)/);
+      return m?+m[1]:1; }, sel);
+    await cdp.send('CSS.forcePseudoState',{nodeId,forcedPseudoClasses:[]});
+  }
+  await page.evaluate(()=>closeSheet()); await wait(350);
+  return out; })();
+ok('39 a chipek (.whyc) is visszajeleznek koppintásra',
+  press3['.whyc']!=null && Math.abs(press3['.whyc']-0.94)<0.005);
+ok('39 a `.seg` és a `.tool` is megkapta a rendszerértéket', await page.evaluate(async ()=>{
+  const html=await (await fetch('index.html')).text();
+  const css=(html.match(/<style>([\s\S]*?)<\/style>/)||[])[1]||'';
+  return /\.seg button:active\{transform:scale\(var\(--press-sm\)\)\}/.test(css)
+      && /\.tool:active\{[^}]*scale\(var\(--press-sm\)\)/.test(css); }));
+
+// --- Gesztus: MILYEN GYORSAN is számít, nem csak MENNYIT ---
+const huz = async (tavArany, ms)=>{
+  await page.evaluate(()=>openBwSheet()); await wait(320);
+  const h = await page.evaluate(()=>document.getElementById('sheetIn').offsetHeight);
+  const kuszob = Math.min(150, h*0.28);
+  await page.evaluate(async ([tav,ms])=>{
+    const i=document.getElementById('sheetIn');
+    const t=y=>new Touch({identifier:1,target:i,clientX:100,clientY:y});
+    i.dispatchEvent(new TouchEvent('touchstart',{touches:[t(300)],bubbles:true}));
+    await new Promise(r=>setTimeout(r,ms));
+    i.dispatchEvent(new TouchEvent('touchmove',{touches:[t(300+tav)],bubbles:true}));
+    i.dispatchEvent(new TouchEvent('touchend',{touches:[],bubbles:true}));
+  }, [Math.round(kuszob*tavArany), ms]);
+  await wait(400);
+  const zart = await page.evaluate(()=>!document.getElementById('sheet').classList.contains('on'));
+  if(!zart){ await page.evaluate(()=>closeSheet()); await wait(350); }
+  return zart;
+};
+ok('39 a küszöb alatti GYORS pöccintés is zár', await huz(0.6, 40));
+ok('39 a küszöb alatti LASSÚ húzás nem zár', !(await huz(0.6, 900)));
+ok('39 a küszöb feletti lassú húzás továbbra is zár', await huz(1.4, 900));
+ok('39 egy véletlen koppintás nem zárja be', await (async ()=>{
+  await page.evaluate(()=>openBwSheet()); await wait(320);
+  await page.evaluate(async ()=>{
+    const i=document.getElementById('sheetIn');
+    const t=y=>new Touch({identifier:1,target:i,clientX:100,clientY:y});
+    i.dispatchEvent(new TouchEvent('touchstart',{touches:[t(300)],bubbles:true}));
+    await new Promise(r=>setTimeout(r,40));
+    i.dispatchEvent(new TouchEvent('touchmove',{touches:[t(302)],bubbles:true}));
+    i.dispatchEvent(new TouchEvent('touchend',{touches:[],bubbles:true}));
+  });
+  await wait(400);
+  const nyitva = await page.evaluate(()=>document.getElementById('sheet').classList.contains('on'));
+  await page.evaluate(()=>closeSheet()); await wait(350);
+  return nyitva; })());
+ok('39 a 0 fölé húzás fékez, nem szakítja meg a gesztust', await page.evaluate(async ()=>{
+  const html=await (await fetch('index.html')).text();
+  return /dy>0 \? dy : dy\*0\.2/.test(html); }));
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));
