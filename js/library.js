@@ -254,10 +254,19 @@ const LIB={}; LIB_ARR.forEach(e=>LIB[e.id]=e);
 // nevéből épített YouTube-keresés nyílik (mindig működik, nem rohad el).
 // Új pontos linket ide vegyél fel: VIDEO['bench']='https://youtu.be/…'.
 const VIDEO={};
+// A keresés ANGOL névvel megy, a felület nyelvétől FÜGGETLENÜL: angolul
+// nagyságrendekkel több és jobb technika-videó van, és a magyar keresés
+// gyakran ömlesztett, félrecímkézett találatot hozott. Az angol nevet a
+// szótár adja (a magyar név a kulcs – lásd „Nyelv" a CLAUDE.md-ben).
+// Saját (`cx_…`) gyakorlatnak nincs angol neve: ott magyar név + magyar
+// kiegészítés megy, mert egy vegyes nyelvű keresés rosszabb bármelyik
+// tiszta változatnál.
 function videoUrl(e){
   if(e && VIDEO[e.id]) return VIDEO[e.id];
-  const q=encodeURIComponent(exN(e)+' '+tr('helyes technika gyakorlat'));
-  return 'https://www.youtube.com/results?search_query='+q;
+  const n=(e&&e.n)||'';
+  const en=window.I18N && I18N.DICT && I18N.DICT.en && I18N.DICT.en[n];
+  const q = en ? en+' proper form' : n+' helyes technika';
+  return 'https://www.youtube.com/results?search_query='+encodeURIComponent(q);
 }
 // Technika-animáció (GIF) gyakorlatonként. A GIFX térkép exId → fájl-alapnév;
 // a fájlok a `gif/` mappában vannak, a képek © Gym visual (gymvisual.com) –

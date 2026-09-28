@@ -2274,6 +2274,125 @@ ok('41 kevés adatnál a kártya el sem készül', await page.evaluate(()=>{
   await page.evaluate(()=>{ tab='home'; render(); }); await wait(300);
 }
 
+// ---- 45. Mentés-gomb helye, angol videókeresés, választható időszak ----
+{
+  await seed(backup);
+  await page.evaluate(()=>{ playing=false; tab='home'; render(); }); await wait(300);
+
+  // (a) A „Mentés" a bevitel mellé tartozik, NEM a grafikon és az előzmények alá.
+  const elotte = (open, save) => page.evaluate(async ([open, save])=>{
+    const D=864e5, ma=Date.now();
+    S.bw={}; S.sleep={};
+    for(let i=1;i<=6;i++){ S.bw[bwKey(ma-i*D)]=80+i/10; S.sleep[bwKey(ma-i*D)]={min:420,q:3}; }
+    window[open](); await new Promise(r=>setTimeout(r,120));
+    const btn=[...document.querySelectorAll('#sheetIn button')].find(b=>(b.getAttribute('onclick')||'')===save);
+    const hist=document.querySelector('#sheetIn .histrow');
+    const svg=document.querySelector('#sheetIn svg');
+    const ok = !!btn && !!hist
+      && (btn.compareDocumentPosition(hist) & Node.DOCUMENT_POSITION_FOLLOWING)
+      && (!svg || (btn.compareDocumentPosition(svg) & Node.DOCUMENT_POSITION_FOLLOWING));
+    closeSheet(); return !!ok; }, [open, save]);
+  ok('45 testsúly: a Mentés a grafikon és az előzmények FÖLÖTT van', await elotte('openBwSheet','bwSave()'));
+  await wait(260);
+  ok('45 alvás: a Mentés a grafikon és az előzmények FÖLÖTT van', await elotte('openSleepSheet','slpSave()'));
+  await wait(260);
+  ok('45 a mentés továbbra is ment (a gomb csak helyet cserélt)', await page.evaluate(async ()=>{
+    openBwSheet(); bwDraft=81.3; bwSave(); await new Promise(r=>setTimeout(r,60));
+    return S.bw[bwKey(Date.now())]===81.3; }));
+  await wait(260);
+
+  // (b) A technika-videó ANGOL névvel keres, a felület nyelvétől függetlenül.
+  ok('45 a videókeresés angol névvel megy (magyar felületen is)', await page.evaluate(()=>{
+    const u=decodeURIComponent(videoUrl(exDef('bench')).split('search_query=')[1]||'');
+    return u==='Bench press proper form'; }));
+  ok('45 angol felületen ugyanaz a keresés', await page.evaluate(()=>{
+    I18N.setLang('en'); const a=videoUrl(exDef('pull')); I18N.setLang('hu'); const b=videoUrl(exDef('pull'));
+    return a===b && /Pull-up/.test(decodeURIComponent(a)); }));
+  ok('45 saját gyakorlatnál magyar név + magyar kiegészítés (nem vegyes nyelv)', await page.evaluate(()=>{
+    const u=decodeURIComponent(videoUrl({id:'cx_t',n:'Bolgár guggolás rúddal'}).split('search_query=')[1]||'');
+    return u==='Bolgár guggolás rúddal helyes technika'; }));
+  ok('45 a bedrótozott VIDEO link továbbra is felülírja a keresést', await page.evaluate(()=>{
+    VIDEO['bench']='https://youtu.be/x'; const u=videoUrl(exDef('bench')); delete VIDEO['bench'];
+    return u==='https://youtu.be/x'; }));
+
+  // (c) Választható időszak – az ALAPÉRTELMEZÉS változatlan.
+  await page.evaluate(()=>{
+    window.__bak45 = JSON.stringify(S.sessions);
+    const wk=weekStart(Date.now()), sh=(n,h)=>dayShift(wk,n)+h*3600e3;
+    const L=w=>({bench:{w,sets:[5,5,5]}});
+    S.sessions=[
+      {day:'pa', t:sh(-40,18), log:L(40)},   // 5+ héttel ezelőtt
+      {day:'pa', t:sh(-17,18), log:L(50)},   // 3 héttel ezelőtt (benne a 4 hétben)
+      {day:'pa', t:sh(-1,20),  log:L(60)},   // múlt vasárnap este
+      {day:'pa', t:sh(-7,9),   log:L(55)},   // múlt hétfő reggel
+      {day:'pa', t:Math.min(Date.now()-60e3, sh(0,9)), log:L(70)},  // ezen a héten
+    ].sort((a,b)=>a.t-b.t);
+  });
+  ok('45 argumentum nélkül BITRE ugyanaz, mint az „Ez a hét"', await page.evaluate(()=>
+    weeklyReport()===weeklyReport(reportRange('week'))));
+  ok('45 a múlt hét hétfő 00:00-kor kezdődik (napra lépve, nem ms-ra)', await page.evaluate(()=>{
+    const r=reportRange('prev'), d=new Date(r.from), e=new Date(r.to);
+    return d.getDay()===1 && d.getHours()===0 && d.getMinutes()===0
+        && e.getDay()===0 && e.getHours()===23 && r.to===weekStart(Date.now())-1; }));
+  ok('45 múlt hét: a múlt hétfő és a vasárnap esti edzés benne, a mai nem', await page.evaluate(()=>{
+    const t=weeklyReport(reportRange('prev'));
+    return /múlt heti összefoglaló/.test(t) && /2 edzés/.test(t)
+        && /55 kg/.test(t) && /60 kg/.test(t) && !/70 kg/.test(t) && !/40 kg/.test(t); }));
+  ok('45 utolsó 4 hét: a 3 hete lévő benne, az 5+ hete lévő nem', await page.evaluate(()=>{
+    const t=weeklyReport(reportRange('4w'));
+    return /4 edzés/.test(t) && /50 kg/.test(t) && /70 kg/.test(t) && !/40 kg/.test(t); }));
+  ok('45 egyéni időszak: csak a két határ közötti napok', await page.evaluate(()=>{
+    const wk=weekStart(Date.now());
+    const t=weeklyReport(reportRange('custom', dayShift(wk,-7), dayShift(wk,-7)));
+    return /1 edzés/.test(t) && /55 kg/.test(t) && !/60 kg/.test(t); }));
+  ok('45 egyéni időszak: felcserélt határoknál is jó (nem üres)', await page.evaluate(()=>{
+    const wk=weekStart(Date.now());
+    const a=weeklyReport(reportRange('custom', dayShift(wk,-7), dayShift(wk,-1)));
+    const b=weeklyReport(reportRange('custom', dayShift(wk,-1), dayShift(wk,-7)));
+    return a===b && /2 edzés/.test(a); }));
+  ok('45 üres választott időszak: kimondja, és NEM küld helyette más edzést', await page.evaluate(()=>{
+    const wk=weekStart(Date.now());
+    const t=weeklyReport(reportRange('custom', dayShift(wk,-30), dayShift(wk,-28)));
+    return /nincs rögzített edzés/.test(t) && !/kg ×/.test(t) && !/utolsó \d+ edzés/.test(t); }));
+
+  ok('45 a lap az „Ez a hét"-tel nyílik, és a választás NEM jegyződik meg', await page.evaluate(async ()=>{
+    openWeeklyExport(); await new Promise(r=>setTimeout(r,80));
+    const on1=document.querySelector('#sheetIn .whyc.on').textContent;
+    repSetKind('4w'); const on2=document.querySelector('#sheetIn .whyc.on').textContent;
+    closeSheet(); await new Promise(r=>setTimeout(r,260));
+    openWeeklyExport(); await new Promise(r=>setTimeout(r,80));
+    const on3=document.querySelector('#sheetIn .whyc.on').textContent;
+    closeSheet(); return on1==='Ez a hét' && on2==='Utolsó 4 hét' && on3==='Ez a hét'; }));
+  await wait(260);
+  ok('45 a másolás a VÁLASZTOTT időszak szövegét viszi', await page.evaluate(async ()=>{
+    openWeeklyExport(); await new Promise(r=>setTimeout(r,80));
+    repSetKind('prev');
+    const ta=document.getElementById('weeklyTa').value;
+    const jo = _weeklyText===ta && /múlt heti/.test(_weeklyText) && ta===weeklyReport(reportRange('prev'));
+    closeSheet(); return jo; }));
+  await wait(260);
+  ok('45 egyéni: két dátummező jelenik meg, 16px-es betűvel (iOS nem zoomol)', await page.evaluate(async ()=>{
+    openWeeklyExport(); await new Promise(r=>setTimeout(r,80));
+    repSetKind('custom');
+    const ins=[...document.querySelectorAll('#sheetIn input[type=date]')];
+    const jo = ins.length===2 && ins.every(i=>parseFloat(getComputedStyle(i).fontSize)>=16);
+    closeSheet(); return jo; }));
+  await wait(260);
+  ok('45 dátumváltásra CSAK a szöveg frissül, a mező a helyén marad', await page.evaluate(async ()=>{
+    openWeeklyExport(); await new Promise(r=>setTimeout(r,80));
+    repSetKind('custom');
+    const a=document.getElementById('repFrom'), wk=weekStart(Date.now());
+    a.value=bwKey(dayShift(wk,-7)); document.getElementById('repTo').value=bwKey(dayShift(wk,-7));
+    repSetDates();
+    const ugyanaz = document.getElementById('repFrom')===a;
+    const t=document.getElementById('weeklyTa').value;
+    closeSheet(); return ugyanaz && /1 edzés/.test(t) && /55 kg/.test(t); }));
+  await wait(260);
+
+  await page.evaluate(()=>{ S.sessions=JSON.parse(window.__bak45); save(); tab='home'; render(); });
+  await wait(300);
+}
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));

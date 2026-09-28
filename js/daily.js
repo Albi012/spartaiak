@@ -143,6 +143,14 @@ function bwStep(d){ bwDraft=Math.max(20,Math.min(300,Math.round((bwDraft+d)*10)/
 function bwSave(){ if(!S.bw)S.bw={}; if(bwDraft>0) S.bw[bwDate]=Math.round(bwDraft*10)/10;
   if(navigator.vibrate) navigator.vibrate(12); save(); closeSheet(); render(); }
 function renderBwSheet(){ const el=document.getElementById('sheetIn'); if(el) el.innerHTML=bwSheetHtml(); }
+// A „Mentés" a BEVITEL mellé tartozik, nem a lap aljára. Korábban a
+// grafikon és a nyolcsoros előzmény-lista UTÁN állt: beállítottad a számot,
+// aztán le kellett görgetni érte – a gyakori mozdulat került a legmesszebb.
+// A grafikon és az előzmény referencia, az jöhet utána, saját címkével.
+function saveThenRef(onSave, ref){
+  return `<button class="btn pri" style="margin-top:14px" onclick="${onSave}">Mentés</button>`
+    + (ref ? `<div class="eyebrow" style="margin-top:20px">Előzmények</div>${ref}` : '');
+}
 function bwSheetHtml(){
   const isToday = bwDate===bwKey(Date.now());
   const prev = bwLast();
@@ -167,9 +175,7 @@ function bwSheetHtml(){
       <button class="tool" onclick="bwStep(-0.5)">−0,5</button>
       <button class="tool" onclick="bwStep(0.5)">+0,5</button>
       <button class="tool" onclick="bwStep(1)">+1</button></div>
-    ${bwChart()}
-    ${hist}
-    <button class="btn pri" style="margin-top:14px" onclick="bwSave()">Mentés</button>`;
+    ${saveThenRef('bwSave()', bwChart()+hist)}`;
 }
 
 /* ---- Alvás-napló (edzés nélküli napon is) ---------------------------
@@ -277,8 +283,6 @@ function sleepSheetHtml(){
     <div class="small dim" style="text-align:center;margin-top:16px">Minőség</div>
     <div class="whyrow" style="justify-content:center;margin-top:8px">
       ${[1,2,3,4,5].map(q=>`<button class="whyc ${slpQ===q?'on':''}" onclick="slpSetQ(${q})">${q}</button>`).join('')}</div>
-    ${slpChart()}
-    ${hist}
-    <button class="btn pri" style="margin-top:14px" onclick="slpSave()">Mentés</button>`;
+    ${saveThenRef('slpSave()', slpChart()+hist)}`;
 }
 

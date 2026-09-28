@@ -8,18 +8,57 @@
 // gördülő 7 nap, mert a szöveg „heti összefoglaló"-t ígér, és egy hétfői
 // edzés nem tartozik a múlt hétbe. Ha ezen a héten még nincs edzés, az
 // utolsó 3 megy el, és a fejléc ezt meg is mondja.
-function weeklyReport(){
+//
+// Az időszak VÁLASZTHATÓ (`reportRange`), de az ALAPÉRTELMEZÉS a fenti,
+// változatlanul: argumentum nélkül pontosan a régi szöveg készül. A többi
+// időszaknál NINCS „utolsó 3" tartalék – ha valaki kifejezetten a múlt hetet
+// kéri, és akkor nem edzett, azt kell kimondani, nem más heteket küldeni.
+function dayShift(t,n){ const d=new Date(t); d.setDate(d.getDate()+n); return d.getTime(); }
+function dayEnd(t){ const d=new Date(t); d.setHours(23,59,59,999); return d.getTime(); }
+// Naptári hetek (hétfőtől), ugyanaz a `weekStart`, mint mindenhol máshol.
+// Napra lépünk (`setDate`), nem 7*864e5-tel: az óraátállításos héten a
+// milliszekundum-aritmetika egy órával elcsúszna, és egy vasárnap esti edzés
+// átkerülne a rossz hétbe.
+function reportRange(kind, cFrom, cTo){
+  const now=Date.now(), wk=weekStart(now);
+  if(kind==='prev') return {kind, from:dayShift(wk,-7), to:wk-1};
+  if(kind==='4w')   return {kind, from:dayShift(wk,-21), to:now};
+  if(kind==='custom'){
+    let a=new Date(cFrom).setHours(0,0,0,0), b=dayEnd(cTo);
+    if(a>b){ const x=new Date(cTo).setHours(0,0,0,0); b=dayEnd(cFrom); a=x; }
+    return {kind, from:a, to:Math.min(b, dayEnd(now))};
+  }
+  return {kind:'week', from:wk, to:now};
+}
+function weeklyReport(range){
   const WHY={busy:'gép foglalt',heavy:'túl nehéz',time:'kevés idő'};
-  const wkStart=weekStart(Date.now());
-  let sess=(S.sessions||[]).filter(s=>s.t>=wkStart), weekly=true;
-  if(!sess.length){ sess=(S.sessions||[]).slice(-3); weekly=false; }
+  const R=range||reportRange('week');
+  const wkStart=R.from;
+  let sess=(S.sessions||[]).filter(s=>s.t>=R.from && s.t<=R.to), weekly=R.kind==='week';
   let t='Edzésnapló – ';
+  if(R.kind!=='week'){
+    // Kifejezetten választott időszak: annyi megy el, amennyi benne van.
+    const cim = R.kind==='prev' ? 'múlt heti összefoglaló'
+              : R.kind==='4w'   ? 'az utolsó 4 hét összefoglalója'
+              : 'összefoglaló';
+    t+=cim+' ('+fmtDate(R.from)+' – '+fmtDate(R.to)+', '+sess.length+' edzés)';
+    t+='\n\nKérlek, edzőként nézd át ezeket az edzéseket – az alvással és a testsúllyal együtt –, és adj rövid visszajelzést + javaslatot a következő hétre.\n';
+    if(!sess.length) return t+'\n(Ebben az időszakban nincs rögzített edzés.)'+reportRecovery(R.from, R.to, false);
+    return t+reportSessions(sess, WHY)+reportRecovery(R.from, R.to, false);
+  }
+  if(!sess.length){ sess=(S.sessions||[]).slice(-3); weekly=false; }
   if(weekly) t+='heti összefoglaló ('+fmtDate(wkStart)+' – '+fmtDate(Date.now())+', '+sess.length+' edzés)';
   else if(sess.length) t+='utolsó '+sess.length+' edzés ('+fmtDate(sess[0].t)+' – '+fmtDate(sess[sess.length-1].t)+') – ezen a héten még nem volt edzés';
   else t+='heti összefoglaló';
   t+='\n\nKérlek, edzőként nézd át ezeket az edzéseket – az alvással és a testsúllyal együtt –, és adj rövid visszajelzést + javaslatot a következő hétre.\n';
   const from = weekly ? wkStart : (sess.length ? new Date(sess[0].t).setHours(0,0,0,0) : wkStart);
   if(!sess.length) return t+'\n(Nincs rögzített edzés.)'+reportRecovery(wkStart, Date.now(), true);
+  return t+reportSessions(sess, WHY)+reportRecovery(from, Date.now(), weekly);
+}
+// Az edzések szövege – mindkét ág (alapértelmezett hét és választott
+// időszak) ugyanezt használja, hogy a formátum ne váljon el.
+function reportSessions(sess, WHY){
+  let t='';
   const line=(e,l,extraName)=>{
     const sets=l.sets.map(x=>x==null?'–':x).join(', ');
     const w=wLabel(e,l.w)+(e.bw&&l.w<=0?'':' kg');
@@ -42,7 +81,7 @@ function weeklyReport(){
     Object.keys(s.log).forEach(id=>{ if(seen.has(id))return; const l=s.log[id];
       if(!l.sets.some(x=>x!=null))return; t+=line(exDef(id),l,' (kivéve)'); });
   });
-  return t+reportRecovery(from, Date.now(), weekly);
+  return t;
 }
 // Az összefoglaló ablakában rögzített alvás és testsúly. A szettek önmagukban
 // féligazságot adnak: az edző nem tudja megítélni a terhelést, ha nem látja,
@@ -75,23 +114,56 @@ function reportRecovery(from, to, weekly){
   return t;
 }
 let _weeklyText='';
+// Az összefoglaló IDŐSZAKA – nézet-állapot, NEM jegyződik meg: minden
+// megnyitás az „Ez a hét"-tel indul, hogy az alapértelmezés tényleg a
+// megszokott maradjon. Az „Egyéni" két natív dátummezőt ad (telefonon a
+// rendszer saját naptár-választója nyílik).
+let _repKind='week', _repFrom='', _repTo='';
+const REP_KINDS=[['week','Ez a hét'],['prev','Múlt hét'],['4w','Utolsó 4 hét'],['custom','Egyéni']];
+const REP_DESC={
+  week:'Az e heti edzések (hétfőtől)',
+  prev:'A múlt heti edzések (hétfőtől vasárnapig)',
+  '4w':'Az utolsó 4 hét edzései (négy naptári hét, hétfőtől)',
+  custom:'A választott időszak edzései'
+};
+function repRange(){ return reportRange(_repKind, _repFrom+'T00:00:00', _repTo+'T00:00:00'); }
 function openWeeklyExport(){
-  _weeklyText=weeklyReport();
+  _repKind='week';
+  _repFrom=bwKey(weekStart(Date.now())); _repTo=bwKey(Date.now());
+  renderWeeklyExport(); openSheet();
+}
+function renderWeeklyExport(){
+  _weeklyText=weeklyReport(repRange());
+  const ma=bwKey(Date.now());
   document.getElementById('sheetIn').innerHTML=`<div class="grabber"></div>
-    <div class="row"><div class="grow"><span class="eyebrow">Heti összefoglaló</span>
+    <div class="row"><div class="grow"><span class="eyebrow">Összefoglaló edzőnek</span>
     <h2 style="font-size:22px">Küldd el az edződnek</h2></div>
     <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
-    <p class="small dim" style="margin-top:6px">Az e heti edzések (hétfőtől) a jegyzetekkel, az alvással és a testsúllyal – AI-edzőnek kész szöveggel.</p>
-    <textarea id="weeklyTa" rows="9" readonly style="width:100%;margin-top:10px">${esc(_weeklyText)}</textarea>
+    <div class="whyrow" style="flex-wrap:wrap;margin-top:12px">
+      ${REP_KINDS.map(([k,l])=>`<button class="whyc ${_repKind===k?'on':''}" onclick="repSetKind('${k}')">${l}</button>`).join('')}</div>
+    ${_repKind==='custom'?`<div class="row" style="gap:8px;margin-top:10px">
+      <label class="small dim" style="flex:1">Ettől<input type="date" id="repFrom" value="${_repFrom}" max="${ma}" onchange="repSetDates()" style="width:100%;font-size:16px;margin-top:4px"></label>
+      <label class="small dim" style="flex:1">Eddig<input type="date" id="repTo" value="${_repTo}" max="${ma}" onchange="repSetDates()" style="width:100%;font-size:16px;margin-top:4px"></label>
+    </div>`:''}
+    <p class="small dim" id="repDesc" style="margin-top:10px">${REP_DESC[_repKind]} a jegyzetekkel, az alvással és a testsúllyal – AI-edzőnek kész szöveggel.</p>
+    <textarea id="weeklyTa" rows="9" readonly style="width:100%;margin-top:6px">${esc(_weeklyText)}</textarea>
     <div class="row" style="gap:8px;margin-top:12px">
       <button class="btn pri" style="flex:1;margin:0" onclick="shareWeekly()">Megosztás</button>
       <button class="btn" style="flex:1;margin:0" onclick="copyWeekly()">Másolás</button>
     </div>`;
-  openSheet();
+}
+function repSetKind(k){ _repKind=k; renderWeeklyExport(); }
+// Dátumváltásnál CSAK a szöveg frissül, nem az egész lap – így a mező nem
+// cserélődik ki a keze alól, ha még egyet állítana.
+function repSetDates(){
+  const a=document.getElementById('repFrom'), b=document.getElementById('repTo');
+  if(a&&a.value) _repFrom=a.value; if(b&&b.value) _repTo=b.value;
+  _weeklyText=weeklyReport(repRange());
+  const ta=document.getElementById('weeklyTa'); if(ta) ta.value=_weeklyText;
 }
 function copyWeekly(){ navigator.clipboard.writeText(_weeklyText).then(()=>toast('Vágólapra másolva – beillesztheted az AI edződnek.'),()=>uiAlert('Nem sikerült a másolás.')); }
 async function shareWeekly(){
-  if(navigator.share){ try{ await navigator.share({title:'Edzésnapló – heti összefoglaló', text:_weeklyText}); return; }
+  if(navigator.share){ try{ await navigator.share({title:'Edzésnapló – összefoglaló', text:_weeklyText}); return; }
     catch(e){ if(e&&e.name==='AbortError') return; } }
   copyWeekly();
 }

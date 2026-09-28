@@ -75,7 +75,10 @@ alapértéket kapnak; a `save()`/`backup()`/`restore()` viszi őket).
   progressziót NEM érinti. Edzés nélküli napon is rögzíthető: a főoldalon
   állandó „Napi testsúly" kártya (`bwHomeCard`) nyitja a lapot (`openBwSheet`
   → stepper ±0,1/±0,5/±1, trend-grafikon `bwChart`, utolsó napok listája;
-  a lista sorára koppintva az adott nap szerkeszthető). A felhő-szinkron
+  a lista sorára koppintva az adott nap szerkeszthető). **A „Mentés" a
+  bevitel ALATT áll, a grafikon és az előzmények FÖLÖTT** (`saveThenRef`,
+  az alvás-lap is így): korábban a nyolcsoros lista után volt, vagyis a
+  leggyakoribb mozdulatért le kellett görgetni. A felhő-szinkron
   per-kulcs (dátum) unióban viszi (`auth.js` `bw` mező); törlés nincs, csak
   felülírás, így tombstone sem kell. `bwKey(t)` a helyi dátumkulcs.
   A **Haladás** fülön `bwProgCard()` mutatja a trendet (lásd
@@ -483,6 +486,29 @@ vasárnapi edzés nem tartozik a hétfőn kezdődő héthez. Ugyanazt a
 felület egységesen érti a „hetet". Ha ezen a héten még nincs edzés, az
 utolsó 3 megy el, és a fejléc ezt meg is mondja („ezen a héten még nem volt
 edzés") – nem tesz úgy, mintha heti anyag volna.
+
+**Az időszak VÁLASZTHATÓ** a lapon (`reportRange`): *Ez a hét* ·
+*Múlt hét* · *Utolsó 4 hét* · *Egyéni* (két natív `type="date"` mező,
+16px-es betűvel). Megkötések, és ezeket tartsd meg:
+
+- **Az alapértelmezés a fenti, változatlanul.** A `weeklyReport()`
+  argumentum nélkül BITRE ugyanazt adja, mint előtte (teszt hasonlítja).
+- **A választás NEM jegyződik meg** (`_repKind` nézet-állapot): minden
+  megnyitás az „Ez a hét"-tel indul. Egy megjegyzett „4 hét" csendben
+  megváltoztatná, mit kap az edző, amikor a felhasználó a szokásos heti
+  anyagot küldi.
+- **Választott időszaknál NINCS „utolsó 3" tartalék.** Ha valaki
+  kifejezetten a múlt hetet kéri és akkor nem edzett, azt kell kimondani
+  („Ebben az időszakban nincs rögzített edzés.") – nem más heteket küldeni
+  helyette.
+- A hetek **naptári hetek** (`weekStart`, hétfőtől), és a határokat
+  **napra lépve** számoljuk (`dayShift` → `setDate`), nem `7*864e5`-tel:
+  az óraátállításos héten a milliszekundum-aritmetika egy órát csúszna,
+  és egy vasárnap esti edzés rossz hétbe kerülne.
+- Egyéni időszaknál a felcserélt határ is jó, a jövő levágódik; dátum-
+  váltásra CSAK a szöveg frissül (`repSetDates`), a mező nem cserélődik ki.
+
+E2E-teszt őrzi mindezt (45. szekció).
 
 ## Heti nézet a főoldalon
 
@@ -1258,8 +1284,13 @@ media-blokkban definiálva – a `:root`-on legyen az alapérték.
 - **Technika-videó gyakorlatonként** (felhasználói kérésre bekerült): a
   gyakorlat-jegyzet és a haladás-részletlap „Technika videó" linkje külső
   fülön nyílik (NEM beágyazott videó). A `VIDEO[exId]` térkép a PONTOS,
-  bedrótozott URL-eké; ahol nincs bejegyzés, a `videoUrl(e)` a gyakorlat
-  magyar nevéből YouTube-keresést épít (mindig működik, nem rohad).
+  bedrótozott URL-eké; ahol nincs bejegyzés, a `videoUrl(e)` YouTube-keresést
+  épít (mindig működik, nem rohad) – **a gyakorlat ANGOL nevével** („Bench
+  press proper form"), a felület nyelvétől függetlenül, mert angolul
+  nagyságrendekkel több és jobb technika-videó van. Az angol nevet a
+  szótár adja (`I18N.DICT.en[e.n]`). Saját `cx_…` gyakorlatnál nincs angol
+  név: ott magyar név + „helyes technika" megy – vegyes nyelvű keresés
+  rosszabb bármelyik tiszta változatnál. E2E: 45. szekció.
   Konkrét linket ide vegyél fel: `VIDEO['bench']='https://youtu.be/…'`.
 
 ## Ismert hiányosságok / lehetséges irányok
