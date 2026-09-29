@@ -1367,6 +1367,35 @@ statikus fájlok cache-first, a fontok stale-while-revalidate.
 `sw.js` tetején – ez üríti a régi cache-t. A `netlify.toml` a `sw.js`-t
 `no-cache`-sel szolgálja ki, hogy a frissítés eljusson a klienshez.
 
+## Tesztek és CI
+
+Két készlet, mindkettő build nélkül (részletek: `test/README.md`):
+
+- `test/merge.mjs` – a szinkron-összefésülés regressziói (`merge-test.html`,
+  43 ellenőrzés). **A futtató nem tekinti sikeresnek a félbeszakadt tesztet:**
+  ha az oldal szkriptje elszáll, nincs `window.__RESULT__`, és a futás piros.
+- `test/e2e.mjs` – a teljes felhasználói folyamat Playwrighttal (439
+  ellenőrzés, kb. 80 mp). JS-hibára is bukik.
+
+Helyi futtatás: `python3 -m http.server 8099`, majd `node test/merge.mjs` és
+`node test/e2e.mjs` (kell hozzá a Playwright: `NODE_PATH` a globális
+telepítésre, és `PW_CHROMIUM`, ha saját Chromiumot használsz).
+
+**CI:** `.github/workflows/tests.yml`, minden push után, mindkét készlet. Amit
+tudni kell róla:
+
+- **Jelez, nem blokkol.** A Netlify a push után magától deployol, a
+  `pages.yml` sem vár rá – egy piros pipa nem állítja meg az élesre kerülést.
+  Piros CI-t ne hagyj figyelmen kívül, és tesztet ne kapcsolj ki, hogy zöld
+  legyen: a hibát kell megjavítani.
+- **A Playwright verziója rögzített** (`1.56.1`, a hozzá tartozó Chromiummal),
+  mert a repóban nincs `package.json`. A tesztek ezzel lettek végigfuttatva;
+  frissítéskor a workflow-ban és itt is emeld, és futtasd végig helyben.
+- Az E2E `if: !cancelled()`-del fut, tehát a merge-teszt bukása után is: egy
+  futásból mindkét eredmény látszik.
+- A hét-alapú tesztek a futás **valós idejét** használják (`Date.now()`); egy
+  hétfő 00:00 utáni első percben induló futásnál ez elméletileg ingadozhat.
+
 ## Deploy (Netlify)
 
 `netlify.toml`: statikus oldal, nincs build, a gyökérből (`publish = "."`)

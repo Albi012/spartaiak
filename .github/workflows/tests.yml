@@ -1,0 +1,65 @@
+name: Tesztek
+
+# Minden push után lefuttatja a teljes tesztkészletet, hogy egy elromlott
+# változás ne kézi futtatáson múljon:
+#   - test/merge.mjs – a szinkron-összefésülés regressziói (Auth.mergeGym)
+#   - test/e2e.mjs   – a teljes felhasználói folyamat (Playwright, Chromium)
+#
+# EZ JELEZ, NEM BLOKKOL. A Netlify a push után magától deployol, és a
+# pages.yml sem vár erre – a piros pipa azt mondja meg, hogy valami eltört,
+# de az élesre kerülést nem állítja meg.
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Egy ágra újabb push esetén a régi, még futó teszt felesleges.
+concurrency:
+  group: tesztek-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tesztek:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      BASE_URL: http://localhost:8099
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # A repóban nincs package.json (build nélküli app), ezért a Playwright
+      # csak a CI-ben települ, és nem kerül a repóba. A verzió RÖGZÍTETT: a
+      # tesztek ezzel (és a hozzá tartozó Chromiummal) lettek végigfuttatva,
+      # egy „latest" egyszer csak, kódváltozás nélkül is elronthatná őket.
+      - name: Playwright és Chromium
+        run: |
+          npm install --no-save --no-package-lock playwright@1.56.1
+          npx playwright install --with-deps chromium
+
+      - name: Statikus szerver
+        run: |
+          python3 -m http.server 8099 > /dev/null 2>&1 &
+          for i in $(seq 1 30); do
+            curl -fs "$BASE_URL/index.html" > /dev/null && exit 0
+            sleep 1
+          done
+          echo "A statikus szerver nem indult el" >&2
+          exit 1
+
+      - name: Szinkron-tesztek (merge)
+        run: node test/merge.mjs
+
+      # Akkor is fusson, ha a merge-teszt elbukott: egy futásból mindkét
+      # eredmény látszódjon, ne kelljen javítás után újra megnézni a másikat.
+      - name: E2E
+        if: ${{ !cancelled() }}
+        run: node test/e2e.mjs
