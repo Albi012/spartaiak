@@ -265,7 +265,7 @@ function videoUrl(e){
   if(e && VIDEO[e.id]) return VIDEO[e.id];
   const n=(e&&e.n)||'';
   const en=window.I18N && I18N.DICT && I18N.DICT.en && I18N.DICT.en[n];
-  const q = en ? en+' proper form' : n+' helyes technika';
+  const q = en ? en : n+' helyes technika';
   return 'https://www.youtube.com/results?search_query='+encodeURIComponent(q);
 }
 // Technika-animáció (GIF) gyakorlatonként. A GIFX térkép exId → fájl-alapnév;

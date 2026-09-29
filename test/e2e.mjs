@@ -2304,7 +2304,7 @@ ok('41 kevés adatnál a kártya el sem készül', await page.evaluate(()=>{
   // (b) A technika-videó ANGOL névvel keres, a felület nyelvétől függetlenül.
   ok('45 a videókeresés angol névvel megy (magyar felületen is)', await page.evaluate(()=>{
     const u=decodeURIComponent(videoUrl(exDef('bench')).split('search_query=')[1]||'');
-    return u==='Bench press proper form'; }));
+    return u==='Bench press'; }));
   ok('45 angol felületen ugyanaz a keresés', await page.evaluate(()=>{
     I18N.setLang('en'); const a=videoUrl(exDef('pull')); I18N.setLang('hu'); const b=videoUrl(exDef('pull'));
     return a===b && /Pull-up/.test(decodeURIComponent(a)); }));

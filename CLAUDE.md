@@ -1285,8 +1285,8 @@ media-blokkban definiálva – a `:root`-on legyen az alapérték.
   gyakorlat-jegyzet és a haladás-részletlap „Technika videó" linkje külső
   fülön nyílik (NEM beágyazott videó). A `VIDEO[exId]` térkép a PONTOS,
   bedrótozott URL-eké; ahol nincs bejegyzés, a `videoUrl(e)` YouTube-keresést
-  épít (mindig működik, nem rohad) – **a gyakorlat ANGOL nevével** („Bench
-  press proper form"), a felület nyelvétől függetlenül, mert angolul
+  épít (mindig működik, nem rohad) – **a gyakorlat ANGOL nevével**, kiegészítés
+  nélkül („Bench press"), a felület nyelvétől függetlenül, mert angolul
   nagyságrendekkel több és jobb technika-videó van. Az angol nevet a
   szótár adja (`I18N.DICT.en[e.n]`). Saját `cx_…` gyakorlatnál nincs angol
   név: ott magyar név + „helyes technika" megy – vegyes nyelvű keresés
