@@ -2,7 +2,14 @@
    Naplo ful: lista, biztonsagi mentes/visszaallitas, siremlekek
    (tombstone/untomb) es a naplozott edzes utolagos javitasa.
    ================================================================== */
-function setLogFilter(id){ logKind=null; logFilter=(id===logFilter?null:id); render(); window.scrollTo(0,0); }
+// A szűrő a nap NEVÉRE szűr, nem az azonosítójára: minden AI-import új
+// azonosítóval hozza létre a napokat, így azonos nevű edzés (pl. „Push A")
+// több azonosítóval is szerepel a naplóban – azonosító szerint ez négy
+// egyforma chipet adott. Név szerint egy chip, és az összes ilyen edzés.
+let _logNames=[];
+function logMatch(s){ return !logFilter || dayName(s)===logFilter; }
+function setLogFilter(name){ logKind=null; logFilter=(name===logFilter?null:name); render(); window.scrollTo(0,0); }
+function setLogFilterIdx(i){ setLogFilter(i==null?null:_logNames[i]); }
 const HU_MONTHS=['január','február','március','április','május','június','július','augusztus','szeptember','október','november','december'];
 function monthLabel(t){ const d=new Date(t); return d.getFullYear()+'. '+HU_MONTHS[d.getMonth()]; }
 // A lenyitott edzések nyilvántartása. NÉZET-állapot, NEM tárolódik – mint a
@@ -20,8 +27,8 @@ function logView(){
     <button class="btn" onclick="loadBundled()" style="margin-bottom:8px;color:var(--mut)">Tesztadat betöltése</button>
     <button class="btn" onclick="restore()" style="margin-bottom:20px;color:var(--mut)">Visszaállítás mentésből</button></div>`;
   // Elavult szűrő visszaállítása (ha a típus utolsó edzését is töröltük).
-  if(logFilter && !S.sessions.some(s=>s.day===logFilter)) logFilter=null;
-  const shownCount = S.sessions.filter(s=>!logFilter||s.day===logFilter).length;
+  if(logFilter && !S.sessions.some(s=>dayName(s)===logFilter)) logFilter=null;
+  const shownCount = S.sessions.filter(logMatch).length;
   // A küldés/mentés MŰVELETEK a fejlécbe kerültek egy menü mögé. Korábban
   // négy gomb állt a lap ALJÁN – 3400 px-re a tetejétől, ahova senki nem
   // görget le azért, hogy elküldje a heti összefoglalót az edzőjének.
@@ -41,19 +48,18 @@ function logView(){
   // amin nem volt edzés, de rögzítettél testsúlyt vagy alvást – az a nap is
   // számít, ezért kap sort.
   const restAll=logRestDays();
-  if(restAll.length){
-    h+=`<div class="whyrow" style="margin-bottom:10px">`+
-      [[null,'Mind'],['ex','Edzés'],['rest','Pihenő']].map(([k,lab])=>
-        `<button class="whyc ${logKind===k?'on':''}" onclick="setLogKind(${k?`'${k}'`:'null'})">${lab}</button>`).join('')
-      +`</div>`;
-  }
-  // Szűrő edzéstípusra (day id). Csak akkor, ha többféle típus van.
-  const dayIds=[...new Set(S.sessions.map(s=>s.day))];
-  if(dayIds.length>1){
-    const nameFor={}; S.sessions.forEach(s=>{ if(!nameFor[s.day]) nameFor[s.day]=dayName(s); });
+  // EGY szűrősor, EGY „Mind"-dal. Korábban két sor állt egymás alatt, mindkettő
+  // saját „Mind"-dal – pedig a két szűrő eddig is kizárta egymást (a nap-típus
+  // választása törli a név-szűrőt és fordítva), vagyis egyetlen választásról
+  // van szó.
+  _logNames=[...new Set(S.sessions.map(dayName))];
+  const kinds = restAll.length ? [['ex','Edzés'],['rest','Pihenő']] : [];
+  const names = _logNames.length>1 ? _logNames : [];
+  if(kinds.length || names.length){
     h+=`<div class="whyrow" style="flex-wrap:wrap;margin-bottom:10px">
-      <button class="whyc ${!logFilter?'on':''}" onclick="setLogFilter(null)">Mind</button>`+
-      dayIds.map(id=>`<button class="whyc ${logFilter===id?'on':''}" onclick="setLogFilter('${id}')">${esc(nameFor[id])}</button>`).join('')+
+      <button class="whyc ${!logKind&&!logFilter?'on':''}" onclick="logKind=null;setLogFilterIdx(null)">Mind</button>`+
+      kinds.map(([k,lab])=>`<button class="whyc ${logKind===k?'on':''}" onclick="setLogKind('${k}')">${lab}</button>`).join('')+
+      names.map((n,i)=>`<button class="whyc ${logFilter===n?'on':''}" onclick="setLogFilterIdx(${i})">${esc(n)}</button>`).join('')+
       `</div>`;
   }
   const loads=S.sessions.map(sessionLoad);
@@ -61,7 +67,7 @@ function logView(){
   const WHY={busy:'gép foglalt',heavy:'túl nehéz',time:'kevés idő'};
   let curMonth=null, nyitottVolt=false;
   const items=[];
-  if(logKind!=='rest') [...S.sessions].filter(s=>!logFilter||s.day===logFilter).forEach(s=>items.push({t:s.t,kind:'ex',s}));
+  if(logKind!=='rest') [...S.sessions].filter(logMatch).forEach(s=>items.push({t:s.t,kind:'ex',s}));
   if(logKind!=='ex' && !logFilter) restAll.forEach(r=>items.push(Object.assign({kind:'rest'},r)));
   items.sort((a,b)=>b.t-a.t);
   items.forEach(it=>{

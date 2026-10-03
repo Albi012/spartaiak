@@ -996,6 +996,16 @@ gomb (heti összefoglaló, másolás, biztonsági mentés, visszaállítás) kor
 a lap ALJÁN állt, 3400 px-re a tetejétől – oda senki nem görget le azért,
 hogy elküldje a heti összefoglalót az edzőjének.
 
+**A szűrősor a nap NEVÉRE szűr, nem az azonosítójára** (`logFilter` =
+`dayName(s)`, `logMatch`). Minden AI-import új `r_…` azonosítóval hozza létre
+a napokat, ezért ugyanaz a „Push A" több azonosítóval szerepel a naplóban –
+azonosító szerint ez négyszer ugyanazt a chipet adta, és a sor pár import után
+olvashatatlan lett. Név szerint egy chip, és mögötte az összes ilyen edzés,
+akármelyik importból. **Egy sor, egy „Mind":** a nap-típus (Edzés / Pihenő) és
+a név-szűrő eddig is kizárta egymást, ezért egy sorban állnak, egyetlen
+„Mind"-dal. A chip az indexével hivatkozik a névre (`setLogFilterIdx`), így
+idézőjeles név sem töri el. E2E: 46. szekció.
+
 ## Tervek: egyetlen „+ Új" gomb
 
 A lap alján öt egyforma, teljes szélességű gomb állt egymás alatt, pedig

@@ -6,7 +6,7 @@ let S = {sessions:[], active:null, weights:{}, notes:{}, photos:{}, injury:null,
          customEx:{}, routines:[], programs:[], hidePlan:false, activeProgram:null,
          deleted:[], activeT:0, prog:{}, bw:{}, sleep:{}, rdy:null, sched:{}};
 let tab='home', playing=false, curEx=0, tInt=null, tEnd=0, tLen=0, wl=null, nagOff=false;
-let logFilter=null;   // Napló szűrő edzéstípusra (day id) – null = mind
+let logFilter=null;   // Napló szűrő a nap NEVÉRE (dayName) – null = mind
 // Napló-nézet: nap-típus szűrő (null = minden nap, 'ex' = csak edzés,
 // 'rest' = csak pihenőnap). Nézet-állapot, NEM tárolódik a naplóban.
 let logKind=null;
@@ -50,7 +50,7 @@ function logRdyBadge(t){
 }
 let physioRegion='';  // Gyógytorna oldal aktív testtáj (üres = első)
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v118';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v119';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';

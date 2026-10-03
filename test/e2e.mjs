@@ -2393,6 +2393,71 @@ ok('41 kevés adatnál a kártya el sem készül', await page.evaluate(()=>{
   await wait(300);
 }
 
+// ---- 46. Napló-szűrő: név szerint, egy sorban, egy „Mind"-dal ----
+// Minden AI-import új azonosítóval hozza létre a napokat, ezért ugyanaz a
+// „Push A" több azonosítóval szerepel a naplóban. Azonosító szerint ez négy
+// egyforma chipet adott – név szerint egyet.
+{
+  await page.evaluate(()=>{
+    window.__bak46 = JSON.stringify({s:S.sessions, r:S.routines, bw:S.bw});
+    const D=864e5, ma=Date.now(), L={bench:{w:60,sets:[5,5]}};
+    S.routines=[{id:'r_a1',name:'Push A',ex:['bench']},{id:'r_a2',name:'Push A',ex:['bench']},
+                {id:'r_b1',name:'Pull A',ex:['bench']},{id:'r_b2',name:'Pull A',ex:['bench']}];
+    S.sessions=[
+      {day:'pa',  t:ma-9*D, log:L},
+      {day:'r_a1',t:ma-7*D, log:L, dayName:'Push A'},
+      {day:'r_b1',t:ma-6*D, log:L, dayName:'Pull A'},
+      {day:'r_a2',t:ma-4*D, log:L, dayName:'Push A'},
+      {day:'r_b2',t:ma-3*D, log:L, dayName:'Pull A'},
+    ];
+    S.bw={}; S.bw[bwKey(ma-5*D)]=80;            // egy pihenőnap is legyen
+    _logOpen=null; logFilter=null; logKind=null; playing=false; tab='log'; render();
+  });
+  await wait(350);
+  const chips = ()=>page.evaluate(()=>[...document.querySelectorAll('#app .whyrow .whyc')].map(b=>b.textContent.trim()));
+
+  ok('46 azonos nevű napokból EGY chip lesz', await page.evaluate(()=>{
+    const t=[...document.querySelectorAll('#app .whyrow .whyc')].map(b=>b.textContent.trim());
+    return t.filter(x=>x==='Push A').length===1 && t.filter(x=>x==='Pull A').length===1; }));
+  ok('46 egyetlen szűrősor és egyetlen „Mind"', await page.evaluate(()=>{
+    const rows=document.querySelectorAll('#app .whyrow');
+    const t=[...document.querySelectorAll('#app .whyrow .whyc')].map(b=>b.textContent.trim());
+    return rows.length===1 && t.filter(x=>x==='Mind').length===1; }));
+  ok('46 a nap-típus (Edzés / Pihenő) is ugyanabban a sorban van',
+     (await chips()).join('|')==='Mind|Edzés|Pihenő|Push A|Pull A');
+
+  ok('46 a „Push A" chip az összes Push A edzést mutatja, akármelyik azonosítóval', await page.evaluate(async ()=>{
+    const b=[...document.querySelectorAll('#app .whyc')].find(x=>x.textContent.trim()==='Push A');
+    b.click(); await new Promise(r=>setTimeout(r,250));
+    const fold=[...document.querySelectorAll('#app .lgfold')];
+    return fold.length===3 && fold.every(d=>/Push A/.test(d.querySelector('summary').textContent))
+        && /3 \/ 5 edzés/.test(document.getElementById('app').textContent); }));
+  ok('46 név-szűrésnél a pihenőnapok kimaradnak', await page.evaluate(()=>
+    !/Pihenő/.test([...document.querySelectorAll('#app .card')].map(c=>c.textContent).join(' ')) ));
+  ok('46 a „Mind" visszaállít, és csak az a chip aktív', await page.evaluate(async ()=>{
+    [...document.querySelectorAll('#app .whyc')].find(x=>x.textContent.trim()==='Mind').click();
+    await new Promise(r=>setTimeout(r,250));
+    const on=[...document.querySelectorAll('#app .whyc.on')].map(b=>b.textContent.trim());
+    return on.join()==='Mind' && document.querySelectorAll('#app .lgfold').length===5; }));
+  ok('46 a nap-típus és a név-szűrő kizárja egymást', await page.evaluate(async ()=>{
+    const by=t=>[...document.querySelectorAll('#app .whyc')].find(x=>x.textContent.trim()===t);
+    by('Pull A').click(); await new Promise(r=>setTimeout(r,250));
+    by('Pihenő').click(); await new Promise(r=>setTimeout(r,250));
+    const on=[...document.querySelectorAll('#app .whyc.on')].map(b=>b.textContent.trim());
+    return on.join()==='Pihenő' && logFilter===null; }));
+  ok('46 idézőjeles név sem töri el a chipet', await page.evaluate(async ()=>{
+    S.routines.push({id:'r_q',name:'Láb "nehéz" nap',ex:['bench']});
+    S.sessions.push({day:'r_q',t:Date.now()-864e5,log:{bench:{w:60,sets:[5]}},dayName:'Láb "nehéz" nap'});
+    logKind=null; logFilter=null; render(); await new Promise(r=>setTimeout(r,250));
+    const b=[...document.querySelectorAll('#app .whyc')].find(x=>x.textContent.trim()==='Láb "nehéz" nap');
+    b.click(); await new Promise(r=>setTimeout(r,250));
+    return logFilter==='Láb "nehéz" nap' && document.querySelectorAll('#app .lgfold').length===1; }));
+
+  await page.evaluate(()=>{ const b=JSON.parse(window.__bak46); S.sessions=b.s; S.routines=b.r; S.bw=b.bw;
+    logFilter=null; logKind=null; save(); tab='home'; render(); });
+  await wait(300);
+}
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));
