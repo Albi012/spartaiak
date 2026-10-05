@@ -2458,6 +2458,34 @@ ok('41 kevés adatnál a kártya el sem készül', await page.evaluate(()=>{
   await wait(300);
 }
 
+// ---- 47. Lehúzás vs. görgetés a lapon BELÜLI listában ----
+// A gyakorlatválasztó listája saját görgető doboz; a lap maga a tetején áll.
+// A lista visszagörgetése (ujj lefelé) korábban bezárta a lapot.
+{
+  const huz47 = async (sel, dx, dyv)=>{
+    await page.evaluate(()=>{ draft={id:null,name:'',ex:[]}; openExPicker('draft'); }); await wait(320);
+    const r = await page.evaluate(async ([sel,dx,dyv])=>{
+      const box=document.querySelector(sel); box.scrollTop=sel==='#pickerRows'?200:0;
+      const scrolled=box.scrollTop>0 || sel!=='#pickerRows';
+      const tgt=box.querySelector('button,div')||box;
+      const t=(x,y)=>new Touch({identifier:1,target:tgt,clientX:x,clientY:y});
+      tgt.dispatchEvent(new TouchEvent('touchstart',{touches:[t(100,300)],bubbles:true}));
+      await new Promise(r=>setTimeout(r,40));
+      tgt.dispatchEvent(new TouchEvent('touchmove',{touches:[t(100+dx,300+dyv)],bubbles:true}));
+      tgt.dispatchEvent(new TouchEvent('touchend',{touches:[],bubbles:true}));
+      return scrolled; }, [sel,dx,dyv]);
+    await wait(400);
+    const nyitva = await page.evaluate(()=>document.getElementById('sheet').classList.contains('on'));
+    if(nyitva){ await page.evaluate(()=>closeSheet()); await wait(350); }
+    return {r, nyitva};
+  };
+  const lista = await huz47('#pickerRows', 0, 200);
+  ok('47 a gyakorlatlista görgethető (a teszt valódi helyzetet néz)', lista.r);
+  ok('47 a listában lefelé húzás görget, NEM zárja be a lapot', lista.nyitva);
+  ok('47 a lap fejlécén a lehúzás továbbra is zár', !(await huz47('#sheetIn h2', 0, 200)).nyitva);
+  ok('47 az oldalirányú mozdulat nem lehúzás', (await huz47('#sheetIn h2', 120, 40)).nyitva);
+}
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));

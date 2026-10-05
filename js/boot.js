@@ -49,19 +49,31 @@ document.getElementById('modal').onclick=e=>{ if(e.target.id==='modal') _closeMo
   // Csak távolság-küszöbbel egy gyors pöccintés 100 px-en nem zárt volna be,
   // pedig a szándék egyértelmű volt.
   const FLICK=0.11;                       // px/ms – efölött a pöccintés zár
-  let startY=0, dy=0, dragging=false, startT=0, moved=false;
+  let startY=0, startX=0, dy=0, dragging=false, startT=0, moved=false;
+  // A lapon BELÜLI görgethető doboz (a gyakorlatválasztó listája, a saját
+  // gyakorlatok listája). Ha a gesztus ott indul, az a listáé: a lap maga
+  // ilyenkor mindig a tetején áll, ezért a lista visszagörgetése (ujj lefelé)
+  // korábban bezárta a lapot.
+  function inScroller(el){
+    for(; el && el!==inner; el=el.parentElement){
+      if(el.scrollHeight>el.clientHeight+1 && /auto|scroll/.test(getComputedStyle(el).overflowY)) return true;
+    }
+    return false;
+  }
   inner.addEventListener('touchstart',e=>{
-    if(e.touches.length!==1 || inner.scrollTop>0){ dragging=false; return; }
-    startY=e.touches[0].clientY; dy=0; dragging=true; moved=false;
+    if(e.touches.length!==1 || inner.scrollTop>0 || inScroller(e.target)){ dragging=false; return; }
+    startY=e.touches[0].clientY; startX=e.touches[0].clientX; dy=0; dragging=true; moved=false;
     startT=Date.now(); sheet.classList.remove('snap');
   },{passive:true});
   inner.addEventListener('touchmove',e=>{
     if(!dragging) return;
     dy=e.touches[0].clientY-startY;
     // Amíg nem indult el LEFELÉ a húzás, a felfelé mozdulás sima görgetés –
-    // add vissza a böngészőnek.
+    // add vissza a böngészőnek. Az oldalirányú mozdulat (chipsor, heatmap)
+    // sem lehúzás.
     if(!moved){
       if(dy<=4){ if(inner.scrollTop>0){ dragging=false; inner.style.transform=''; sheet.classList.remove('drag'); } return; }
+      if(Math.abs(e.touches[0].clientX-startX)>dy){ dragging=false; dy=0; return; }
       moved=true;
     }
     sheet.classList.add('drag');

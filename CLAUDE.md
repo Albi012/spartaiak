@@ -942,6 +942,13 @@ alatt kikapcsol (`reducedMotion()`), a haptika opcionális (`navigator.vibrate`)
   áll meg hirtelen semmi, és így a gesztus nem szakad félbe, ha visszahúzod.
   A felfelé indított mozdulat viszont továbbra is sima görgetés – azt
   visszaadjuk a böngészőnek (`moved` zászló).
+  **A lapon BELÜLI görgető doboz a listáé, nem a lehúzásé** (`inScroller`):
+  a gyakorlatválasztó (`#pickerRows`) és a többi `max-height` + `overflow-y`
+  lista saját dobozban görget, miközben maga a lap a tetején áll – ezért a
+  lista visszagörgetése (ujj lefelé) korábban BEZÁRTA a lapot, gyakorlat-
+  hozzáadás közben újra meg újra. Ha a gesztus egy ténylegesen görgethető
+  belső dobozban indul, nincs lehúzás; a fejlécről/fogantyúról továbbra is
+  van. Az oldalirányú mozdulat (`|dx| > dy`) sem lehúzás. E2E: 47. szekció.
 - **Az edzés-összegző az app EGYETLEN ünnepi pillanata** (edzésenként egyszer
   látod), ezért ott belefér a gyönyörködtetés: a `.finish` burokra kötött
   40 ms-os lépcső, és az XP-sáv KÉSLELTETVE (250 ms) tölt fel, hogy a
