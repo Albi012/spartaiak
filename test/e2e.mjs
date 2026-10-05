@@ -2537,6 +2537,25 @@ ok('41 kevés adatnál a kártya el sem készül', await page.evaluate(()=>{
     saveDraft(); await new Promise(r=>setTimeout(r,250));
     const rt=S.routines.find(x=>x.id==='r_ai48');
     return rt.at===12345 && rt.ai===1 && rt.exOv.bench.s===6 && rt.exOv.bench.rest===240 && rt.exOv.bench.w===80; }));
+  ok('48 a pihenő is állítható, 15 mp-es rácson, és a „Vissza az alapra" azt is viszi', await page.evaluate(async ()=>{
+    const base=exDef('bench').rest||90;
+    openBuilder(); draft.name='Pihenő nap'; addToDraft('bench'); await new Promise(r=>setTimeout(r,250));
+    openDraftDose(0); await new Promise(r=>setTimeout(r,250));
+    draftDoseStep('rest',1);
+    const up=draft.exOv.bench.rest;
+    const lbl=document.querySelector('#app .dose').closest('.pad').textContent;
+    draftDoseReset();
+    const gone=draft.exOv.bench===undefined;
+    closeSheet(); closeBuilder(); await new Promise(r=>setTimeout(r,250));
+    return up===Math.floor(base/15)*15+15 && /pihenő/.test(lbl) && gone; }));
+  ok('48 az indított edzésben a szett után a BEÁLLÍTOTT pihenő indul', await page.evaluate(async ()=>{
+    S.routines.push({id:'r_rest48', name:'Pihenő teszt', sub:'1 gyakorlat', ex:['bench'], exOv:{bench:{rest:45}}});
+    startDay('r_rest48'); await new Promise(r=>setTimeout(r,300));
+    openSet('bench',0); await new Promise(r=>setTimeout(r,250));
+    setRep(5); await new Promise(r=>setTimeout(r,250));
+    const len=tLen;
+    stopTimer(); S.active=null; S.sessions=[]; save(); render();
+    return len===45; }));
   await page.evaluate(()=>{ S.routines=[]; save(); tab='home'; render(); });
   await wait(300);
 }

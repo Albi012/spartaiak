@@ -55,15 +55,17 @@ function builderView(){
   draft.ex.forEach((exId,i)=>{ const e=exDef(exId);
     const linked = i>0 && (draft.ssLinks||[]).includes(exId);
     if(i>0) items+=`<button class="sslink ${linked?'on':''}" onclick="draftToggleLink('${exId}')">${linked?'⛓ Superset az előzővel · bontás':'+ Superset az előzővel'}</button>`;
-    items+=`<div class="card"${linked?' style="border-color:var(--brass)"':''}><div class="pad row">
-      <span class="grow"><span class="cond" style="font-size:18px;font-weight:600;display:block">${esc(exN(e))}</span>
-      <span class="row" style="gap:8px;margin-top:4px;align-items:center">
-        <button class="dose${draftOvHas(exId)?' on':''}" onclick="openDraftDose(${i})" aria-label="Szett és ismétlés szerkesztése">
-          <span class="num">${draftDose(exId).s} × ${esc(draftDose(exId).r)}</span>${ICON.edit}</button>
-        ${e.mg?`<span class="small dim">${esc(trmg(e.mg))}</span>`:''}</span></span>
-      <button class="iconbtn" onclick="draftMove(${i},-1)" ${i===0?'disabled':''} aria-label="fel">↑</button>
-      <button class="iconbtn" onclick="draftMove(${i},1)" ${i===draft.ex.length-1?'disabled':''} aria-label="le">↓</button>
-      <button class="iconbtn" style="color:var(--red)" onclick="draftRemove(${i})" aria-label="törlés">×</button>
+    const dz=draftDose(exId), restOv=((draft.exOv||{})[exId]||{}).rest!=null;
+    items+=`<div class="card"${linked?' style="border-color:var(--brass)"':''}><div class="pad">
+      <div class="row" style="align-items:center">
+        <span class="grow cond" style="font-size:18px;font-weight:600">${esc(exN(e))}</span>
+        <button class="iconbtn" onclick="draftMove(${i},-1)" ${i===0?'disabled':''} aria-label="fel">↑</button>
+        <button class="iconbtn" onclick="draftMove(${i},1)" ${i===draft.ex.length-1?'disabled':''} aria-label="le">↓</button>
+        <button class="iconbtn" style="color:var(--red)" onclick="draftRemove(${i})" aria-label="törlés">×</button></div>
+      <div class="row" style="gap:10px;margin-top:8px;align-items:center;flex-wrap:wrap">
+        <button class="dose${draftOvHas(exId)?' on':''}" onclick="openDraftDose(${i})" aria-label="Szett, ismétlés és pihenő szerkesztése">
+          <span class="num">${dz.s} × ${esc(dz.r)}</span>${ICON.edit}</button>
+        <span class="small dim"><span${restOv?' style="color:var(--brass)"':''}>pihenő ${restFmt(dz.rest)}</span>${e.mg?' · '+esc(trmg(e.mg)):''}</span></div>
     </div></div>`;
   });
   if(!draft.ex.length) items=`<div class="empty" style="padding:24px">Még nincs gyakorlat.<br>Add hozzá lentebb.</div>`;
@@ -85,15 +87,18 @@ function builderView(){
 }
 
 /* ---- Szett × ismétlés a saját edzésben (`exOv`) ----------------------
- * Az előírás a ROUTINE-hoz tartozik, nem a gyakorlathoz: ugyanaz a
+ * Szett, ismétlés ÉS pihenő. Az előírás a ROUTINE-hoz tartozik, nem a gyakorlathoz: ugyanaz a
  * fekvenyomás az egyik napon 5×5, a másikon 3×10 lehet. A gyakorlat
  * alapértéke (`exDef`) érintetlen, az eltérés `exOv[exId]`-ba kerül –
  * ugyanabba a mezőbe, amit az AI-import is használ, így a `dayDef`, a
  * lejátszó és a súlyjavaslat külön kód nélkül látja. Ami megegyezik az
  * alapértékkel, az nem tárolódik. */
 function draftDose(exId){ const b=exDef(exId), o=(draft.exOv||{})[exId]||{};
-  return {s:o.s!=null?o.s:b.s, r:o.r!=null?o.r:b.r}; }
-function draftOvHas(exId){ const o=(draft.exOv||{})[exId]; return !!(o && (o.s!=null || o.r!=null)); }
+  return {s:o.s!=null?o.s:b.s, r:o.r!=null?o.r:b.r, rest:o.rest!=null?o.rest:(b.rest||90)}; }
+function draftOvHas(exId){ const o=(draft.exOv||{})[exId]; return !!(o && (o.s!=null || o.r!=null || o.rest!=null)); }
+// Pihenő kiírása: perc alatt „45 mp", fölötte „1:30".
+function restFmt(sec){ sec=Math.round(sec||0); return sec<60 ? sec+' mp' : Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0'); }
+const DOSE_REST_STEP=15, DOSE_REST_MIN=15, DOSE_REST_MAX=600;
 // Az ismétlés-mező szövegéből a léptethető szám (a „2×30 mp / o" alakból a 30).
 function doseNum(r){ const m=String(r).match(/\d+/g); return m ? +m[m.length-1] : 10; }
 function doseIsTime(exId){ const b=exDef(exId); return !!b.time || /mp/.test(String(b.r)); }
@@ -114,20 +119,30 @@ function renderDraftDose(){
     <div class="wt"><button onclick="draftDoseStep('r',-1)" aria-label="kevesebb">−</button>
       <div class="val num">${doseNum(d.r)}${tm?'<span>mp</span>':''}</div>
       <button onclick="draftDoseStep('r',1)" aria-label="több">+</button></div>
-    <p class="small dim" style="margin:12px 0 0">Csak ebben az edzésben érvényes – a gyakorlat máshol a saját beállításával megy (${e.s} × ${esc(e.r)}).</p>
-    ${draftOvHas(exId)?`<button class="btn" style="margin-top:12px" onclick="draftDoseReset()">Vissza az alapra (${e.s} × ${esc(e.r)})</button>`:''}
+    <div class="small dim" style="margin:14px 0 6px">Pihenő a szettek között</div>
+    <div class="wt"><button onclick="draftDoseStep('rest',-1)" aria-label="rövidebb pihenő">−</button>
+      <div class="val num">${d.rest<60?d.rest+'<span>mp</span>':restFmt(d.rest)+'<span>perc</span>'}</div>
+      <button onclick="draftDoseStep('rest',1)" aria-label="hosszabb pihenő">+</button></div>
+    <p class="small dim" style="margin:12px 0 0">Csak ebben az edzésben érvényes – a gyakorlat máshol a saját beállításával megy (${e.s} × ${esc(e.r)}, pihenő ${restFmt(e.rest||90)}).</p>
+    ${draftOvHas(exId)?`<button class="btn" style="margin-top:12px" onclick="draftDoseReset()">Vissza az alapra</button>`:''}
     <button class="btn pri" style="margin-top:${draftOvHas(exId)?8:12}px" onclick="closeSheet()">Kész</button>`;
 }
 function draftDoseSet(exId, k, v){
   if(!draft.exOv) draft.exOv={};
   const o=Object.assign({}, draft.exOv[exId]||{}), b=exDef(exId);
-  if(String(v)===String(b[k])) delete o[k]; else o[k]=v;
+  const base = k==='rest' ? (b.rest||90) : b[k];
+  if(String(v)===String(base)) delete o[k]; else o[k]=v;
   if(Object.keys(o).length) draft.exOv[exId]=o; else delete draft.exOv[exId];
 }
 function draftDoseStep(k, dir){
   const exId=draft.ex[_doseI]; if(exId==null) return;
   const d=draftDose(exId);
   if(k==='s') draftDoseSet(exId, 's', Math.max(1, Math.min(10, d.s+dir)));
+  else if(k==='rest'){
+    // A lépés a 15-ös rácsra igazít: egy 90-es alapból 105, egy 100-asból 105 / 90.
+    const n = dir>0 ? Math.floor(d.rest/DOSE_REST_STEP)*DOSE_REST_STEP+DOSE_REST_STEP
+                    : Math.ceil(d.rest/DOSE_REST_STEP)*DOSE_REST_STEP-DOSE_REST_STEP;
+    draftDoseSet(exId, 'rest', Math.max(DOSE_REST_MIN, Math.min(DOSE_REST_MAX, n))); }
   else { const tm=doseIsTime(exId), step=tm?5:1;
     const n=Math.max(tm?5:1, Math.min(tm?600:100, doseNum(d.r)+dir*step));
     draftDoseSet(exId, 'r', tm ? n+' mp' : String(n)); }
@@ -135,7 +150,7 @@ function draftDoseStep(k, dir){
 }
 function draftDoseReset(){
   const exId=draft.ex[_doseI]; if(exId==null) return;
-  const o=Object.assign({}, (draft.exOv||{})[exId]||{}); delete o.s; delete o.r;
+  const o=Object.assign({}, (draft.exOv||{})[exId]||{}); delete o.s; delete o.r; delete o.rest;
   if(Object.keys(o).length) draft.exOv[exId]=o; else delete draft.exOv[exId];
   renderDraftDose(); render();
 }
