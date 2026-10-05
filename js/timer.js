@@ -3,7 +3,7 @@
    ertesitesek es a piheno-ora (gyuru + visszaszamlalas).
    ================================================================== */
 function setRep(v){
-  const e=exDef(cur.id), L=S.active.log[cur.id];
+  const e=activeExDef(cur.id), L=S.active.log[cur.id];
   L.sets[cur.i]=v;
   // Az `rpe` tömb csak akkor keletkezik, ha tényleg van mit belerakni –
   // üres napló ne hízzon üres tömbökkel.

@@ -51,7 +51,7 @@ function openTimerSet(e,i,target){
       <div class="small dim" style="margin-top:2px">másodperc · visszaszámlál a célig</div></div>
     <div class="mgtrack" style="height:8px"><span id="stBar" class="mgfill" style="--p:1;background:var(--brass)"></span></div>
     <button id="stBtn" class="btn pri" style="margin-top:14px" onclick="toggleTimerSet(${target})">Indítás</button>
-    <button class="btn" style="margin-top:8px;color:var(--mut)" onclick="document.getElementById('sheetIn').innerHTML=repKbSheet(exDef(cur.id),cur.i,${target})">Kézi megadás</button>`;
+    <button class="btn" style="margin-top:8px;color:var(--mut)" onclick="document.getElementById('sheetIn').innerHTML=repKbSheet(activeExDef(cur.id),cur.i,${target})">Kézi megadás</button>`;
   document.getElementById('sheetIn').innerHTML=h;
   openSheet();
 }
@@ -164,4 +164,4 @@ function hideToast(){
 // Az RPE kiválasztása NEM rögzít: a lap nyitva marad, hogy utána a
 // szám-koppintás zárja le a dolgot. Így a nem-RPE-s út 2 koppintás marad.
 function pickRpe(v){ _rpePick=v; const el=document.getElementById('sheetIn');
-  if(el) el.innerHTML=repKbSheet(exDef(cur.id), cur.i, parseInt(exDef(cur.id).r)||8); }
+  if(el) el.innerHTML=repKbSheet(activeExDef(cur.id), cur.i, parseInt(activeExDef(cur.id).r)||8); }

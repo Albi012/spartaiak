@@ -72,7 +72,7 @@ function playerView(){
   // indoklással (auditálható). Csak akkor, ha van már rögzített szett.
   let hint='';
   if(!e.bw && L.sets.some(x=>x!=null)){
-    const nx=progNext(e.id,{w:L.w,sets:L.sets});
+    const nx=progNext(e.id,{w:L.w,sets:L.sets},e);
     const arrow = nx.delta>0?`↑ ${wLabel(e,nx.w)} kg`:nx.delta<0?`↓ ${wLabel(e,nx.w)} kg`:`= ${wLabel(e,nx.w)} kg`;
     hint=`<div class="hint" onclick="openProgPolicy('${e.id}')" style="cursor:pointer">Következőre: <b>${arrow}</b> · ${esc(nx.reason)} <span class="dim">›</span></div>`;
   }
@@ -144,7 +144,7 @@ function playerView(){
 }
 function setWhy(id,k){ const L=S.active.log[id]; L.why=(L.why===k?null:k); save(); render(); }
 
-function bump(id,dir){ const e=exDef(id),L=S.active.log[id];
+function bump(id,dir){ const e=activeExDef(id),L=S.active.log[id];
   L.w=Math.max(0, Math.round((L.w+dir*e.inc)*10)/10); S.weights[id]=L.w; save(); render(); }
 
 /* ---- RPE (érzékelt nehézség) – OPCIONÁLIS ---------------------------
@@ -182,7 +182,7 @@ function rpeRow(sel, fn){
 
 let cur=null, justSet=null;
 function openSet(id,i){
-  cur={id,i}; const e=exDef(id), t=parseInt(e.r);
+  cur={id,i}; const e=activeExDef(id), t=parseInt(e.r);
   const _L=S.active.log[id];
   _rpePick = (_L && _L.rpe && _L.rpe[i]!=null) ? _L.rpe[i] : null;
   if(e.time){ openTimerSet(e,i,t); return; }    // idő-alapú gyakorlat → visszaszámláló

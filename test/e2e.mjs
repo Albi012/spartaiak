@@ -2486,6 +2486,61 @@ ok('41 kevés adatnál a kártya el sem készül', await page.evaluate(()=>{
   ok('47 az oldalirányú mozdulat nem lehúzás', (await huz47('#sheetIn h2', 120, 40)).nyitva);
 }
 
+// ---- 48. Szett × ismétlés szerkesztése az edzés-összeállítóban ----
+// Az előírás a routine `exOv`-jába kerül (ugyanoda, mint az AI-importnál),
+// a gyakorlat alapértéke érintetlen.
+{
+  await seed({sessions:[], active:null, weights:{}, routines:[]});
+  const b = await page.evaluate(()=>({s:exDef('bench').s, r:exDef('bench').r}));
+  ok('48 a sorban koppintható szett×ismétlés gomb van', await page.evaluate(async ()=>{
+    openBuilder(); draft.name='Teszt nap'; addToDraft('bench'); await new Promise(r=>setTimeout(r,350));
+    const btn=document.querySelector('#app .dose');
+    return !!btn && btn.offsetHeight>=44 && !btn.classList.contains('on'); }));
+  ok('48 a léptető az előírást a draftba írja, az alap érintetlen', await page.evaluate(async (b)=>{
+    openDraftDose(0); await new Promise(r=>setTimeout(r,300));
+    draftDoseStep('s',1); draftDoseStep('r',1); draftDoseStep('r',1);
+    const o=draft.exOv.bench;
+    return o.s===b.s+1 && o.r===String(parseInt(b.r)+2) && exDef('bench').s===b.s
+      && document.querySelector('#app .dose.on')!=null
+      && document.querySelector('#sheetIn .wt .val').textContent.trim()===String(b.s+1); }, b));
+  ok('48 az alapértékre visszaléptetve nem marad tárolt eltérés', await page.evaluate(async ()=>{
+    draftDoseStep('s',-1); const o=draft.exOv.bench||{};
+    return o.s===undefined && o.r!=null; }));
+  ok('48 a „Vissza az alapra" mindent töröl', await page.evaluate(async ()=>{
+    draftDoseReset(); return draft.exOv.bench===undefined; }));
+  ok('48 mentés után a nap és az indított edzés az előírással megy', await page.evaluate(async (b)=>{
+    openDraftDose(0); draftDoseStep('s',-1); draftDoseStep('r',2);
+    closeSheet(); await new Promise(r=>setTimeout(r,300));
+    saveDraft(); await new Promise(r=>setTimeout(r,300));
+    const rt=S.routines.find(x=>x.name==='Teszt nap');
+    const want=String(parseInt(b.r)+2);
+    const d=dayDef(rt.id).ex[0];
+    startDay(rt.id); await new Promise(r=>setTimeout(r,300));
+    const okAct = S.active.log.bench.sets.length===b.s-1 && activeExDef('bench').r===want;
+    S.active=null; save(); render();
+    return rt.exOv.bench.s===b.s-1 && rt.exOv.bench.r===want && d.s===b.s-1 && d.r===want && okAct; }, b));
+  ok('48 a súlyjavaslat a nap CÉLJÁHOZ mér, nem a gyakorlat alapjához', await page.evaluate(async (b)=>{
+    const rt=S.routines.find(x=>x.name==='Teszt nap');
+    // 4 ismétlés célnál: a 4-ek teljesítik a célt, tehát nem bukás.
+    rt.exOv={bench:{s:3, r:'4'}};
+    const t0=Date.now()-5*864e5;
+    S.sessions=[0,1,2].map(k=>({day:rt.id, t:t0+k*864e5, log:{bench:{w:60, sets:[4,4,4]}}}));
+    const fs=failStreak('bench');
+    const nx=progNext('bench', S.sessions[2].log.bench);
+    S.sessions=[]; save();
+    return fs===0 && nx.delta>0; }, b));
+  ok('48 egy AI-importált edzés szerkesztése megtartja az import jelölőit', await page.evaluate(async ()=>{
+    S.routines.push({id:'r_ai48', name:'AI nap', sub:'1 gyakorlat', ex:['bench'], at:12345, ai:1,
+      exOv:{bench:{s:5, r:'3', rest:240, w:80}}});
+    openBuilder('r_ai48'); await new Promise(r=>setTimeout(r,250));
+    openDraftDose(0); draftDoseStep('s',1); closeSheet(); await new Promise(r=>setTimeout(r,250));
+    saveDraft(); await new Promise(r=>setTimeout(r,250));
+    const rt=S.routines.find(x=>x.id==='r_ai48');
+    return rt.at===12345 && rt.ai===1 && rt.exOv.bench.s===6 && rt.exOv.bench.rest===240 && rt.exOv.bench.w===80; }));
+  await page.evaluate(()=>{ S.routines=[]; save(); tab='home'; render(); });
+  await wait(300);
+}
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));

@@ -307,6 +307,23 @@ MÁSOLJA őket friss `r_`/`p_` ID-vel (`addStarterRoutine`/`addStarterProgram`) 
     pihenő a kör VÉGÉN jön, majd visszalép az első befejezetlen tagra. Az
     `ssLinks` a routine-nal együtt szinkronizál (id-unió), külön kezelés
     nélkül. **NE nevezd át** – kulcsként hivatkozott ID-kra épül.
+  - **Szett × ismétlés edzésenként** (`openDraftDose`): az összeállító sorában
+    a „4 × 12" gomb egy léptetős lapot nyit (szett 1–10, ismétlés 1–100,
+    idő-alapúnál mp 5-ösével). Az eltérés a routine `exOv[exId]`-ába kerül –
+    UGYANODA, amit az AI-import is használ –, a gyakorlat alapértéke
+    (`exDef`) érintetlen: ugyanaz a fekvenyomás az egyik napon 5×5, a
+    másikon 3×10 lehet. Az alapértékkel egyező kulcs nem tárolódik; a
+    „Vissza az alapra" csak az `s`/`r`-t veszi ki, az import `rest`/`w`
+    előírását nem.
+    **A mentés a meglévő routine-ra olvaszt** (`saveDraft`): korábban
+    újraépítette, és egy AI-importált edzés szerkesztése csendben elvitte
+    az `exOv`-ot, az `at`-ot és az `ai` jelölőt.
+    **A cél mindenhol a NAP szemszögéből számít** (`dayExDef(dayId, exId)`,
+    `activeExDef(id)`, `logExDef(id, L)`): a szett-rögzítő lap rácsa, a
+    pihenő hossza, a javító-lap színezése, a `failStreak` és a `progNext`
+    is ezen át kéri a célt. Enélkül egy 12-es alapú gyakorlatra előírt 6
+    ismétlés minden edzésen „bukásnak" számított volna, és három alkalom
+    után az okos progresszió −10%-ot ajánlott volna. E2E: 48. szekció.
 - **Edzésterv** (`programs`): `{id:'p_…', name, days:[dayId,…]}` – több
   edzést (beépített napot vagy saját routine-t) fog össze. A főoldalon
   szekcióként jelenik meg.

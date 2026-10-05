@@ -49,6 +49,18 @@ function dayDef(id){
     if(reg) return {id, name:tr('Mobilitás')+' – '+trn(reg.name), sub:'5 perces rutin', custom:true, physio:1, ex:reg.ex.map(e=>physioExDef(e.id))}; }
   return null;
 }
+// Egy gyakorlat egy adott NAP szemszögéből: a saját edzés előírása (`exOv`:
+// szett/ismétlés/pihenő, amit az összeállítóban vagy az AI-importban adtál)
+// rá van olvasztva. Ahol nincs ilyen nap vagy előírás, az `exDef`.
+function dayExDef(dayId, exId){ const d=dayId ? dayDef(dayId) : null;
+  return (d && d.ex.find(x=>x.id===exId)) || exDef(exId); }
+// Az AKTÍV edzés szemszögéből: szett-rögzítő lap, pihenő, súlyállító.
+function activeExDef(id){ return dayExDef(S.active && S.active.day, id); }
+// Egy naplózott log (L) melyik edzésből jön → annak a napnak a célja számít.
+function logExDef(id, L){
+  if(S.active && S.active.log && S.active.log[id]===L) return activeExDef(id);
+  const s=(S.sessions||[]).find(x=>x.log && x.log[id]===L);
+  return s ? dayExDef(s.day, id) : exDef(id); }
 // Superset-csoportok származtatása: az `ssLinks`-ben szereplő gyakorlat-ID
 // a fölötte lévőhöz kapcsolódik. Egymást követő kapcsolt elemekből egy kör
 // (superset) lesz. Csak a 2+ elemű csoportokat adjuk vissza.
@@ -118,8 +130,11 @@ const POLICY_DESC={
 };
 function progPolicy(id){ const p=S.prog&&S.prog[id]; return POLICIES.indexOf(p)>=0 ? p : 'smart'; }
 // Hány egymást követő, LEGUTÓBBI naplózott edzés maradt a cél alatt (deloadhoz).
-function failStreak(id){ const e=exDef(id), t=parseInt(e.r)||8; let n=0;
-  for(let i=S.sessions.length-1;i>=0;i--){ const L=S.sessions[i].log[id]; if(!L) continue;
+// A célt az adott edzés napjából vesszük (`dayExDef`): ha a saját edzésben 6
+// ismétlést írtál elő egy 12-es alapú gyakorlatra, a 6 NEM bukás.
+function failStreak(id){ let n=0;
+  for(let i=S.sessions.length-1;i>=0;i--){ const s=S.sessions[i], L=s.log[id]; if(!L) continue;
+    const e=dayExDef(s.day,id), t=parseInt(e.r)||8;
     const done=L.sets.length>=e.s && L.sets.every(x=>x!=null&&x>=t); if(done) break; n++; }
   return n; }
 /* ---- Stagnálás-felismerés ------------------------------------------
@@ -163,8 +178,8 @@ function stalledList(){
 }
 
 // A következő súly + indoklás egy befejezett edzés (L={w,sets}) alapján.
-function progNext(id,L){
-  const e=exDef(id), inc=e.inc||2.5, t=parseInt(e.r)||8, pol=progPolicy(id);
+function progNext(id,L,e0){
+  const e=e0||logExDef(id,L), inc=e.inc||2.5, t=parseInt(e.r)||8, pol=progPolicy(id);
   if(!L||!L.sets||!L.sets.length){
     const w=(S.weights[id]!=null?S.weights[id]:e.w);
     return {w, delta:0, reason:'Első alkalom – a technika a cél.'};

@@ -5,8 +5,9 @@
 /* ================= Edzés-összeállító (saját edzések) ================ */
 function openBuilder(id){
   if(id){ const r=S.routines.find(x=>x.id===id);
-    draft = r ? {id:r.id,name:r.name,ex:r.ex.slice(),ssLinks:(r.ssLinks||[]).slice(),isNew:false} : null; if(!draft) return; }
-  else draft = {id:uid('r_'),name:'',ex:[],ssLinks:[],isNew:true};
+    draft = r ? {id:r.id,name:r.name,ex:r.ex.slice(),ssLinks:(r.ssLinks||[]).slice(),
+      exOv:JSON.parse(JSON.stringify(r.exOv||{})),isNew:false} : null; if(!draft) return; }
+  else draft = {id:uid('r_'),name:'',ex:[],ssLinks:[],exOv:{},isNew:true};
   editing='routine'; render(); window.scrollTo(0,0);
 }
 function closeBuilder(){ editing=false; draft=null; render(); window.scrollTo(0,0); }
@@ -19,9 +20,17 @@ function saveDraft(){
   if(!draft.name.trim()||!draft.ex.length){ uiAlert('Adj nevet és legalább egy gyakorlatot.'); return; }
   // Csak érvényes (a listában lévő, nem az első pozíción árva) linkeket tartunk meg.
   const links=(draft.ssLinks||[]).filter(id=>{ const i=draft.ex.indexOf(id); return i>0; });
-  const r={id:draft.id,name:draft.name.trim(),sub:draft.ex.length+' gyakorlat',ex:draft.ex.slice()};
-  if(links.length) r.ssLinks=links;
+  // A meglévő edzés többi mezője (az AI-import `at`/`ai` jelölője, az előírt
+  // súly) MARAD – korábban a mentés újraépítette a routine-t, és ezek elvesztek.
   const idx=S.routines.findIndex(x=>x.id===draft.id);
+  const r=Object.assign({}, idx>=0?S.routines[idx]:{},
+    {id:draft.id,name:draft.name.trim(),sub:draft.ex.length+' gyakorlat',ex:draft.ex.slice()});
+  delete r.ssLinks; delete r.exOv;
+  if(links.length) r.ssLinks=links;
+  // Előírás csak a listában maradt gyakorlatokra, üres bejegyzés nélkül.
+  const ov={};
+  draft.ex.forEach(id=>{ const o=(draft.exOv||{})[id]; if(o && Object.keys(o).length) ov[id]=Object.assign({},o); });
+  if(Object.keys(ov).length) r.exOv=ov;
   if(idx>=0) S.routines[idx]=r; else S.routines.push(r);
   editing=false; draft=null; save(); tab='home'; render(); window.scrollTo(0,0);
 }
@@ -48,7 +57,10 @@ function builderView(){
     if(i>0) items+=`<button class="sslink ${linked?'on':''}" onclick="draftToggleLink('${exId}')">${linked?'⛓ Superset az előzővel · bontás':'+ Superset az előzővel'}</button>`;
     items+=`<div class="card"${linked?' style="border-color:var(--brass)"':''}><div class="pad row">
       <span class="grow"><span class="cond" style="font-size:18px;font-weight:600;display:block">${esc(exN(e))}</span>
-      <span class="small dim">${e.s}×${e.r}${e.mg?' · '+esc(trmg(e.mg)):''}</span></span>
+      <span class="row" style="gap:8px;margin-top:4px;align-items:center">
+        <button class="dose${draftOvHas(exId)?' on':''}" onclick="openDraftDose(${i})" aria-label="Szett és ismétlés szerkesztése">
+          <span class="num">${draftDose(exId).s} × ${esc(draftDose(exId).r)}</span>${ICON.edit}</button>
+        ${e.mg?`<span class="small dim">${esc(trmg(e.mg))}</span>`:''}</span></span>
       <button class="iconbtn" onclick="draftMove(${i},-1)" ${i===0?'disabled':''} aria-label="fel">↑</button>
       <button class="iconbtn" onclick="draftMove(${i},1)" ${i===draft.ex.length-1?'disabled':''} aria-label="le">↓</button>
       <button class="iconbtn" style="color:var(--red)" onclick="draftRemove(${i})" aria-label="törlés">×</button>
@@ -70,6 +82,62 @@ function builderView(){
       <button class="btn pri" id="draftSave" onclick="saveDraft()" ${canSave?'':'disabled'}>Mentés</button>
     </div>
   </div>`;
+}
+
+/* ---- Szett × ismétlés a saját edzésben (`exOv`) ----------------------
+ * Az előírás a ROUTINE-hoz tartozik, nem a gyakorlathoz: ugyanaz a
+ * fekvenyomás az egyik napon 5×5, a másikon 3×10 lehet. A gyakorlat
+ * alapértéke (`exDef`) érintetlen, az eltérés `exOv[exId]`-ba kerül –
+ * ugyanabba a mezőbe, amit az AI-import is használ, így a `dayDef`, a
+ * lejátszó és a súlyjavaslat külön kód nélkül látja. Ami megegyezik az
+ * alapértékkel, az nem tárolódik. */
+function draftDose(exId){ const b=exDef(exId), o=(draft.exOv||{})[exId]||{};
+  return {s:o.s!=null?o.s:b.s, r:o.r!=null?o.r:b.r}; }
+function draftOvHas(exId){ const o=(draft.exOv||{})[exId]; return !!(o && (o.s!=null || o.r!=null)); }
+// Az ismétlés-mező szövegéből a léptethető szám (a „2×30 mp / o" alakból a 30).
+function doseNum(r){ const m=String(r).match(/\d+/g); return m ? +m[m.length-1] : 10; }
+function doseIsTime(exId){ const b=exDef(exId); return !!b.time || /mp/.test(String(b.r)); }
+let _doseI=-1;
+function openDraftDose(i){ _doseI=i; renderDraftDose(); openSheet(); }
+function renderDraftDose(){
+  const exId=draft.ex[_doseI]; if(exId==null){ closeSheet(); return; }
+  const e=exDef(exId), d=draftDose(exId), tm=doseIsTime(exId);
+  document.getElementById('sheetIn').innerHTML=`<div class="grabber"></div>
+    <div class="row"><div class="grow"><span class="eyebrow">Ebben az edzésben</span>
+      <h2 style="font-size:22px">${esc(exN(e))}</h2></div>
+      <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px" aria-label="Bezárás">×</button></div>
+    <div class="small dim" style="margin:14px 0 6px">Szett</div>
+    <div class="wt"><button onclick="draftDoseStep('s',-1)" aria-label="kevesebb szett">−</button>
+      <div class="val num">${d.s}</div>
+      <button onclick="draftDoseStep('s',1)" aria-label="több szett">+</button></div>
+    <div class="small dim" style="margin:14px 0 6px">${tm?'Másodperc':'Ismétlés'}</div>
+    <div class="wt"><button onclick="draftDoseStep('r',-1)" aria-label="kevesebb">−</button>
+      <div class="val num">${doseNum(d.r)}${tm?'<span>mp</span>':''}</div>
+      <button onclick="draftDoseStep('r',1)" aria-label="több">+</button></div>
+    <p class="small dim" style="margin:12px 0 0">Csak ebben az edzésben érvényes – a gyakorlat máshol a saját beállításával megy (${e.s} × ${esc(e.r)}).</p>
+    ${draftOvHas(exId)?`<button class="btn" style="margin-top:12px" onclick="draftDoseReset()">Vissza az alapra (${e.s} × ${esc(e.r)})</button>`:''}
+    <button class="btn pri" style="margin-top:${draftOvHas(exId)?8:12}px" onclick="closeSheet()">Kész</button>`;
+}
+function draftDoseSet(exId, k, v){
+  if(!draft.exOv) draft.exOv={};
+  const o=Object.assign({}, draft.exOv[exId]||{}), b=exDef(exId);
+  if(String(v)===String(b[k])) delete o[k]; else o[k]=v;
+  if(Object.keys(o).length) draft.exOv[exId]=o; else delete draft.exOv[exId];
+}
+function draftDoseStep(k, dir){
+  const exId=draft.ex[_doseI]; if(exId==null) return;
+  const d=draftDose(exId);
+  if(k==='s') draftDoseSet(exId, 's', Math.max(1, Math.min(10, d.s+dir)));
+  else { const tm=doseIsTime(exId), step=tm?5:1;
+    const n=Math.max(tm?5:1, Math.min(tm?600:100, doseNum(d.r)+dir*step));
+    draftDoseSet(exId, 'r', tm ? n+' mp' : String(n)); }
+  renderDraftDose(); render();
+}
+function draftDoseReset(){
+  const exId=draft.ex[_doseI]; if(exId==null) return;
+  const o=Object.assign({}, (draft.exOv||{})[exId]||{}); delete o.s; delete o.r;
+  if(Object.keys(o).length) draft.exOv[exId]=o; else delete draft.exOv[exId];
+  renderDraftDose(); render();
 }
 
 /* Gyakorlat-választó lap */

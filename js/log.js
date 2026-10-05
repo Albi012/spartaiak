@@ -225,7 +225,7 @@ function editSessionHtml(){
       <button onclick="closeEditSession()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>`;
   const ids=esExIds(s);
   if(!ids.length) h+=`<div class="empty" style="padding:18px 0">Ebben az edzésben nincs rögzített gyakorlat.</div>`;
-  ids.forEach(id=>{ const e=exDef(id), L=s.log[id];
+  ids.forEach(id=>{ const e=dayExDef(s.day,id), L=s.log[id];
     h+=`<div class="card" style="margin-top:10px"><div class="pad">
       <div class="row" style="align-items:flex-start">
         <span class="grow cond" style="font-size:17px;font-weight:600">${esc(exN(e))}</span>
@@ -266,7 +266,7 @@ function esSetRpe(v){
 }
 function esRepHtml(){
   const s=esSess(); if(!s) return editSessionHtml();
-  const e=exDef(editRep.id), L=s.log[editRep.id]||{sets:[]};
+  const e=dayExDef(s.day,editRep.id), L=s.log[editRep.id]||{sets:[]};
   const t=parseInt(e.r)||8, from=Math.max(0,t-4), to=t+6, cur=L.sets[editRep.i];
   let g='';
   for(let v=from; v<=to; v++) g+=`<button onclick="esSetRep(${v})"${v===cur?' style="border-color:var(--brass);color:var(--brass)"':''}>${v}</button>`;
