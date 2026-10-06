@@ -311,12 +311,21 @@ MÁSOLJA őket friss `r_`/`p_` ID-vel (`addStarterRoutine`/`addStarterProgram`) 
     sorában a „4 × 12" gomb egy léptetős lapot nyit (szett 1–10, ismétlés
     1–100, idő-alapúnál mp 5-ösével; pihenő 15–600 mp, 15-ös RÁCSRA lépve,
     `restFmt`: perc alatt „45 mp", fölötte „1:30"). A sorban a gomb mellett
-    ott a pihenő is, eltérésnél sárgarézzel. Az eltérés a routine `exOv[exId]`-ába kerül –
+    ott a pihenő is, eltérésnél sárgarézzel.
+    **A SÚLY is állítható** (idő-alapú gyakorlatnál nem; testsúlyosnál „Plusz
+    súly", 0 alá nem megy, a lépés a gyakorlat `inc`-je). De a súly NEM állandó
+    előírás, hanem **KEZDŐSÚLY**: `exOv[id] = {w, wAt}`, és a következő edzés
+    ezzel indul, utána a progresszió viszi tovább – ugyanaz a szabály, mint az
+    AI-import előírt súlyánál (`ovWLive(e, at)`: él, amíg `lastForT(id) <=
+    (wAt || routine.at)`). Állandó súly helyett ott a „Fix" progresszió. A
+    `wAt` CSAK a súly-előíráshoz tartozik – a routine `at`-ját NEM szabad
+    ehhez beállítani, mert az az AI-import jelölője (`aiPrevImport`). A
+    javasolt súlyra (`startW`) visszaléptetve a `w`/`wAt` törlődik. Az eltérés a routine `exOv[exId]`-ába kerül –
     UGYANODA, amit az AI-import is használ –, a gyakorlat alapértéke
     (`exDef`) érintetlen: ugyanaz a fekvenyomás az egyik napon 5×5, a
     másikon 3×10 lehet. Az alapértékkel egyező kulcs nem tárolódik; a
-    „Vissza az alapra" az `s`/`r`/`rest`-et veszi ki, az import előírt
-    súlyát (`w`) nem – azt itt nem is lehet állítani.
+    „Vissza az alapra" mindent kivesz (`s`/`r`/`rest`/`w`/`wAt`), az
+    AI-import előírását is – a felhasználó ott kifejezetten az alapot kéri.
     **A mentés a meglévő routine-ra olvaszt** (`saveDraft`): korábban
     újraépítette, és egy AI-importált edzés szerkesztése csendben elvitte
     az `exOv`-ot, az `at`-ot és az `ai` jelölőt.

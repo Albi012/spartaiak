@@ -101,6 +101,11 @@ function lastFor(id){ for(let i=S.sessions.length-1;i>=0;i--){ const s=S.session
 // Mikor edzetted utoljára ezt a gyakorlatot (rögzített szettel)? 0 = soha.
 // Ebből dől el, hogy az edző előírt súlya még érvényes-e, vagy már a saját
 // haladásod viszi tovább.
+// Az előírt súly (`exOv[id].w`) addig él, amíg a gyakorlatot az előírás
+// ÓTA nem edzetted le – onnantól a saját haladásod viszi. Az időpont a
+// súly beállítása az összeállítóban (`wAt`), ennek híján az AI-import
+// ideje (a routine `at`-ja).
+function ovWLive(e, at){ return !!(e && e.ovW && lastForT(e.id) <= (e.wAt || at || 0)); }
 function lastForT(id){ for(let i=S.sessions.length-1;i>=0;i--){ const s=S.sessions[i];
   const L=s.log[id]; if(L && (L.sets||[]).some(x=>x!=null)) return s.t||0; } return 0; }
 // Okos súlyugrás: ha minden szett megvolt, a cél feletti túlteljesítés

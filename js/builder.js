@@ -6,7 +6,7 @@
 function openBuilder(id){
   if(id){ const r=S.routines.find(x=>x.id===id);
     draft = r ? {id:r.id,name:r.name,ex:r.ex.slice(),ssLinks:(r.ssLinks||[]).slice(),
-      exOv:JSON.parse(JSON.stringify(r.exOv||{})),isNew:false} : null; if(!draft) return; }
+      exOv:JSON.parse(JSON.stringify(r.exOv||{})),at:r.at||0,isNew:false} : null; if(!draft) return; }
   else draft = {id:uid('r_'),name:'',ex:[],ssLinks:[],exOv:{},isNew:true};
   editing='routine'; render(); window.scrollTo(0,0);
 }
@@ -55,7 +55,7 @@ function builderView(){
   draft.ex.forEach((exId,i)=>{ const e=exDef(exId);
     const linked = i>0 && (draft.ssLinks||[]).includes(exId);
     if(i>0) items+=`<button class="sslink ${linked?'on':''}" onclick="draftToggleLink('${exId}')">${linked?'⛓ Superset az előzővel · bontás':'+ Superset az előzővel'}</button>`;
-    const dz=draftDose(exId), restOv=((draft.exOv||{})[exId]||{}).rest!=null;
+    const dz=draftDose(exId), restOv=((draft.exOv||{})[exId]||{}).rest!=null, wOv=draftWLive(exId), w=draftW(exId);
     items+=`<div class="card"${linked?' style="border-color:var(--brass)"':''}><div class="pad">
       <div class="row" style="align-items:center">
         <span class="grow cond" style="font-size:18px;font-weight:600">${esc(exN(e))}</span>
@@ -65,7 +65,7 @@ function builderView(){
       <div class="row" style="gap:10px;margin-top:8px;align-items:center;flex-wrap:wrap">
         <button class="dose${draftOvHas(exId)?' on':''}" onclick="openDraftDose(${i})" aria-label="Szett, ismétlés és pihenő szerkesztése">
           <span class="num">${dz.s} × ${esc(dz.r)}</span>${ICON.edit}</button>
-        <span class="small dim"><span${restOv?' style="color:var(--brass)"':''}>pihenő ${restFmt(dz.rest)}</span>${e.mg?' · '+esc(trmg(e.mg)):''}</span></div>
+        <span class="small dim">${doseIsTime(exId)?'':`<span${wOv?' style="color:var(--brass)"':''}>${wLabel(e,w)}${e.bw&&w<=0?'':' kg'}</span> · `}<span${restOv?' style="color:var(--brass)"':''}>pihenő ${restFmt(dz.rest)}</span>${e.mg?' · '+esc(trmg(e.mg)):''}</span></div>
     </div></div>`;
   });
   if(!draft.ex.length) items=`<div class="empty" style="padding:24px">Még nincs gyakorlat.<br>Add hozzá lentebb.</div>`;
@@ -86,8 +86,8 @@ function builderView(){
   </div>`;
 }
 
-/* ---- Szett × ismétlés a saját edzésben (`exOv`) ----------------------
- * Szett, ismétlés ÉS pihenő. Az előírás a ROUTINE-hoz tartozik, nem a gyakorlathoz: ugyanaz a
+/* ---- Súly, szett, ismétlés, pihenő a saját edzésben (`exOv`) ---------
+ * Az előírás a ROUTINE-hoz tartozik, nem a gyakorlathoz: ugyanaz a
  * fekvenyomás az egyik napon 5×5, a másikon 3×10 lehet. A gyakorlat
  * alapértéke (`exDef`) érintetlen, az eltérés `exOv[exId]`-ba kerül –
  * ugyanabba a mezőbe, amit az AI-import is használ, így a `dayDef`, a
@@ -95,7 +95,13 @@ function builderView(){
  * alapértékkel, az nem tárolódik. */
 function draftDose(exId){ const b=exDef(exId), o=(draft.exOv||{})[exId]||{};
   return {s:o.s!=null?o.s:b.s, r:o.r!=null?o.r:b.r, rest:o.rest!=null?o.rest:(b.rest||90)}; }
-function draftOvHas(exId){ const o=(draft.exOv||{})[exId]; return !!(o && (o.s!=null || o.r!=null || o.rest!=null)); }
+function draftOvHas(exId){ const o=(draft.exOv||{})[exId]; return !!(o && (o.s!=null || o.r!=null || o.rest!=null)) || draftWLive(exId); }
+// A SÚLY más, mint a többi: nem állandó előírás, hanem KEZDŐSÚLY. A következő
+// edzés ezzel indul, utána a progresszió viszi tovább (`ovWLive`) – különben
+// egy egyszer beállított 60 kg örökre odaszögezné a gyakorlatot.
+function draftWLive(exId){ const o=(draft.exOv||{})[exId];
+  return !!(o && o.w!=null && lastForT(exId) <= (o.wAt || draft.at || 0)); }
+function draftW(exId){ return draftWLive(exId) ? draft.exOv[exId].w : startW(exId); }
 // Pihenő kiírása: perc alatt „45 mp", fölötte „1:30".
 function restFmt(sec){ sec=Math.round(sec||0); return sec<60 ? sec+' mp' : Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0'); }
 const DOSE_REST_STEP=15, DOSE_REST_MIN=15, DOSE_REST_MAX=600;
@@ -106,11 +112,15 @@ let _doseI=-1;
 function openDraftDose(i){ _doseI=i; renderDraftDose(); openSheet(); }
 function renderDraftDose(){
   const exId=draft.ex[_doseI]; if(exId==null){ closeSheet(); return; }
-  const e=exDef(exId), d=draftDose(exId), tm=doseIsTime(exId);
+  const e=exDef(exId), d=draftDose(exId), tm=doseIsTime(exId), w=draftW(exId);
   document.getElementById('sheetIn').innerHTML=`<div class="grabber"></div>
     <div class="row"><div class="grow"><span class="eyebrow">Ebben az edzésben</span>
       <h2 style="font-size:22px">${esc(exN(e))}</h2></div>
       <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px" aria-label="Bezárás">×</button></div>
+    ${tm?'':`<div class="small dim" style="margin:14px 0 6px">${e.bw?'Plusz súly':'Súly'} a következő edzésen</div>
+    <div class="wt"><button onclick="draftDoseStep('w',-1)" aria-label="kevesebb súly">−</button>
+      <div class="val num">${wLabel(e,w)}${e.bw&&w<=0?'':'<span>kg</span>'}</div>
+      <button onclick="draftDoseStep('w',1)" aria-label="több súly">+</button></div>`}
     <div class="small dim" style="margin:14px 0 6px">Szett</div>
     <div class="wt"><button onclick="draftDoseStep('s',-1)" aria-label="kevesebb szett">−</button>
       <div class="val num">${d.s}</div>
@@ -123,7 +133,7 @@ function renderDraftDose(){
     <div class="wt"><button onclick="draftDoseStep('rest',-1)" aria-label="rövidebb pihenő">−</button>
       <div class="val num">${d.rest<60?d.rest+'<span>mp</span>':restFmt(d.rest)+'<span>perc</span>'}</div>
       <button onclick="draftDoseStep('rest',1)" aria-label="hosszabb pihenő">+</button></div>
-    <p class="small dim" style="margin:12px 0 0">Csak ebben az edzésben érvényes – a gyakorlat máshol a saját beállításával megy (${e.s} × ${esc(e.r)}, pihenő ${restFmt(e.rest||90)}).</p>
+    <p class="small dim" style="margin:12px 0 0">Csak ebben az edzésben érvényes – a gyakorlat máshol a saját beállításával megy (${e.s} × ${esc(e.r)}, pihenő ${restFmt(e.rest||90)}).${tm?'':' A súllyal a következő edzés indul, utána a súlyjavaslat viszi tovább.'}</p>
     ${draftOvHas(exId)?`<button class="btn" style="margin-top:12px" onclick="draftDoseReset()">Vissza az alapra</button>`:''}
     <button class="btn pri" style="margin-top:${draftOvHas(exId)?8:12}px" onclick="closeSheet()">Kész</button>`;
 }
@@ -137,7 +147,16 @@ function draftDoseSet(exId, k, v){
 function draftDoseStep(k, dir){
   const exId=draft.ex[_doseI]; if(exId==null) return;
   const d=draftDose(exId);
-  if(k==='s') draftDoseSet(exId, 's', Math.max(1, Math.min(10, d.s+dir)));
+  if(k==='w'){
+    const e=exDef(exId), inc=e.inc||2.5, sw=startW(exId);
+    const n=Math.max(0, Math.min(500, Math.round((draftW(exId)+dir*inc)*100)/100));
+    if(!draft.exOv) draft.exOv={};
+    const o=Object.assign({}, draft.exOv[exId]||{});
+    // A javasolt súlyra visszaléptetve nincs mit előírni.
+    if(n===sw){ delete o.w; delete o.wAt; } else { o.w=n; o.wAt=Date.now(); }
+    if(Object.keys(o).length) draft.exOv[exId]=o; else delete draft.exOv[exId];
+  }
+  else if(k==='s') draftDoseSet(exId, 's', Math.max(1, Math.min(10, d.s+dir)));
   else if(k==='rest'){
     // A lépés a 15-ös rácsra igazít: egy 90-es alapból 105, egy 100-asból 105 / 90.
     const n = dir>0 ? Math.floor(d.rest/DOSE_REST_STEP)*DOSE_REST_STEP+DOSE_REST_STEP
@@ -150,7 +169,7 @@ function draftDoseStep(k, dir){
 }
 function draftDoseReset(){
   const exId=draft.ex[_doseI]; if(exId==null) return;
-  const o=Object.assign({}, (draft.exOv||{})[exId]||{}); delete o.s; delete o.r; delete o.rest;
+  const o=Object.assign({}, (draft.exOv||{})[exId]||{}); delete o.s; delete o.r; delete o.rest; delete o.w; delete o.wAt;
   if(Object.keys(o).length) draft.exOv[exId]=o; else delete draft.exOv[exId];
   renderDraftDose(); render();
 }

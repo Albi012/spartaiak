@@ -66,7 +66,7 @@ function playerView(){
   else note=`<div class="prev dim">${tr('Első alkalom – a technika a cél, ne a súly.')}</div>`;
   // Ha a súly az edzőterv ELŐÍRÁSÁBÓL jön (és nem a saját haladásodból),
   // mondjuk is meg – különben megmagyarázatlanul ugrana a szám.
-  if(e.ovW && lastForT(e.id) <= ((dayDef(S.active.day)||{}).at||0))
+  if(ovWLive(e, (dayDef(S.active.day)||{}).at))
     note+=`<div class="prev" style="color:var(--brass)">Az edzésterv előírása: ${wLabel(e,e.w)}${e.bw?'':' kg'} × ${e.s}×${esc(e.r)}</div>`;
   // Következő edzés súlyjavaslata a választott progressziós szabály szerint,
   // indoklással (auditálható). Csak akkor, ha van már rögzített szett.

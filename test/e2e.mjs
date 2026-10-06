@@ -2502,7 +2502,7 @@ ok('41 kevés adatnál a kártya el sem készül', await page.evaluate(()=>{
     const o=draft.exOv.bench;
     return o.s===b.s+1 && o.r===String(parseInt(b.r)+2) && exDef('bench').s===b.s
       && document.querySelector('#app .dose.on')!=null
-      && document.querySelector('#sheetIn .wt .val').textContent.trim()===String(b.s+1); }, b));
+      && document.querySelectorAll('#sheetIn .wt .val')[1].textContent.trim()===String(b.s+1); }, b));
   ok('48 az alapértékre visszaléptetve nem marad tárolt eltérés', await page.evaluate(async ()=>{
     draftDoseStep('s',-1); const o=draft.exOv.bench||{};
     return o.s===undefined && o.r!=null; }));
@@ -2556,6 +2556,48 @@ ok('41 kevés adatnál a kártya el sem készül', await page.evaluate(()=>{
     const len=tLen;
     stopTimer(); S.active=null; S.sessions=[]; save(); render();
     return len===45; }));
+  ok('48 a súly léptetése kezdősúlyt ír elő, a javaslatra visszalépve eltűnik', await page.evaluate(async ()=>{
+    S.sessions=[]; S.weights={}; save();
+    openBuilder(); draft.name='Súly nap'; addToDraft('bench'); await new Promise(r=>setTimeout(r,250));
+    openDraftDose(0); await new Promise(r=>setTimeout(r,250));
+    const sw=startW('bench'), inc=exDef('bench').inc||2.5;
+    const hasW=/Súly a következő edzésen/.test(document.getElementById('sheetIn').textContent);
+    draftDoseStep('w',1); draftDoseStep('w',1);
+    const o=Object.assign({}, draft.exOv.bench);
+    draftDoseStep('w',-1); draftDoseStep('w',-1);
+    const back=draft.exOv.bench===undefined;
+    closeSheet(); closeBuilder(); await new Promise(r=>setTimeout(r,250));
+    return hasW && o.w===sw+2*inc && o.wAt>0 && back; }));
+  ok('48 az előírt súllyal indul az edzés, utána a haladás viszi tovább', await page.evaluate(async ()=>{
+    S.sessions=[]; S.weights={};
+    S.routines.push({id:'r_w48', name:'Súly teszt', sub:'1 gyakorlat', ex:['bench'],
+      exOv:{bench:{w:72.5, wAt:Date.now()-1000}}});
+    save();
+    startDay('r_w48'); await new Promise(r=>setTimeout(r,300));
+    const first=S.active.log.bench.w;
+    S.active=null;
+    // Lezajlott egy edzés az előírás ÓTA → már nem az előírt súly jön.
+    S.sessions=[{day:'r_w48', t:Date.now(), log:{bench:{w:72.5, sets:[5,5,5,5]}}}]; save();
+    startDay('r_w48'); await new Promise(r=>setTimeout(r,300));
+    const second=S.active.log.bench.w, sw=startW('bench');
+    S.active=null; save(); render();
+    openBuilder('r_w48'); const live=draftWLive('bench'); closeBuilder();
+    S.sessions=[]; save();
+    return first===72.5 && second===sw && second!==72.5 && live===false; }));
+  ok('48 testsúlyos gyakorlatnál PLUSZ súly, 0 alá nem megy', await page.evaluate(async ()=>{
+    openBuilder(); draft.name='Tolódzkodás'; addToDraft('dipbw'); await new Promise(r=>setTimeout(r,250));
+    openDraftDose(0); await new Promise(r=>setTimeout(r,250));
+    const lbl=/Plusz súly a következő edzésen/.test(document.getElementById('sheetIn').textContent);
+    for(let k=0;k<5;k++) draftDoseStep('w',-1);
+    const w=draftW('dipbw');
+    closeSheet(); closeBuilder(); await new Promise(r=>setTimeout(r,250));
+    return lbl && w===0; }));
+  ok('48 idő-alapú gyakorlatnál nincs súly-léptető', await page.evaluate(async ()=>{
+    openBuilder(); draft.name='Plank'; addToDraft('plank'); await new Promise(r=>setTimeout(r,250));
+    openDraftDose(0); await new Promise(r=>setTimeout(r,250));
+    const n=document.querySelectorAll('#sheetIn .wt').length;
+    closeSheet(); closeBuilder(); await new Promise(r=>setTimeout(r,250));
+    return n===3; }));
   await page.evaluate(()=>{ S.routines=[]; save(); tab='home'; render(); });
   await wait(300);
 }

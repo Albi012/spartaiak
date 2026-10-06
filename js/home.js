@@ -396,7 +396,7 @@ async function startDay(id){
     if(exAffected(e)) return;                 // sérülés-mód: érintett gyakorlat kimarad
     // Előírt súly (edzőterv): addig érvényes, amíg ezt a gyakorlatot az
     // előírás ÓTA nem edzetted le – onnantól a saját haladásod viszi.
-    let w = (e.ovW && lastForT(e.id) <= (d.at||0)) ? e.w : startW(e.id);
+    let w = ovWLive(e, d.at) ? e.w : startW(e.id);
     if(deload && !e.bw) w=roundTo(w*0.85, e.inc);
     S.active.log[e.id]={w:w,sets:new Array(e.s).fill(null)};
   });
