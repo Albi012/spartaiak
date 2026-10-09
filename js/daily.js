@@ -5,7 +5,7 @@
 /* ---- Napi testsúly-napló (edzés nélküli napon is) -------------------
    Additív mező: S.bw = { 'YYYY-MM-DD': kg }. Az edzésadatot/startW-t NEM
    érinti; a felhő-szinkron per-kulcs unióban viszi (auth.js 'bw'). */
-const BW_SCALE='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M12 7.5v3M14.1 8.4 12 10.5"/><circle cx="12" cy="12" r="1.1" fill="currentColor" stroke="none"/></svg>';
+const BW_SCALE='<svg class="svgic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M12 7.5v3M14.1 8.4 12 10.5"/><circle cx="12" cy="12" r="1.1" fill="currentColor" stroke="none"/></svg>';
 function bwKey(t){ const d=new Date(t); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function bwNum(k){ return (Math.round(k*10)/10).toFixed(1).replace('.',','); }
 function bwEntries(){ const b=S.bw||{}; return Object.keys(b).filter(k=>b[k]>0).sort().map(k=>({d:k,kg:b[k]})); }
@@ -183,7 +183,7 @@ function bwSheetHtml(){
    Az edzésadatot NEM érinti; a felhő-szinkron per-kulcs unióban viszi
    (auth.js 'sleep'). A natív Health-behúzást a js/health.js adja, ha a
    Capacitor-híd elérhető; web-en kézi bevitel a fallback. */
-const BW_MOON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>';
+const BW_MOON='<svg class="svgic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>';
 function slpEntries(){ const b=S.sleep||{}; return Object.keys(b).filter(k=>b[k]&&b[k].min>0).sort().map(k=>({d:k,min:b[k].min,q:b[k].q||0})); }
 function slpLast(){ const e=slpEntries(); return e.length?e[e.length-1]:null; }
 function slpToday(){ const v=(S.sleep||{})[bwKey(Date.now())]; return v&&v.min>0?v:null; }
