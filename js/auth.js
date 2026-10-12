@@ -372,13 +372,28 @@
     return !error;
   }
 
+  // -- Edző AI: a Supabase Edge Function (supabase/functions/coach) hívása.
+  // A Claude-kulcs a szerveren van; itt csak a saját JWT-nk megy át.
+  // Visszatérés: {reply} vagy {error}.
+  async function askCoach(messages, context){
+    const c=await ensureClient(); if(!c||!cloudUser) return { error:'Jelentkezz be az edző használatához.' };
+    try{
+      const { data, error } = await c.functions.invoke('coach', { body:{ messages, context } });
+      if(error){
+        let msg=null; try{ msg=(await error.context.json()).error; }catch(e){}
+        return { error: msg || 'Az edző most nem érhető el.' };
+      }
+      return data || { error:'Üres válasz.' };
+    }catch(e){ return { error:'Nincs kapcsolat az edzővel.' }; }
+  }
+
   window.Auth = {
     hooks, configured, init,
     signUp, signIn, signInOAuth, signOut, currentUser,
     cloudRead, cloudWrite, maybeImport, mergeGym,
     getProfile, saveDisplayName, requestFriend, listFriendships,
     respondFriend, removeFriend, friendStats, publishStats,
-    sharePlan, listSharedPlans, deleteSharedPlan, deleteAccount,
+    sharePlan, listSharedPlans, deleteSharedPlan, deleteAccount, askCoach,
     isLoggedIn: () => !!cloudUser
   };
 })();

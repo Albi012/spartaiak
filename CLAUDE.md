@@ -216,6 +216,7 @@ töltődött be. A `boot.js`-en kívül nincs top-level végrehajtás.
 | `tools.js` | tárcsa-kalkulátor, bemelegítő-lépcső |
 | `notes.js` | jegyzetek (állandó + napi) és a gépbeállítás-fotó |
 | `account.js` | sérülés-mód, fiók, barátok, terv-megosztás, onboarding |
+| `coach.js` | Edző AI: csevegés + heti értékelés (szerveroldali Claude-hívás) |
 | `boot.js` | téma, ikonok, eseménykötések, **az app indítása** |
 
 Rajtuk kívül: `js/i18n.js` (fordítás), `js/auth.js` (felhő-szinkron),
@@ -1198,6 +1199,23 @@ sémafájl hozzá, `on delete cascade` az `auth.users`-re, és vedd fel a
 szekció): átnézi az `auth.js` összes `from('…')`/`rpc('…')` hívását, és
 elbukik, ha valamelyik kimarad a sémából vagy a fiók-törlésből. Enélkül a
 törölt fiók után árva sor maradna, ami adatvédelmi hiba.
+
+## Edző AI (csevegés + heti értékelés)
+
+`js/coach.js` + `supabase/functions/coach/index.ts`, telepítés:
+`docs/coach-ai.md`. A főoldali kártya (`coachHomeCard`) csak bejelentkezve
+látszik; a lap (`openCoach`) csevegés + „Heti értékelés kérése".
+
+- **A Claude API-kulcs SOHA nem kerülhet a kliensbe** – a hívás az Edge
+  Functionön megy (`Auth.askCoach` → `functions.invoke('coach')`), ami a
+  JWT-ből azonosít, és csak a `COACH_ALLOWED_EMAILS` listán lévő fióknak
+  válaszol (költségvédelem, amíg nincs előfizetés).
+- A kontextus SZÁRMAZTATOTT összefoglaló (`aiUserContext` + `weeklyReport`),
+  nyers napló nem megy ki. A beszélgetés nézet-állapot (`_coachMsgs`), nem
+  tárolódik.
+- A függvény nem ír adatbázisba, ezért a 27. szekció (tábla/RPC ↔ fiók-törlés)
+  nem érinti. Ha naplózni / számlálni kezd (pl. napi limit), az új táblára
+  ugyanaz a szabály vonatkozik. E2E: 49. szekció (mockolt szerverrel).
 
 ## Fiók végleges törlése
 

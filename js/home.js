@@ -214,6 +214,7 @@ function homeView(){
   // első indításkor még nincs mit összegezni.
   if(done) h+=weekPlanCard();
   // Napi testsúly + alvás – edzés nélküli napon is (mindig látható)
+  h+=coachHomeCard();
   h+=bwHomeCard();
   h+=sleepHomeCard();
   // Edzéstervek: aktív választó + a kiválasztott terv napjai

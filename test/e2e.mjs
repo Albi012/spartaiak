@@ -2602,6 +2602,27 @@ ok('41 kevés adatnál a kártya el sem készül', await page.evaluate(()=>{
   await wait(300);
 }
 
+// ---- 49. Edző AI (a szerver-hívás itt mockolt) ----
+{
+  ok('49 kijelentkezve nincs edző-kártya', await page.evaluate(()=>coachHomeCard()===''));
+  ok('49 a kérdés + a napló-kontextus megy a szervernek, a válasz megjelenik', await page.evaluate(async ()=>{
+    const realAuth=window.Auth; let sent=null;
+    window.Auth=Object.assign({}, realAuth, { configured:()=>true, isLoggedIn:()=>true,
+      askCoach:async (m,c)=>{ sent={m,c}; return {reply:'Emelj **2,5 kg**-ot.'}; } });
+    const card=coachHomeCard()!=='';
+    openCoach(); await new Promise(r=>setTimeout(r,250));
+    document.getElementById('coachIn').value='Mennyit emeljek?'; coachSend();
+    await new Promise(r=>setTimeout(r,150));
+    const html=document.getElementById('coachLog').innerHTML;
+    coachWeekly(); await new Promise(r=>setTimeout(r,150));
+    const second=sent.m.length===3 && /hetemet/.test(sent.m[2].content);
+    window.Auth.askCoach=async()=>({error:'Az edző AI egyelőre csak meghívott fiókoknak érhető el.'});
+    coachAsk('Még?'); await new Promise(r=>setTimeout(r,150));
+    const err=/meghívott/.test(document.querySelector('#coachLog .cmsg.err').textContent);
+    coachReset(); closeSheet(); window.Auth=realAuth; await new Promise(r=>setTimeout(r,250));
+    return card && /<b>2,5 kg<\/b>/.test(html) && /Ezen a héten/.test(sent.c) && second && err; }));
+}
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));

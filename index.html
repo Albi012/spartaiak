@@ -416,6 +416,11 @@ textarea:focus{outline:2px solid var(--brass);outline-offset:2px}
 .whyc:active{transform:scale(var(--press-sm))}
 .whyc{padding:9px 13px;border-radius:999px;border:1px solid var(--line);background:var(--card2);color:var(--mut);font-size:13px;font-weight:600}
 .whyc.on{border-color:var(--brass);color:var(--brass);background:var(--brass-d)}
+.clog{max-height:46dvh;overflow-y:auto;margin-top:12px;display:flex;flex-direction:column;gap:8px}
+.cmsg{padding:10px 12px;border-radius:14px;font-size:15px;line-height:1.45;max-width:90%;user-select:text}
+.cmsg.me{align-self:flex-end;background:var(--brass-d);color:var(--ink)}
+.cmsg.ai{align-self:flex-start;background:var(--card2);border:1px solid var(--line)}
+.cmsg.err{color:var(--red)}
 .sslink{display:block;margin:-4px auto 6px;padding:5px 12px;border-radius:999px;border:1px dashed var(--line);background:transparent;color:var(--mut);font-size:12px;font-weight:600}
 .sslink.on{border-style:solid;border-color:var(--brass);color:var(--brass);background:var(--brass-d)}
 .dose{display:inline-flex;align-items:center;gap:8px;white-space:nowrap;min-height:44px;padding:0 14px;border-radius:12px;border:1px solid var(--line);background:var(--card2);color:var(--ink);font-family:'Barlow Condensed',sans-serif;font-size:19px;font-weight:600;transition:transform .12s var(--ease-out)}
@@ -651,4 +656,5 @@ textarea:focus{outline:2px solid var(--brass);outline-offset:2px}
 <script src="js/tools.js"></script>
 <script src="js/notes.js"></script>
 <script src="js/account.js"></script>
+<script src="js/coach.js"></script>
 <script src="js/boot.js"></script>
