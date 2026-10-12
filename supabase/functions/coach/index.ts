@@ -18,6 +18,9 @@ const CORS = {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...CORS, "Content-Type": "application/json" } });
 
+// Heti kérdéslimit (gördülő 7 nap), Supabase secret-tel felülírható.
+const WEEKLY_LIMIT = Math.max(1, Number(Deno.env.get("COACH_WEEKLY_LIMIT") || 20));
+const WEEK_MS = 7 * 864e5;
 const MAX_TURNS = 20;          // ennyi üzenet megy vissza a beszélgetésből
 const MAX_CHARS = 4000;        // egy üzenet / a kontextus felső határa (karakter)
 
@@ -48,6 +51,19 @@ Deno.serve(async (req) => {
   if (!allowed.includes((user.email || "").toLowerCase()))
     return json({ error: "Az edző AI egyelőre csak meghívott fiókoknak érhető el." }, 403);
 
+  // 2b) Heti kérdéslimit – a SZERVER számol (a kliens számlálója kijátszható
+  // volna). A sorokat a felhasználó saját JWT-jével olvassuk: az RLS miatt
+  // csak a sajátjai látszanak, törölni pedig nem tudja őket.
+  const since = new Date(Date.now() - WEEK_MS).toISOString();
+  const { data: used, error: uErr } = await sb.from("coach_usage")
+    .select("at").gte("at", since).order("at", { ascending: true });
+  if (uErr) return json({ error: "A kérdéslimit most nem ellenőrizhető." }, 500);
+  const n = (used || []).length;
+  if (n >= WEEKLY_LIMIT) {
+    const resetAt = new Date(new Date(used![0].at).getTime() + WEEK_MS).toISOString();
+    return json({ error: `Elérted a heti ${WEEKLY_LIMIT} kérdést.`, limit: WEEKLY_LIMIT, remaining: 0, resetAt }, 429);
+  }
+
   // 3) Bemenet: a beszélgetés + a naplóból származtatott kontextus.
   let body: { messages?: { role: string; content: string }[]; context?: string };
   try { body = await req.json(); } catch { return json({ error: "Hibás kérés." }, 400); }
@@ -77,7 +93,9 @@ Deno.serve(async (req) => {
     if (res.stop_reason === "refusal")
       return json({ error: "Erre a kérdésre az edző nem tud válaszolni." }, 200);
     const text = res.content.filter((b) => b.type === "text").map((b) => (b as { text: string }).text).join("\n").trim();
-    return json({ reply: text || "(üres válasz)" });
+    // Csak a MEGVÁLASZOLT kérdés számít bele a limitbe.
+    await sb.from("coach_usage").insert({});
+    return json({ reply: text || "(üres válasz)", limit: WEEKLY_LIMIT, remaining: WEEKLY_LIMIT - n - 1 });
   } catch (e) {
     if (e instanceof Anthropic.RateLimitError) return json({ error: "Túl sok kérés – próbáld újra pár perc múlva." }, 429);
     if (e instanceof Anthropic.APIError) return json({ error: "Az AI szolgáltatás most nem elérhető." }, 502);

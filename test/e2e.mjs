@@ -1085,16 +1085,17 @@ ok('27 a barát neve escape-elve megy ki (nem HTML)', await page.evaluate(()=>{
 // A szerveroldal teljessége: minden használt tábla/RPC legyen sémában, ÉS a
 // fiók-törlés fedje le – különben árva sor marad a törölt fiók után.
 ok('27 minden használt tábla és RPC szerepel a sémafájlokban', await page.evaluate(async ()=>{
-  const auth=await (await fetch('js/auth.js')).text();
-  const sql=(await Promise.all(['schema.sql','schema-friends.sql','schema-plan-shares.sql','schema-delete-account.sql']
+  const auth=await (await fetch('js/auth.js')).text() + await (await fetch('supabase/functions/coach/index.ts')).text();
+  const sql=(await Promise.all(['schema.sql','schema-friends.sql','schema-plan-shares.sql','schema-coach.sql','schema-delete-account.sql']
     .map(f=>fetch('supabase/'+f).then(r=>r.text())))).join('\n');
-  const nevek=[...new Set([...auth.matchAll(/\.(?:from|rpc)\('([a-z_]+)'/g)].map(m=>m[1]))];
+  const nevek=[...new Set([...auth.matchAll(/\.(?:from|rpc)\(['"]([a-z_]+)['"]/g)].map(m=>m[1]))];
   window.__hianyzo=nevek.filter(n=>!new RegExp('\\b'+n+'\\b').test(sql));
   return nevek.length>=6 && window.__hianyzo.length===0; }));
 ok('27 a fiók-törlés MINDEN felhasználói táblát takarít', await page.evaluate(async ()=>{
-  const auth=await (await fetch('js/auth.js')).text();
+  // Az Edge Function (Edző AI) táblái is felhasználói adatok.
+  const auth=await (await fetch('js/auth.js')).text() + await (await fetch('supabase/functions/coach/index.ts')).text();
   const del=await (await fetch('supabase/schema-delete-account.sql')).text();
-  const tablak=[...new Set([...auth.matchAll(/\.from\('([a-z_]+)'\)/g)].map(m=>m[1]))];
+  const tablak=[...new Set([...auth.matchAll(/\.from\(['"]([a-z_]+)['"]\)/g)].map(m=>m[1]))];
   window.__nemTorolt=tablak.filter(t=>!new RegExp('delete from public\\.'+t+'\\b').test(del));
   return tablak.length>=5 && window.__nemTorolt.length===0; }));
 
@@ -2629,10 +2630,30 @@ ok('41 kevés adatnál a kártya el sem készül', await page.evaluate(()=>{
     window.Auth.askCoach=async()=>({error:'Az edző AI egyelőre csak meghívott fiókoknak érhető el.'});
     coachAsk('Még?'); await new Promise(r=>setTimeout(r,150));
     const err=/meghívott/.test(document.querySelector('#coachLog .cmsg.err').textContent);
-    coachReset(); window.Auth=realAuth; localStorage.removeItem('gymlog_coach'); tab='home'; render();
+    coachReset(); window.Auth=realAuth; _coachQuota=null; localStorage.removeItem('gymlog_coach'); tab='home'; render();
     await new Promise(r=>setTimeout(r,250));
     return /<b>2,5 kg<\/b>/.test(html) && /Ezen a héten/.test(sent.c) && second && err; }));
 }
+
+// ---- 50. Edző: heti kérdéslimit (a szerver mondja meg, a kliens kijelzi) ----
+ok('50 a maradék kérdésszám kiíródik, limitnél a küldés letiltva', await page.evaluate(async ()=>{
+  const realAuth=window.Auth; let calls=0;
+  window.Auth=Object.assign({}, realAuth, { configured:()=>true, isLoggedIn:()=>true,
+    askCoach:async ()=>{ calls++; return calls===1 ? {reply:'ok', limit:20, remaining:1}
+      : {error:'Elérted a heti 20 kérdést.', limit:20, remaining:0, resetAt:new Date(Date.now()+864e5).toISOString()}; } });
+  localStorage.setItem('gymlog_coach','in'); tab='coach'; render(); await new Promise(r=>setTimeout(r,250));
+  const elotte=/még/.test(document.getElementById('coachBox').textContent);   // első válaszig nem tippel
+  await coachAsk('Egy');
+  const egy=/még 1 kérdés \/ 20/.test(document.getElementById('coachBox').textContent.replace(/\s+/g,' '));
+  await coachAsk('Kettő');
+  const box=document.getElementById('coachBox');
+  const tilt=/Elfogyott a heti 20 kérdés/.test(box.textContent)
+    && [...box.querySelectorAll('button')].filter(b=>/Küldés|Heti értékelés/.test(b.textContent)).every(b=>b.disabled);
+  await coachAsk('Három');            // limitnél a kliens már nem is hívja
+  const nemHivta=calls===2;
+  coachReset(); _coachQuota=null; window.Auth=realAuth; localStorage.removeItem('gymlog_coach'); tab='home'; render();
+  await new Promise(r=>setTimeout(r,250));
+  return !elotte && egy && tilt && nemHivta; }));
 
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);

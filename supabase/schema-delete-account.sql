@@ -1,6 +1,7 @@
 -- Fiók végleges törlése (App Store 5.1.1(v) és Google Play követelmény).
 -- Futtatás: Supabase → SQL Editor → Run. Feltételezi az 1. és 2. fázis
--- sémáját (schema.sql, schema-friends.sql, schema-plan-shares.sql).
+-- sémáját (schema.sql, schema-friends.sql, schema-plan-shares.sql,
+-- schema-coach.sql).
 --
 -- Elv: a kliens NEM tud auth.users sort törölni (ahhoz service_role kellene,
 -- ami sosem kerülhet a böngészőbe). Ezért egy SECURITY DEFINER függvény
@@ -29,6 +30,7 @@ begin
   -- A cascade elvileg mindent visz; a barát-kapcsolatokat és a nekünk
   -- küldött terveket azért töröljük explicit is, hogy a másik félnél se
   -- maradjon függőben lévő kérés egy már nem létező fiókra.
+  delete from public.coach_usage  where user_id = uid;
   delete from public.plan_shares  where from_user = uid or to_user = uid;
   delete from public.friendships  where requester = uid or addressee = uid;
   delete from public.shared_stats where user_id = uid;

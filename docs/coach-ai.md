@@ -17,10 +17,17 @@ Supabase Dashboard → Project Settings → Edge Functions → Secrets:
 |---|---|
 | `ANTHROPIC_API_KEY` | az 1. lépés kulcsa |
 | `COACH_ALLOWED_EMAILS` | a használható fiókok e-mail-címe(i), vesszővel |
+| `COACH_WEEKLY_LIMIT` | *(nem kötelező)* heti kérdéslimit fiókonként, alapból 20 |
 
 (`SUPABASE_URL` és `SUPABASE_ANON_KEY` alapból elérhető.)
 
-## 3. A függvény telepítése
+## 3. A kérdéslimit táblája
+
+Supabase → SQL Editor: futtasd a `supabase/schema-coach.sql`-t, majd ÚJRA a
+`supabase/schema-delete-account.sql`-t (a fiók-törlés ezt a táblát is
+takarítja). Enélkül az edző „A kérdéslimit most nem ellenőrizhető" hibát ad.
+
+## 4. A függvény telepítése
 
 Parancssorból (Supabase CLI):
 
@@ -34,6 +41,12 @@ Vagy a Dashboardon: Edge Functions → Deploy a new function → „coach" néve
 és bemásolod az `index.ts` tartalmát.
 
 ## Működés
+
+- **Heti kérdéslimit**: gördülő 7 nap, fiókonként (`COACH_WEEKLY_LIMIT`, alapból
+  20). A szerver számol a `coach_usage` táblából – a böngészőből nem
+  kerülhető meg, mert a táblán nincs törlés-jog. Csak a MEGVÁLASZOLT kérdés
+  számít, a heti értékelés is egy kérdés. Az app kiírja, mennyi maradt, és
+  mikor szabadul fel a következő.
 
 - Csak bejelentkezett ÉS az engedélyezett listán lévő fiók kap választ (403
   egyébként). A kártya a főoldalon csak bejelentkezve látszik.

@@ -1221,9 +1221,14 @@ kijelentkezve bejelentkezést kér, nem hibázik.
 - A kontextus SZÁRMAZTATOTT összefoglaló (`aiUserContext` + `weeklyReport`),
   nyers napló nem megy ki. A beszélgetés nézet-állapot (`_coachMsgs`), nem
   tárolódik.
-- A függvény nem ír adatbázisba, ezért a 27. szekció (tábla/RPC ↔ fiók-törlés)
-  nem érinti. Ha naplózni / számlálni kezd (pl. napi limit), az új táblára
-  ugyanaz a szabály vonatkozik. E2E: 49. szekció (mockolt szerverrel).
+- **Heti kérdéslimit – a SZERVER tartja be** (`COACH_WEEKLY_LIMIT`, alapból 20,
+  gördülő 7 nap): a `coach_usage` táblában minden MEGVÁLASZOLT kérdés egy sor
+  (`supabase/schema-coach.sql`). A függvény a felhasználó saját JWT-jével
+  olvas/ír, a táblán nincs törlés/módosítás-jog, így a böngészőből nem
+  nullázható. A válasz `{limit, remaining, resetAt}`-et is hoz; a kliens
+  (`_coachQuota`) csak kijelzi, az első válaszig nem tippel, és limitnél nem
+  is küld. A tábla a fiók-törlésben is benne van; a 27. szekció az Edge
+  Function `from(…)` hívásait is átnézi. E2E: 49–50. szekció (mockolt szerverrel).
 
 ## Fiók végleges törlése
 

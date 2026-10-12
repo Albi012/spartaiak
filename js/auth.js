@@ -380,8 +380,9 @@
     try{
       const { data, error } = await c.functions.invoke('coach', { body:{ messages, context } });
       if(error){
-        let msg=null; try{ msg=(await error.context.json()).error; }catch(e){}
-        return { error: msg || 'Az edző most nem érhető el.' };
+        // A szerver hibaválasza is hordozhat adatot (pl. a heti limit állását).
+        let b=null; try{ b=await error.context.json(); }catch(e){}
+        return Object.assign({}, b||{}, { error: (b&&b.error) || 'Az edző most nem érhető el.' });
       }
       return data || { error:'Üres válasz.' };
     }catch(e){ return { error:'Nincs kapcsolat az edzővel.' }; }

@@ -13,6 +13,20 @@
    (`gymlog_coach`: 'in' | 'ext'), FÜGGETLEN a `gymlog_v1`-től.
    ================================================================== */
 let _coachMsgs=[], _coachBusy=false;
+// A heti kérdéslimit állása, ahogy a SZERVER legutóbb mondta ({limit,
+// remaining, resetAt}). A limitet a szerver tartja be – ez csak kijelzés,
+// és az első válaszig null (addig nem tudjuk, nem tippelünk).
+let _coachQuota=null;
+function coachOut(){ return !!(_coachQuota && _coachQuota.remaining<=0); }
+function coachQuotaHtml(){
+  const q=_coachQuota; if(!q || q.limit==null) return '';
+  if(q.remaining<=0){
+    const d=q.resetAt ? new Date(q.resetAt) : null;
+    const when=d ? `${d.getMonth()+1}. ${d.getDate()}. ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}` : '';
+    return `<p class="small" style="margin:10px 0 0;color:var(--red)">Elfogyott a heti ${q.limit} kérdés.${when?' A következő ekkor szabadul fel: '+when+'.':''}</p>`;
+  }
+  return `<p class="small dim" style="margin:10px 0 0">Ezen a héten még <b>${q.remaining}</b> kérdés / ${q.limit}</p>`;
+}
 
 function coachMode(){ try{ const m=localStorage.getItem('gymlog_coach'); return m==='in'||m==='ext'?m:null; }catch(e){ return null; } }
 function setCoachMode(m){ try{ if(m) localStorage.setItem('gymlog_coach',m); else localStorage.removeItem('gymlog_coach'); }catch(e){} render(); window.scrollTo(0,0); }
@@ -65,11 +79,13 @@ function coachView(){
 function coachFmt(t){ return esc(t).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/\n/g,'<br>'); }
 function coachChatHtml(){
   const bubbles=_coachMsgs.map(m=>`<div class="cmsg ${m.role==='user'?'me':'ai'}${m.err?' err':''}">${coachFmt(m.content)}</div>`).join('');
-  return `<button class="btn" onclick="coachWeekly()" ${_coachBusy?'disabled':''}>Heti értékelés kérése</button>
+  const off=_coachBusy||coachOut();
+  return `<button class="btn" onclick="coachWeekly()" ${off?'disabled':''}>Heti értékelés kérése</button>
     <div id="coachLog" class="clog">${bubbles || `<p class="small dim" style="margin:0">Látja a terved, a munkasúlyaidat, a heti edzéseidet, az alvásod és a testsúlyod összefoglalóját. Nem orvos – fájdalomnál fordulj szakemberhez.</p>`}
       ${_coachBusy?'<div class="cmsg ai dim">Gondolkodik…</div>':''}</div>
     <textarea id="coachIn" rows="2" placeholder="Pl. Mennyit emeljek jövő héten fekvenyomásban?" style="width:100%;margin-top:10px;font-size:16px"></textarea>
-    <button class="btn pri" style="margin-top:8px" onclick="coachSend()" ${_coachBusy?'disabled':''}>Küldés</button>
+    <button class="btn pri" style="margin-top:8px" onclick="coachSend()" ${off?'disabled':''}>Küldés</button>
+    ${coachQuotaHtml()}
     ${_coachMsgs.length?`<button class="btn ghost" style="margin-top:6px" onclick="coachReset()">Új beszélgetés</button>`:''}`;
 }
 // Csak a csevegő dobozát festjük újra, nem az egész fület.
@@ -79,11 +95,12 @@ function coachRender(){
   const lg=document.getElementById('coachLog'); if(lg) lg.scrollTop=lg.scrollHeight;
 }
 async function coachAsk(text){
-  if(_coachBusy || !text.trim()) return;
+  if(_coachBusy || coachOut() || !text.trim()) return;
   _coachMsgs.push({role:'user', content:text.trim()});
   _coachBusy=true; coachRender();
   const r=await Auth.askCoach(_coachMsgs.filter(m=>!m.err).map(m=>({role:m.role, content:m.content})), coachContext());
   _coachBusy=false;
+  if(r && r.limit!=null) _coachQuota={limit:r.limit, remaining:r.remaining, resetAt:r.resetAt||null};
   if(r && r.reply) _coachMsgs.push({role:'assistant', content:r.reply});
   else _coachMsgs.push({role:'assistant', content:(r&&r.error)||'Az edző most nem érhető el.', err:1});
   coachRender();
