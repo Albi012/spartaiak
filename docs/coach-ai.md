@@ -37,7 +37,7 @@ Vagy a Dashboardon: Edge Functions → Deploy a new function → „coach" néve
 
 - Csak bejelentkezett ÉS az engedélyezett listán lévő fiók kap választ (403
   egyébként). A kártya a főoldalon csak bejelentkezve látszik.
-- Modell: `claude-opus-5-5`, alacsony effort; a naplóból származtatott
+- Modell: `claude-sonnet-5-5` (olcsóbb, csevegésre bőven elég), alacsony effort; a naplóból származtatott
   kontextus (`aiUserContext` + a heti export) cache-elt rendszerüzenetben megy.
 - Nagyjából: egy kérdés néhány ezer bemeneti token + pár száz kimeneti →
   kérdésenként kb. 1–3 Ft nagyságrend.

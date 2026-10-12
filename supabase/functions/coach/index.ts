@@ -62,7 +62,7 @@ Deno.serve(async (req) => {
   const client = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY")! });
   try {
     const res = await client.beta.messages.create({
-      model: "claude-opus-5-5",
+      model: "claude-sonnet-5-5",
       max_tokens: 4000,
       output_config: { effort: "low" },
       betas: ["server-side-fallback-2026-07-01"],
