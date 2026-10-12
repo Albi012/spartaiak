@@ -554,6 +554,13 @@ exportnál) – a felület egységesen érti a „hetet".
 
 Üres naplónál a kártya nem kerül ki – első indításkor nincs mit összegezni.
 
+**Megjelenés:** a hátralévő napok KOMPAKT gombsorban (`.wkleft` / `.wkgo`,
+min. 44 px; a mára beosztott arany kerettel + „Mára beosztva"), nem napnként
+egy teljes széles gombbal – ugyanez a lista lent a terv kártyáin is ott van.
+A főoldali figyelmeztetések (kihagyás, biztonsági mentés) visszafogott
+`.notice` sávok kis `.nbtn` gombbal: a főoldalon EGY elsődleges (sárga) gomb
+legyen, a „Kezdés" – emlékeztető ne versenyezzen vele.
+
 ### Nap → hétköznap beosztás (`sched`) – OPCIONÁLIS
 
 `S.sched[dayId] = [0..6]` – mely hétköznapokra tetted be azt az edzést

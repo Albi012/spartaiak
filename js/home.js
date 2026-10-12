@@ -128,14 +128,18 @@ function weekPlanCard(){
     // Beosztással: a MAI napra betett edzés kerül előre, és ki is mondjuk.
     const rend=meg.slice().sort((a,b)=>
       (schedOf(b.id).includes(maWd)?1:0)-(schedOf(a.id).includes(maWd)?1:0));
+    // A hátralévők KOMPAKT gombsorban: korábban napnként egy teljes széles
+    // gomb volt (négy nap = 280 px), pedig ugyanez a lista lent, a terv
+    // kártyáin is ott van. Itt csak a gyors indítás kell.
+    h+=`<div class="wkleft">`;
     rend.forEach(x=>{ const ma=schedOf(x.id).includes(maWd);
       const napok=schedOf(x.id).map(i=>WDAY[i]).join(', ');
-      h+=`<button class="btn" style="text-align:left;margin-top:8px${ma?';border-color:var(--brass)':''}" onclick="startDay('${x.id}')">
-      <span style="font-weight:600">${esc(x.name)}</span>
-      <span class="small dim" style="display:block;margin-top:2px">${ma?'<span style="color:var(--brass)">'+tr('Mára beosztva')+'</span> · ':(napok?esc(napok)+' · ':'')}${tr('Kezdés ›')}</span></button>`; });
+      h+=`<button class="wkgo${ma?' ma':''}" onclick="startDay('${x.id}')" aria-label="${esc(x.name)} – ${tr('Kezdés ›')}">
+      <span>${esc(x.name)}</span>${ma?`<small>${tr('Mára beosztva')}</small>`:(napok?`<small>${esc(napok)}</small>`:'')}</button>`; });
+    h+=`</div>`;
     const done=terv.filter(x=>x.done);
     if(done.length) h+=`<div class="small dim" style="margin-top:10px">${tr('Megvolt:')} ${done.map(x=>esc(x.name)+' <span style="color:var(--sage)">✓</span>').join(' · ')}</div>`;
-    h+=`<button class="btn" style="margin-top:10px;color:var(--mut)" onclick="openSchedSheet()">${schedHas()?tr('Heti beosztás módosítása'):tr('Heti beosztás megadása')}</button>`;
+    h+=`<button class="btn ghost" style="margin-top:6px;color:var(--mut);font-size:14px" onclick="openSchedSheet()">${schedHas()?tr('Heti beosztás módosítása'):tr('Heti beosztás megadása')}</button>`;
   }
   return h+`</div></div>`;
 }
@@ -156,14 +160,17 @@ function homeView(){
     <p class="mut small" style="margin:0">${done} edzés összesen · ${wk} az elmúlt 7 napban · utoljára ${ago}</p></div>`:''}`;
   // Finom emlékeztető, ha csúszol (a rendszeresség a lényeg). Magától eltűnik,
   // amint legközelebb edzel.
-  if(done && daysSince>=5 && !S.active) h+=`<div class="card" style="border-color:var(--brass)"><div class="pad">
-    <span class="cond" style="font-size:17px;font-weight:600">Már ${daysSince} napja nem edzettél</span>
-    <div class="small mut" style="margin-top:2px">A rendszeresség többet ér a tökéletes edzésnél. Válassz egy napot alább, és csak kezdd el.</div></div></div>`;
-  if(needsBackup()) h+=`<div class="card" style="border-color:var(--brass)"><div class="pad">
-    <div class="row"><div class="grow"><span class="cond" style="font-size:17px;font-weight:600">${tr('Rég mentettél biztonsági másolatot')}</span>
-    <div class="small mut" style="margin-top:2px">${tr('Kézi mentésre senki nem emlékszik, amíg el nem veszti az adatait.')}</div></div>
-    <button onclick="dismissNag()" class="small dim" style="padding:8px">${tr('Később')}</button></div>
-    <button class="btn pri" style="margin-top:10px" onclick="backup()">${tr('Mentés most')}</button></div></div>`;
+  // Figyelmeztetések: visszafogott SÁV, nem aranyszegélyes kártya nagy sárga
+  // gombbal – a főoldalon egyetlen elsődleges gomb legyen (a „Kezdés"), ne
+  // versenyezzen vele egy emlékeztető.
+  if(done && daysSince>=5 && !S.active) h+=`<div class="notice"><span class="ntdot"></span>
+    <div class="grow"><b>Már ${daysSince} napja nem edzettél</b>
+    <div class="small mut">A rendszeresség többet ér a tökéletes edzésnél – csak kezdd el.</div></div></div>`;
+  if(needsBackup()) h+=`<div class="notice"><span class="ntdot"></span>
+    <div class="grow"><b>${tr('Rég mentettél biztonsági másolatot')}</b>
+    <div class="small mut">${tr('Kézi mentésre senki nem emlékszik, amíg el nem veszti az adatait.')}</div>
+    <div class="row" style="gap:6px;margin-top:8px"><button class="nbtn" onclick="backup()">${tr('Mentés most')}</button>
+    <button onclick="dismissNag()" class="nbtn ghost">${tr('Később')}</button></div></div></div>`;
   if(injuryOn()) h+=`<div class="card" style="border-color:var(--red)"><div class="pad">
     <span class="cond" style="font-size:17px;font-weight:600;color:var(--red)">Sérülés-mód aktív – ${S.injury.parts.join(', ')}</span>
     <div class="small mut" style="margin-top:2px">Új edzésnél az érintett gyakorlatok kimaradnak, a többi súlya csökken.</div>
