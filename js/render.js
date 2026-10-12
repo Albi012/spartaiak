@@ -13,6 +13,18 @@ function kgNum(w){ const n=Math.round((+w||0)*100)/100; return String(n).replace
 function wLabel(e,w){ if(e.bw) return w>0? '+'+kgNum(w):'testsúly'; return kgNum(w) }
 function exDone(e,L){ return L && L.sets.length && L.sets.every(x=>x!=null); }
 
+// Napló + Haladás egy fülön: felül szegmens-kapcsoló. A belső `tab` érték
+// MARAD 'log' | 'prog' (sok hívó és teszt erre épül), csak a navban
+// osztoznak egy gombon. A választott al-nézetet a nav-gomb megjegyzi
+// (`_logSub`, nézet-állapot, nem tárolódik).
+let _logSub='log';
+function logSegWrap(html){
+  _logSub = tab==='prog' ? 'prog' : 'log';
+  const seg=`<div class="seg" style="margin:4px 0 10px">
+    <button class="${tab==='log'?'on':''}" onclick="tab='log';render();window.scrollTo(0,0)">${tr('Napló')}</button>
+    <button class="${tab==='prog'?'on':''}" onclick="tab='prog';render();window.scrollTo(0,0)">${tr('Haladás')}</button></div>`;
+  return html.replace('<div class="wrap">', '<div class="wrap">'+seg);
+}
 function reducedMotion(){ try{ return window.matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){ return false; } }
 function _paint(){
   const a=document.getElementById('app');
@@ -21,12 +33,14 @@ function _paint(){
   else if(playing && S.active) a.innerHTML = playerView();
   else if(tab==='home') a.innerHTML = homeView();
   else if(tab==='plans') a.innerHTML = plansView();
-  else if(tab==='log') a.innerHTML = logView();
+  else if(tab==='log') a.innerHTML = logSegWrap(logView());
   else if(tab==='friends') a.innerHTML = friendsView();
   else if(tab==='physio') a.innerHTML = physioView();
   else if(tab==='coach') a.innerHTML = coachView();
-  else a.innerHTML = progView();
-  document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('on', b.dataset.tab===tab));
+  else a.innerHTML = logSegWrap(progView());
+  // A Napló és a Haladás EGY nav-gombon osztozik (lásd logSegWrap).
+  const navTab = tab==='prog' ? 'log' : tab;
+  document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('on', b.dataset.tab===navTab));
   // Frissen rögzített szett-chip pipa-pulzusa (a nézetben, ahol látszik)
   if(justSet){ const c=a.querySelector(`.chip[data-i="${justSet.i}"]`); if(c) c.classList.add('pop'); justSet=null; }
 }

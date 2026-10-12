@@ -999,6 +999,14 @@ alatt kikapcsol (`reducedMotion()`), a haptika opcionális (`navigator.vibrate`)
   a modál-kártya és a fotó `popIn` rugóval; az alsó nav aktív ikonja
   `navPop`-ot pukkan váltáskor. Mind csak megjelenés, funkciót nem érint.
 
+## Napló + Haladás: egy nav-gomb
+
+Az alsó sáv hat füle zsúfolt volt, ezért a Napló és a Haladás egy
+nav-gombon osztozik („Napló"), felül szegmens-kapcsolóval (`logSegWrap` a
+`render.js`-ben). **A belső `tab` érték MARAD `'log'` | `'prog'`** – sok
+hívó és teszt erre épül, ne vond össze. A nav-gomb a legutóbb nézett
+al-nézetre visz (`_logSub`, nézet-állapot, nem tárolódik). E2E: 51. szekció.
+
 ## Napló: lenyitható edzés-kártyák
 
 A napló hét edzésnél 3469 px volt (négy képernyő), és ebből **1869 px – az

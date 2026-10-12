@@ -2655,6 +2655,22 @@ ok('50 a maradék kérdésszám kiíródik, limitnél a küldés letiltva', awai
   await new Promise(r=>setTimeout(r,250));
   return !elotte && egy && tilt && nemHivta; }));
 
+// ---- 51. Napló + Haladás egy nav-gombon, felül szegmens-kapcsolóval ----
+ok('51 nincs külön Haladás nav-gomb, öt fül maradt', await page.evaluate(()=>
+  !document.querySelector('.nav button[data-tab="prog"]') && document.querySelectorAll('.nav button').length===5));
+ok('51 a kapcsoló vált, a nav-gomb aktív marad és megjegyzi az al-nézetet', await page.evaluate(async ()=>{
+  const nav=()=>document.querySelector('.nav button[data-tab="log"]');
+  nav().click(); await new Promise(r=>setTimeout(r,250));
+  const seg=[...document.querySelectorAll('#app .seg button')];
+  const okLog = tab==='log' && seg.length===2 && seg[0].classList.contains('on');
+  seg[1].click(); await new Promise(r=>setTimeout(r,250));
+  const okProg = tab==='prog' && nav().classList.contains('on') && /Haladás/.test(document.querySelector('#app .top').textContent);
+  document.querySelector('.nav button[data-tab="home"]').click(); await new Promise(r=>setTimeout(r,250));
+  nav().click(); await new Promise(r=>setTimeout(r,250));
+  const emlek = tab==='prog';
+  tab='home'; _logSub='log'; render(); await new Promise(r=>setTimeout(r,250));
+  return okLog && okProg && emlek; }));
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));

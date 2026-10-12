@@ -37,7 +37,7 @@ document.getElementById('themeBtn').onclick=toggleTheme;
 if(window.matchMedia){ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{ if(currentTheme()==='auto') applyTheme(); }); }
 applyTheme();
 
-document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;render();window.scrollTo(0,0);
+document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>{tab=b.dataset.tab==='log'?_logSub:b.dataset.tab;render();window.scrollTo(0,0);
   if(tab==='friends') refreshFriends();});
 document.getElementById('sheet').onclick=e=>{ if(e.target.id==='sheet') closeSheet(); };
 document.getElementById('modal').onclick=e=>{ if(e.target.id==='modal') _closeModal(false); };
