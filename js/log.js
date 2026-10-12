@@ -34,9 +34,9 @@ function logView(){
   // görget le azért, hogy elküldje a heti összefoglalót az edzőjének.
   // A nagy „Napló" cím kikerült: a fül tetején a Napló | Haladás kapcsoló
   // már megmondja, hol vagy (logSegWrap). Itt csak a szám és a menü marad.
-  let h=`<div class="wrap"><div class="row" style="align-items:center;margin:2px 0 10px">
-    <p class="mut small grow" style="margin:0">${logFilter?shownCount+' / '+S.sessions.length:S.sessions.length} edzés</p>
-    <button class="iconbtn" aria-label="Küldés és mentés" onclick="openLogTools()">${ICON.more}</button>
+  let h=`<div class="wrap"><div class="row" style="align-items:center;margin:-6px 0 6px">
+    <span class="eyebrow grow">${logFilter?shownCount+' / '+S.sessions.length:S.sessions.length} edzés</span>
+    <button class="iconbtn ghost" aria-label="Küldés és mentés" onclick="openLogTools()">${ICON.more}</button>
     </div>`;
   // Összegző sáv (a teljes naplóból, a szűrőtől függetlenül).
   const st=progStats(), wk=S.sessions.filter(s=>weekStart(s.t)===weekStart(Date.now())).length;

@@ -1014,6 +1014,11 @@ név, változás, kis görbe, mostani súly – koppintásra `openProgDetail`):
 gyakorlatonként egy 141 px-es kártyával a fül 4465 px volt, így 2169 px. A
 havi aktivitás az edzésnaptár kártyájában van, lenyitható részként. E2E: 52.
 
+**Megjelenés:** a fül-kapcsoló `.seg.tabs` (sín + kiemelt „gomb", nem lapos
+sárga tömb – a többi `.seg` változatlan). A gyakorlatsorban görbe CSAK ott
+van, ahol a súly mozdult (vízszintes vonal 25 sorban zaj), a változás
+`.dchip` címke (`up` zsálya / `down` piros, téma-tokenből).
+
 ## Napló: lenyitható edzés-kártyák
 
 A napló hét edzésnél 3469 px volt (négy képernyő), és ebből **1869 px – az

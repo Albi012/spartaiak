@@ -113,13 +113,16 @@ function progView(){
     const e=exDef(id);
     const pts=S.sessions.filter(s=>s.log[id]&&s.log[id].sets.some(x=>x!=null)).map(s=>s.log[id].w);
     const last=pts[pts.length-1], delta=last-pts[0];
-    const sp = pts.length>1
+    // Görbe csak ott, ahol a súly tényleg mozdult: egy vízszintes vonal nem
+    // mond semmit, 25 sorban viszont zajjá áll össze.
+    const moved = pts.length>1 && Math.max(...pts)!==Math.min(...pts);
+    const sp = moved
       ? `<svg width="64" height="24" viewBox="0 0 64 24" style="flex:none;color:var(--brass)" aria-hidden="true">
            <path d="${sparkPath(pts,64,24,4)}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`
       : '<span style="width:64px;flex:none"></span>';
     h+=`<button class="row pcard" style="width:100%;padding:9px 0;border-bottom:1px solid var(--line);gap:10px;text-align:left;min-height:44px" onclick="openProgDetail('${id}')">
       <span class="grow cond" style="font-weight:600;min-width:0">${esc(exN(e))}
-        <span class="small" style="display:block;font-weight:400;${delta>0?'color:var(--sage)':'color:var(--dim)'}">${delta>0?'+'+kgNum(delta)+' kg':delta<0?kgNum(delta)+' kg':'változatlan'} · ${pts.length} alkalom</span></span>
+        <span class="small dim" style="display:block;font-weight:400;margin-top:2px">${delta?`<span class="dchip ${delta>0?'up':'down'}">${delta>0?'+':''}${kgNum(delta)} kg</span> `:''}${pts.length} alkalom</span></span>
       ${sp}
       <span class="num" style="font-size:18px;font-weight:700;flex:none;min-width:58px;text-align:right">${wLabel(e,last)}<span class="small dim" style="font-weight:400">${e.bw&&last<=0?'':' kg'}</span></span></button>`;
   });

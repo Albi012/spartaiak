@@ -20,7 +20,7 @@ function exDone(e,L){ return L && L.sets.length && L.sets.every(x=>x!=null); }
 let _logSub='log';
 function logSegWrap(html){
   _logSub = tab==='prog' ? 'prog' : 'log';
-  const seg=`<div class="seg" style="margin:4px 0 10px">
+  const seg=`<div class="seg tabs">
     <button class="${tab==='log'?'on':''}" onclick="tab='log';render();window.scrollTo(0,0)">${tr('Napló')}</button>
     <button class="${tab==='prog'?'on':''}" onclick="tab='prog';render();window.scrollTo(0,0)">${tr('Haladás')}</button></div>`;
   return html.replace('<div class="wrap">', '<div class="wrap">'+seg);

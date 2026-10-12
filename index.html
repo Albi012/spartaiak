@@ -319,6 +319,15 @@ a.btn{text-decoration:none;color:var(--ink)}
 .seg button{flex:1;background:var(--card);color:var(--mut);border:0;padding:9px 0;font-size:14px;font-weight:600}
 .seg button:active{transform:scale(var(--press-sm))}
 .seg button.on{background:var(--brass);color:var(--on-brass)}
+/* Fül-szintű kapcsoló (Napló | Haladás): sín + kiemelt „gomb", nem lapos
+   sárga tömb – az egész képernyő fölött áll, ne vigye el a figyelmet. */
+.seg.tabs{border:0;border-radius:999px;background:var(--card2);padding:4px;gap:4px;margin:4px 0 14px}
+.seg.tabs button{border-radius:999px;background:transparent;color:var(--mut);min-height:40px;padding:0}
+.seg.tabs button.on{background:var(--card);color:var(--brass);box-shadow:0 1px 6px var(--shadow)}
+.iconbtn.ghost{border-color:transparent;background:transparent}
+.dchip{display:inline-block;padding:1px 7px;border-radius:999px;font-size:12px;font-weight:600;background:var(--card2);color:var(--dim)}
+.dchip.up{background:color-mix(in srgb,var(--sage) 18%,transparent);color:var(--sage)}
+.dchip.down{background:color-mix(in srgb,var(--red) 16%,transparent);color:var(--red)}
 .hmwrap{overflow-x:auto;margin-top:8px;padding-bottom:4px}
 .hm{display:flex;gap:3px;min-width:min-content}
 .hmcol{display:flex;flex-direction:column;gap:3px}
