@@ -2260,10 +2260,10 @@ ok('41 kevés adatnál a kártya el sem készül', await page.evaluate(()=>{
     const pri=b.filter(x=>x.classList.contains('pri'));
     return pri.length===1 && /Új edzés vagy terv/.test(pri[0].textContent); }));
 
-  ok('44 a négy út a lapon érhető el, nem veszett el', await page.evaluate(async ()=>{
+  ok('44 az új-edzés utak a lapon érhetők el, nem vesztek el', await page.evaluate(async ()=>{
     openNewPlan(); await new Promise(r=>setTimeout(r,120));
     const on=[...document.querySelectorAll('#sheetIn button')].map(b=>b.getAttribute('onclick')||'').join(' ');
-    const jo=['openStarters','openAiImport','openBuilder','openProgram'].every(f=>on.includes(f));
+    const jo=['openStarters','openBuilder','openProgram'].every(f=>on.includes(f));
     closeSheet(); return jo; }));
   await wait(260);
 
@@ -2602,15 +2602,25 @@ ok('41 kevés adatnál a kártya el sem készül', await page.evaluate(()=>{
   await wait(300);
 }
 
-// ---- 49. Edző AI (a szerver-hívás itt mockolt) ----
+// ---- 49. Edző fül: mód-választó, beépített csevegés (mockolt szerver), külső AI ----
 {
-  ok('49 kijelentkezve nincs edző-kártya', await page.evaluate(()=>coachHomeCard()===''));
-  ok('49 a kérdés + a napló-kontextus megy a szervernek, a válasz megjelenik', await page.evaluate(async ()=>{
+  ok('49 az Edző fül a navban van, első nyitáskor választ kér', await page.evaluate(async ()=>{
+    localStorage.removeItem('gymlog_coach');
+    document.querySelector('.nav button[data-tab="coach"]').click(); await new Promise(r=>setTimeout(r,300));
+    const t=document.getElementById('app').textContent;
+    return tab==='coach' && /Beépített edző/.test(t) && /Saját \(külső\) AI/.test(t); }));
+  ok('49 külső módban az edzésterv-import és a heti összefoglaló itt van', await page.evaluate(async ()=>{
+    setCoachMode('ext'); await new Promise(r=>setTimeout(r,250));
+    const on=[...document.querySelectorAll('#app button')].map(b=>b.getAttribute('onclick')||'').join(' ');
+    return localStorage.getItem('gymlog_coach')==='ext' && /openAiImport/.test(on) && /openWeeklyExport/.test(on) && !document.getElementById('coachBox'); }));
+  ok('49 beépített mód kijelentkezve: bejelentkezést kér, nem hibázik', await page.evaluate(async ()=>{
+    setCoachMode('in'); await new Promise(r=>setTimeout(r,250));
+    return /be kell jelentkezned/.test(document.getElementById('app').textContent) && !document.getElementById('coachBox'); }));
+  ok('49 beépített csevegés: kérdés + kontextus a szervernek, válasz és hiba a fülön', await page.evaluate(async ()=>{
     const realAuth=window.Auth; let sent=null;
     window.Auth=Object.assign({}, realAuth, { configured:()=>true, isLoggedIn:()=>true,
       askCoach:async (m,c)=>{ sent={m,c}; return {reply:'Emelj **2,5 kg**-ot.'}; } });
-    const card=coachHomeCard()!=='';
-    openCoach(); await new Promise(r=>setTimeout(r,250));
+    render(); await new Promise(r=>setTimeout(r,250));
     document.getElementById('coachIn').value='Mennyit emeljek?'; coachSend();
     await new Promise(r=>setTimeout(r,150));
     const html=document.getElementById('coachLog').innerHTML;
@@ -2619,8 +2629,9 @@ ok('41 kevés adatnál a kártya el sem készül', await page.evaluate(()=>{
     window.Auth.askCoach=async()=>({error:'Az edző AI egyelőre csak meghívott fiókoknak érhető el.'});
     coachAsk('Még?'); await new Promise(r=>setTimeout(r,150));
     const err=/meghívott/.test(document.querySelector('#coachLog .cmsg.err').textContent);
-    coachReset(); closeSheet(); window.Auth=realAuth; await new Promise(r=>setTimeout(r,250));
-    return card && /<b>2,5 kg<\/b>/.test(html) && /Ezen a héten/.test(sent.c) && second && err; }));
+    coachReset(); window.Auth=realAuth; localStorage.removeItem('gymlog_coach'); tab='home'; render();
+    await new Promise(r=>setTimeout(r,250));
+    return /<b>2,5 kg<\/b>/.test(html) && /Ezen a héten/.test(sent.c) && second && err; }));
 }
 
 console.log('\n==== ÖSSZEGZÉS ====');

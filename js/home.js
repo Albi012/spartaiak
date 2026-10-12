@@ -214,7 +214,6 @@ function homeView(){
   // első indításkor még nincs mit összegezni.
   if(done) h+=weekPlanCard();
   // Napi testsúly + alvás – edzés nélküli napon is (mindig látható)
-  h+=coachHomeCard();
   h+=bwHomeCard();
   h+=sleepHomeCard();
   // Edzéstervek: aktív választó + a kiválasztott terv napjai
@@ -362,9 +361,8 @@ function openNewPlan(){
     <div class="row" style="align-items:baseline"><span class="eyebrow grow">Összeállítás</span>
       <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
     <h2 style="font-size:24px;margin:2px 0 4px">Új edzés vagy terv</h2>
-    <p class="mut small" style="margin:0 0 14px">Indulj kész sablonból, hozz be AI-tervet, vagy állítsd össze magad.</p>
+    <p class="mut small" style="margin:0 0 14px">Indulj kész sablonból, vagy állítsd össze magad. AI-tervet az Edző fülön kérhetsz.</p>
     <button class="btn pri" style="margin-bottom:8px" onclick="closeSheet();openStarters()">Kész edzések és tervek ›</button>
-    <button class="btn" style="margin-bottom:8px" onclick="closeSheet();openAiImport()">AI-terv importálása ›</button>
     <button class="btn" style="margin-bottom:8px" onclick="closeSheet();openBuilder()">+ Új edzés</button>
     <button class="btn" style="margin-bottom:6px" onclick="closeSheet();openProgram()">+ Új edzésterv</button>`;
   openSheet();

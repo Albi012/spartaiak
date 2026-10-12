@@ -1,40 +1,81 @@
 /* ==================================================================
-   Edző AI: csevegés + egy gombos heti értékelés.
-   A hívás a Supabase Edge Functionön megy (Auth.askCoach) – a Claude
-   API-kulcs a szerveren van, a böngészőbe sosem kerül. A kontextus a
-   naplóból SZÁRMAZTATOTT összefoglaló (aiUserContext + a heti export),
-   nyers napló nem megy ki. A beszélgetés NÉZET-állapot, nem tárolódik.
+   Edző fül: minden, ami AI edzővel kapcsolatos, egy helyen.
+   Két út, a fül első megnyitásakor választható (és a fejlécben váltható):
+   - BEÉPÍTETT: csevegés + heti értékelés az appon belül. A hívás a
+     Supabase Edge Functionön megy (Auth.askCoach) – a Claude API-kulcs a
+     szerveren van, a böngészőbe sosem kerül.
+   - KÜLSŐ: a saját AI-od (ChatGPT, Claude, …) – az app promptot ad, a
+     választ beolvassa (AI-terv importálása), és heti összefoglalót küld.
+   Az edzésterv-import MINDKÉT módban itt van, mert a beépített csevegés
+   nem ír tervet. A kontextus a naplóból SZÁRMAZTATOTT összefoglaló
+   (aiUserContext + a heti export), nyers napló nem megy ki. A beszélgetés
+   NÉZET-állapot, nem tárolódik; a választott mód külön kulcsban
+   (`gymlog_coach`: 'in' | 'ext'), FÜGGETLEN a `gymlog_v1`-től.
    ================================================================== */
 let _coachMsgs=[], _coachBusy=false;
 
+function coachMode(){ try{ const m=localStorage.getItem('gymlog_coach'); return m==='in'||m==='ext'?m:null; }catch(e){ return null; } }
+function setCoachMode(m){ try{ if(m) localStorage.setItem('gymlog_coach',m); else localStorage.removeItem('gymlog_coach'); }catch(e){} render(); window.scrollTo(0,0); }
 function coachAvailable(){ return !!(window.Auth && Auth.configured && Auth.configured() && Auth.isLoggedIn()); }
-function coachContext(){
-  return aiUserContext() + '\n\n--- Ezen a héten ---\n' + weeklyReport();
+function coachContext(){ return aiUserContext() + '\n\n--- Ezen a héten ---\n' + weeklyReport(); }
+
+function coachView(){
+  const m=coachMode();
+  let h=`<div class="wrap"><div class="row" style="align-items:flex-end;margin:4px 0 12px">
+    <div class="grow"><span class="eyebrow">Edző</span><h1 style="margin:0">AI edző</h1></div>
+    ${m?`<button class="btn ghost" style="width:auto;margin:0;padding:8px 12px" onclick="setCoachMode(null)">Mód váltása</button>`:''}</div>`;
+  if(!m){
+    h+=`<p class="mut" style="margin:0 0 14px">Melyik edzővel dolgozol? Később bármikor válthatsz.</p>
+      <div class="card"><button class="daybtn" onclick="setCoachMode('in')">
+        <span class="daytag">${ICON.coach}</span>
+        <span class="grow"><span class="cond" style="font-size:21px;font-weight:600;display:block">Beépített edző</span>
+          <span class="small dim">Az appon belül kérdezel, a naplódat ismeri. Fiók kell hozzá.</span></span>
+        <span style="color:var(--brass);font-size:22px">›</span></button></div>
+      <div class="card"><button class="daybtn" onclick="setCoachMode('ext')">
+        <span class="daytag">${ICON.share}</span>
+        <span class="grow"><span class="cond" style="font-size:21px;font-weight:600;display:block">Saját (külső) AI</span>
+          <span class="small dim">ChatGPT, Claude vagy más: az app promptot ad és beolvassa a tervet.</span></span>
+        <span style="color:var(--brass);font-size:22px">›</span></button></div>`;
+    return h+'</div>';
+  }
+  if(m==='in'){
+    if(!coachAvailable())
+      h+=`<div class="card"><div class="pad"><b>Ehhez be kell jelentkezned.</b>
+        <p class="small dim" style="margin:6px 0 10px">A beépített edző a fiókodon keresztül fut. Addig a saját AI-oddal is dolgozhatsz.</p>
+        <button class="btn pri" onclick="openAuthSheet()">Bejelentkezés</button>
+        <button class="btn" style="margin-top:8px" onclick="setCoachMode('ext')">Inkább külső AI</button></div></div>`;
+    else h+=`<div class="card"><div class="pad" id="coachBox">${coachChatHtml()}</div></div>`;
+  }
+  // Mindkét módban: terv és heti anyag a külső / valódi edzőnek.
+  h+=`<span class="eyebrow" style="display:block;margin:18px 0 8px">${m==='ext'?'A saját AI-oddal':'Edzésterv és heti anyag'}</span>
+    <div class="card"><button class="daybtn" onclick="openAiImport()">
+      <span class="daytag">${ICON.plans}</span>
+      <span class="grow"><span class="cond" style="font-size:20px;font-weight:600;display:block">Edzésterv kérése AI-tól</span>
+        <span class="small dim">Személyre szabott prompt → a válasz beolvasása saját edzéssé</span></span>
+      <span style="color:var(--brass);font-size:22px">›</span></button></div>
+    <div class="card"><button class="daybtn" onclick="openWeeklyExport()">
+      <span class="daytag">${ICON.list}</span>
+      <span class="grow"><span class="cond" style="font-size:20px;font-weight:600;display:block">Heti összefoglaló edzőnek</span>
+        <span class="small dim">Szettek, alvás, testsúly – másold be az AI-odnak vagy küldd el</span></span>
+      <span style="color:var(--brass);font-size:22px">›</span></button></div>`;
+  return h+'</div>';
 }
-function coachHomeCard(){
-  if(!coachAvailable()) return '';
-  return `<div class="card"><button class="daybtn" onclick="openCoach()">
-    <span class="daytag" style="color:var(--brass)">${ICON.friends}</span>
-    <span class="grow"><span class="cond" style="font-size:21px;font-weight:600;display:block">Edző AI</span>
-      <span class="small dim">Kérdezz a naplód alapján, vagy kérj heti értékelést</span></span>
-    <span style="color:var(--brass);font-size:22px">›</span></button></div>`;
-}
-function openCoach(){ coachRender(); openSheet(); }
+
 // Az üzenet szövege biztonságosan, bekezdésekkel (a válasz sima szöveg).
 function coachFmt(t){ return esc(t).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/\n/g,'<br>'); }
-function coachRender(){
-  const el=document.getElementById('sheetIn'); if(!el) return;
+function coachChatHtml(){
   const bubbles=_coachMsgs.map(m=>`<div class="cmsg ${m.role==='user'?'me':'ai'}${m.err?' err':''}">${coachFmt(m.content)}</div>`).join('');
-  el.innerHTML=`<div class="grabber"></div>
-    <div class="row"><div class="grow"><span class="eyebrow">Edző AI</span>
-      <h2 style="font-size:22px">Kérdezd az edződet</h2></div>
-      <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px" aria-label="Bezárás">×</button></div>
-    <button class="btn" style="margin-top:12px" onclick="coachWeekly()" ${_coachBusy?'disabled':''}>Heti értékelés kérése</button>
+  return `<button class="btn" onclick="coachWeekly()" ${_coachBusy?'disabled':''}>Heti értékelés kérése</button>
     <div id="coachLog" class="clog">${bubbles || `<p class="small dim" style="margin:0">Látja a terved, a munkasúlyaidat, a heti edzéseidet, az alvásod és a testsúlyod összefoglalóját. Nem orvos – fájdalomnál fordulj szakemberhez.</p>`}
       ${_coachBusy?'<div class="cmsg ai dim">Gondolkodik…</div>':''}</div>
     <textarea id="coachIn" rows="2" placeholder="Pl. Mennyit emeljek jövő héten fekvenyomásban?" style="width:100%;margin-top:10px;font-size:16px"></textarea>
     <button class="btn pri" style="margin-top:8px" onclick="coachSend()" ${_coachBusy?'disabled':''}>Küldés</button>
     ${_coachMsgs.length?`<button class="btn ghost" style="margin-top:6px" onclick="coachReset()">Új beszélgetés</button>`:''}`;
+}
+// Csak a csevegő dobozát festjük újra, nem az egész fület.
+function coachRender(){
+  const el=document.getElementById('coachBox'); if(!el) return;
+  el.innerHTML=coachChatHtml();
   const lg=document.getElementById('coachLog'); if(lg) lg.scrollTop=lg.scrollHeight;
 }
 async function coachAsk(text){

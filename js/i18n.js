@@ -23,7 +23,7 @@
   const DICT = {
     en: {
       // — Navigáció, fülek —
-      'Edzés':'Workout', 'Tervek':'Plans', 'Napló':'Log', 'Haladás':'Progress', 'Barátok':'Friends',
+      'Edzés':'Workout', 'Tervek':'Plans', 'Napló':'Log', 'Haladás':'Progress', 'Edző':'Coach', 'Barátok':'Friends',
 
       // — Főoldal —
       'Ez a hét':'This week',

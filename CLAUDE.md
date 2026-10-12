@@ -1046,8 +1046,8 @@ idézőjeles név sem töri el. E2E: 46. szekció.
 
 A lap alján öt egyforma, teljes szélességű gomb állt egymás alatt, pedig
 négy közülük **ugyanarra a kérdésre válaszol**: „hogyan csinálok újat?".
-Most egy elsődleges gomb (`openNewPlan`) nyitja a lapot a négy úttal: kész
-sablon → AI-import → új edzés → új terv, valószínűség szerinti sorrendben.
+Most egy elsődleges gomb (`openNewPlan`) nyitja a lapot: kész sablon → új
+edzés → új terv. (Az AI-import az Edző fülre költözött.)
 
 A **„Saját gyakorlatok kezelése" KÜLÖN maradt** – az nem új dolog
 létrehozása, hanem karbantartás; a lapra téve elrejtené egy olyan menü
@@ -1203,8 +1203,16 @@ törölt fiók után árva sor maradna, ami adatvédelmi hiba.
 ## Edző AI (csevegés + heti értékelés)
 
 `js/coach.js` + `supabase/functions/coach/index.ts`, telepítés:
-`docs/coach-ai.md`. A főoldali kártya (`coachHomeCard`) csak bejelentkezve
-látszik; a lap (`openCoach`) csevegés + „Heti értékelés kérése".
+`docs/coach-ai.md`. **Külön fül alul** (`tab==='coach'`, `coachView`): MINDEN
+AI-edzős funkció itt van. Első nyitáskor választ: **beépített** (csevegés +
+„Heti értékelés kérése" a fülön, `#coachBox`) vagy **saját/külső AI**. A
+választás a `gymlog_coach` kulcsban (`'in'|'ext'`), FÜGGETLEN a
+`gymlog_v1`-től; a „Mód váltása" törli. Az **edzésterv kérése**
+(`openAiImport`) és a **heti összefoglaló** (`openWeeklyExport`) MINDKÉT
+módban a fülön van (a beépített csevegés nem ír tervet). Az AI-import a
+Tervek „+ Új" lapjáról ezért kikerült; a heti összefoglaló a Napló ⋯
+menüjében is megmaradt (valódi edzőnek is szól). Beépített módban
+kijelentkezve bejelentkezést kér, nem hibázik.
 
 - **A Claude API-kulcs SOHA nem kerülhet a kliensbe** – a hívás az Edge
   Functionön megy (`Auth.askCoach` → `functions.invoke('coach')`), ami a

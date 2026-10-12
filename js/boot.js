@@ -19,10 +19,10 @@ function paintIcons(){
   set('#accountBtn', ICON.account);
   set('#injuryBtn', ICON.injury);
   set('#physioBtn', ICON.physio);
-  const navIcon={home:ICON.dumbbell, plans:ICON.plans, log:ICON.list, prog:ICON.chart, friends:ICON.friends};
+  const navIcon={home:ICON.dumbbell, plans:ICON.plans, log:ICON.list, prog:ICON.chart, coach:ICON.coach, friends:ICON.friends};
   // A statikus nav feliratai nem sablonból jönnek, ezért a nyelvet ITT
   // festjük rájuk (a `.nlbl` a magyar forrásszöveget hordozza kulcsként).
-  const navLbl={home:'Edzés', plans:'Tervek', log:'Napló', prog:'Haladás', friends:'Barátok'};
+  const navLbl={home:'Edzés', plans:'Tervek', log:'Napló', prog:'Haladás', coach:'Edző', friends:'Barátok'};
   document.querySelectorAll('.nav button').forEach(btn=>{
     const ic=btn.querySelector('.ic'); if(ic) ic.innerHTML = navIcon[btn.dataset.tab] || ICON.chart;
     const lb=btn.querySelector('.nlbl'); const k=navLbl[btn.dataset.tab];

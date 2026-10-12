@@ -24,6 +24,7 @@ function _paint(){
   else if(tab==='log') a.innerHTML = logView();
   else if(tab==='friends') a.innerHTML = friendsView();
   else if(tab==='physio') a.innerHTML = physioView();
+  else if(tab==='coach') a.innerHTML = coachView();
   else a.innerHTML = progView();
   document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('on', b.dataset.tab===tab));
   // Frissen rögzített szett-chip pipa-pulzusa (a nézetben, ahol látszik)
