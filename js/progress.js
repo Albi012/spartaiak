@@ -9,7 +9,7 @@ function progView(){
   S.sessions.forEach(s=>Object.keys(s.log).forEach(id=>{
     if(seen.has(id)||ids.includes(id))return;
     if(s.log[id].sets.some(x=>x!=null)) ids.push(id); }));
-  if(!ids.length) return `<div class="wrap"><div class="top"><h1 style="font-size:34px">Haladás</h1></div>
+  if(!ids.length) return `<div class="wrap">
     <div class="empty">Két-három edzés után lesz mit mutatni.</div></div>`;
   const st=progStats();
   // Készenlét-trend: 30 nap. Csak akkor kerül ki, ha legalább néhány napra
@@ -17,7 +17,8 @@ function progView(){
   const rHist=rdyHistory(30), rVals=rHist.filter(x=>x.v!=null).map(x=>x.v);
   const rAvg=rVals.length?Math.round(rVals.reduce((a,b)=>a+b,0)/rVals.length):null;
   const rNow=readiness();
-  let h=`<div class="wrap"><div class="top"><h1 style="font-size:34px">Haladás</h1></div>
+  // A cím helyett a fül tetején álló Napló | Haladás kapcsoló (logSegWrap).
+  let h=`<div class="wrap">
     <div class="card"><div class="pad"><div class="statgrid">
       ${rAvg!=null?`<div class="stat"><span class="num" data-cu="${rAvg}">${rAvg}</span><span class="statlbl">átlag készenlét</span></div>`:''}
       <div class="stat"><span class="num" data-cu="${st.total}">${st.total}</span><span class="statlbl">edzés</span></div>
@@ -44,7 +45,17 @@ function progView(){
     col.forEach(c=>{ const lvl=c.sets===0?0:c.sets<5?1:c.sets<10?2:3, op=[0,.4,.7,1][lvl];
       h+=`<span class="hmcell" style="${lvl?`background:var(--brass);opacity:${op}`:''}${c.future?';visibility:hidden':''}"></span>`; });
     h+=`</div>`; });
-  h+=`</div></div></div></div>`;
+  h+=`</div></div>`;
+  // Havi aktivitás – utolsó 6 hónap edzésszáma. Ugyanazt a kérdést
+  // válaszolja, mint a naptár („mennyit edzettem"), ezért ugyanabban a
+  // kártyában, lenyitható részként él – külön kártyaként 268 px volt.
+  const mc=monthlyCounts(6), mcMax=Math.max(1,...mc.map(m=>m.count));
+  h+=`<details class="mmfold"><summary class="small dim" style="margin-top:10px">Havi aktivitás · utolsó 6 hónap</summary><div style="margin-top:8px">`;
+  mc.forEach(m=>{ const pct=m.count?Math.max(6,Math.round(m.count/mcMax*100)):0;
+    h+=`<div class="mgrow"><span class="mglbl">${m.label}</span>
+      <span class="mgtrack"><span class="mgfill" style="--p:${(pct/100).toFixed(4)};background:var(--brass)"></span></span>
+      <span class="mgval num">${m.count}</span></div>`; });
+  h+=`</div></details></div></div>`;
   const wv=weekVolume();
   if(wv.length){
     const mx=Math.max(...wv.map(v=>v.sets));
@@ -60,16 +71,6 @@ function progView(){
         <span class="mgval num">${v.sets}</span></div>`; });
     h+=`</div></div>`;
   }
-  // Havi aktivitás – utolsó 6 hónap edzésszáma
-  const mc=monthlyCounts(6), mcMax=Math.max(1,...mc.map(m=>m.count));
-  h+=`<div class="card"><div class="pad">
-    <span class="eyebrow">Havi aktivitás · utolsó 6 hónap</span>
-    <div style="margin-top:8px">`;
-  mc.forEach(m=>{ const pct=m.count?Math.max(6,Math.round(m.count/mcMax*100)):0;
-    h+=`<div class="mgrow"><span class="mglbl">${m.label}</span>
-      <span class="mgtrack"><span class="mgfill" style="--p:${(pct/100).toFixed(4)};background:var(--brass)"></span></span>
-      <span class="mgval num">${m.count}</span></div>`; });
-  h+=`</div></div></div>`;
   // Legtöbbet fejlődő gyakorlatok
   const imp=mostImproved(3);
   if(imp.length){
@@ -101,21 +102,28 @@ function progView(){
         ${seg(wb.time,'kevés idő')}${seg(wb.busy,'gép foglalt')}${seg(wb.heavy,'túl nehéz')}
       </div></div></div>`;
   }
-  h+=`<p class="mut small" style="margin:0 2px 8px">Munkasúly gyakorlatonként · koppints a részletekért ›</p>`;
+  // Munkasúly gyakorlatonként: EGY kártya, gyakorlatonként egy sor (név,
+  // változás, kis görbe, mostani súly). Korábban gyakorlatonként egy 141 px-es
+  // kártya volt – 25 gyakorlatnál 3500 px, a fül háromnegyede. A részletes
+  // görbe a sorra koppintva ugyanúgy megnyílik (openProgDetail).
+  h+=`<div class="card"><div class="pad">
+    <span class="eyebrow">Munkasúly gyakorlatonként</span>
+    <p class="mut small" style="margin:4px 0 4px">Koppints a részletekért ›</p>`;
   ids.forEach(id=>{
     const e=exDef(id);
     const pts=S.sessions.filter(s=>s.log[id]&&s.log[id].sets.some(x=>x!=null)).map(s=>s.log[id].w);
-    const last=pts[pts.length-1], mn=Math.min(...pts), rng=(Math.max(...pts)-mn)||1;
-    const d=sparkPath(pts,100,44,6);
-    const ex=pts.length>1? 100 : 50, ey=(44-6)-((last-mn)/rng)*(44-12);
-    const delta=last-pts[0];
-    h+=`<div class="card pcard" onclick="openProgDetail('${id}')"><div class="pad">
-      <div class="row" style="align-items:baseline"><span class="cond grow" style="font-size:19px;font-weight:600">${esc(exN(e))}</span>
-      <span class="num" style="font-size:24px;font-weight:700">${wLabel(e,last)}<span class="small dim" style="font-weight:400">${e.bw&&last<=0?'':' kg'}</span></span></div>
-      <div class="small ${delta>0?'':'dim'}" style="${delta>0?'color:var(--sage)':''}">${delta>0?'+'+kgNum(delta)+' kg az indulás óta':delta<0?kgNum(delta)+' kg':'változatlan'} · ${pts.length} alkalom</div>
-      ${pts.length>1?`<svg class="spark" viewBox="0 0 100 44" preserveAspectRatio="none"><path d="${d}" fill="none" stroke="var(--brass)" stroke-width="1.6" vector-effect="non-scaling-stroke" stroke-linejoin="round"/><circle cx="${ex.toFixed(1)}" cy="${ey.toFixed(1)}" r="2.4" fill="var(--brass)" vector-effect="non-scaling-stroke"/></svg>`:''}
-      </div></div>`;
+    const last=pts[pts.length-1], delta=last-pts[0];
+    const sp = pts.length>1
+      ? `<svg width="64" height="24" viewBox="0 0 64 24" style="flex:none;color:var(--brass)" aria-hidden="true">
+           <path d="${sparkPath(pts,64,24,4)}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+      : '<span style="width:64px;flex:none"></span>';
+    h+=`<button class="row pcard" style="width:100%;padding:9px 0;border-bottom:1px solid var(--line);gap:10px;text-align:left;min-height:44px" onclick="openProgDetail('${id}')">
+      <span class="grow cond" style="font-weight:600;min-width:0">${esc(exN(e))}
+        <span class="small" style="display:block;font-weight:400;${delta>0?'color:var(--sage)':'color:var(--dim)'}">${delta>0?'+'+kgNum(delta)+' kg':delta<0?kgNum(delta)+' kg':'változatlan'} · ${pts.length} alkalom</span></span>
+      ${sp}
+      <span class="num" style="font-size:18px;font-weight:700;flex:none;min-width:58px;text-align:right">${wLabel(e,last)}<span class="small dim" style="font-weight:400">${e.bw&&last<=0?'':' kg'}</span></span></button>`;
   });
+  h+=`</div></div>`;
   return h+'</div>';
 }
 

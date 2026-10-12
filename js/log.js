@@ -22,7 +22,7 @@ function logToggle(){
   _logOpen = new Set([...document.querySelectorAll('#app .lgfold[open]')].map(d=>+d.dataset.t));
 }
 function logView(){
-  if(!S.sessions.length) return `<div class="wrap"><div class="top"><h1 style="font-size:34px">Napló</h1></div>
+  if(!S.sessions.length) return `<div class="wrap">
     <div class="empty">Még nincs lezárt edzés.<br>Kezdd az Edzés fülön.</div>
     <button class="btn" onclick="loadBundled()" style="margin-bottom:8px;color:var(--mut)">Tesztadat betöltése</button>
     <button class="btn" onclick="restore()" style="margin-bottom:20px;color:var(--mut)">Visszaállítás mentésből</button></div>`;
@@ -32,11 +32,12 @@ function logView(){
   // A küldés/mentés MŰVELETEK a fejlécbe kerültek egy menü mögé. Korábban
   // négy gomb állt a lap ALJÁN – 3400 px-re a tetejétől, ahova senki nem
   // görget le azért, hogy elküldje a heti összefoglalót az edzőjének.
-  let h=`<div class="wrap"><div class="top"><div class="row" style="align-items:flex-start">
-    <div class="grow"><h1 style="font-size:34px">Napló</h1>
-    <p class="mut small" style="margin:6px 0 0">${logFilter?shownCount+' / '+S.sessions.length:S.sessions.length} edzés</p></div>
+  // A nagy „Napló" cím kikerült: a fül tetején a Napló | Haladás kapcsoló
+  // már megmondja, hol vagy (logSegWrap). Itt csak a szám és a menü marad.
+  let h=`<div class="wrap"><div class="row" style="align-items:center;margin:2px 0 10px">
+    <p class="mut small grow" style="margin:0">${logFilter?shownCount+' / '+S.sessions.length:S.sessions.length} edzés</p>
     <button class="iconbtn" aria-label="Küldés és mentés" onclick="openLogTools()">${ICON.more}</button>
-    </div></div>`;
+    </div>`;
   // Összegző sáv (a teljes naplóból, a szűrőtől függetlenül).
   const st=progStats(), wk=S.sessions.filter(s=>weekStart(s.t)===weekStart(Date.now())).length;
   h+=`<div class="card"><div class="pad"><div class="statgrid" style="grid-template-columns:1fr 1fr 1fr">

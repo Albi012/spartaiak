@@ -1007,6 +1007,13 @@ nav-gombon osztozik („Napló"), felül szegmens-kapcsolóval (`logSegWrap` a
 hívó és teszt erre épül, ne vond össze. A nav-gomb a legutóbb nézett
 al-nézetre visz (`_logSub`, nézet-állapot, nem tárolódik). E2E: 51. szekció.
 
+**A kapcsoló alatt NINCS külön nagy cím** – a kapcsoló mondja meg, hol vagy;
+a Napló edzésszáma és ⋯ menüje egy keskeny sorban áll. A Haladáson a
+gyakorlatonkénti munkasúly **egyetlen kártya, soronként** (`.pcard` sorok:
+név, változás, kis görbe, mostani súly – koppintásra `openProgDetail`):
+gyakorlatonként egy 141 px-es kártyával a fül 4465 px volt, így 2169 px. A
+havi aktivitás az edzésnaptár kártyájában van, lenyitható részként. E2E: 52.
+
 ## Napló: lenyitható edzés-kártyák
 
 A napló hét edzésnél 3469 px volt (négy képernyő), és ebből **1869 px – az

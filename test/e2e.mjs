@@ -109,7 +109,7 @@ ok('4 napló renderel', (await page.$$('#app .card')).length>0);
 // A küldés/mentés műveletek a fejléc menü-gombja mögé kerültek (v116),
 // hogy ne a lap ALJÁN, 3400 px-re a tetejétől kelljen őket megkeresni.
 ok('4 a napló fejlécében van a küldés/mentés menü',
-   await page.$$eval('#app .top button', bs=>bs.some(b=>/openLogTools/.test(b.getAttribute('onclick')||''))));
+   await page.$$eval('#app button', bs=>bs.some(b=>/openLogTools/.test(b.getAttribute('onclick')||''))));
 ok('4 a menüben ott a heti export', await page.evaluate(async ()=>{
   openLogTools(); await new Promise(r=>setTimeout(r,120));
   const van=[...document.querySelectorAll('#sheetIn button')].some(b=>/Heti összefoglaló/.test(b.textContent));
@@ -128,7 +128,7 @@ ok('4 tombstone létrejött', await page.evaluate(()=>(S.deleted||[]).length>0))
 await nav('prog'); await wait(300);
 ok('5 statok', (await page.$$('#app .statgrid .stat')).length===4);
 ok('5 heatmap', (await page.$$('.hmcell')).length>0);
-ok('5 havi aktivitás kártya', await page.$$eval('#app .eyebrow',es=>es.some(e=>/Havi aktivitás/.test(e.textContent))));
+ok('5 havi aktivitás (a naptár kártyájában, lenyitható)', await page.$$eval('#app summary',es=>es.some(e=>/Havi aktivitás/.test(e.textContent))));
 ok('5 monthlyCounts 6 hónap', await page.evaluate(()=>monthlyCounts(6).length===6));
 ok('5 mostImproved tömb', await page.evaluate(()=>Array.isArray(mostImproved(3))));
 ok('5 whyBreakdown total szám', await page.evaluate(()=>typeof whyBreakdown().total==='number'));
@@ -2664,12 +2664,27 @@ ok('51 a kapcsoló vált, a nav-gomb aktív marad és megjegyzi az al-nézetet',
   const seg=[...document.querySelectorAll('#app .seg button')];
   const okLog = tab==='log' && seg.length===2 && seg[0].classList.contains('on');
   seg[1].click(); await new Promise(r=>setTimeout(r,250));
-  const okProg = tab==='prog' && nav().classList.contains('on') && /Haladás/.test(document.querySelector('#app .top').textContent);
+  const okProg = tab==='prog' && nav().classList.contains('on') && document.querySelectorAll('#app .seg button')[1].classList.contains('on');
   document.querySelector('.nav button[data-tab="home"]').click(); await new Promise(r=>setTimeout(r,250));
   nav().click(); await new Promise(r=>setTimeout(r,250));
   const emlek = tab==='prog';
   tab='home'; _logSub='log'; render(); await new Promise(r=>setTimeout(r,250));
   return okLog && okProg && emlek; }));
+
+// ---- 52. Napló/Haladás tömörítés ----
+await seed(backup);
+ok('52 a kapcsoló alatt nincs ismétlődő nagy cím, a ⋯ menü megmaradt', await page.evaluate(async ()=>{
+  tab='log'; render(); await new Promise(r=>setTimeout(r,250));
+  const logOk=!document.querySelector('#app h1') && !!document.querySelector('#app [onclick="openLogTools()"]');
+  tab='prog'; render(); await new Promise(r=>setTimeout(r,250));
+  const progOk=!document.querySelector('#app h1');
+  tab='home'; render(); return logOk && progOk; }));
+ok('52 a gyakorlatonkénti munkasúly EGY kártyában, soronként koppintható', await page.evaluate(async ()=>{
+  tab='prog'; render(); await new Promise(r=>setTimeout(r,250));
+  const rows=[...document.querySelectorAll('#app .pcard')];
+  const egyKartya = rows.length>0 && new Set(rows.map(r=>r.closest('.card'))).size===1;
+  const magas = rows.every(r=>r.getBoundingClientRect().height>=44 && r.getBoundingClientRect().height<80);
+  tab='home'; render(); return egyKartya && magas; }));
 
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
