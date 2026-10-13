@@ -165,7 +165,7 @@ await page.evaluate(()=>closeSheet());
 
 // ---- 6. Tervek + összeállító + superset ----
 await nav('plans'); await wait(250);
-ok('6 tervek fül', (await page.$eval('#app h1',e=>e.textContent)).includes('Tervek'));
+ok('6 tervek fül', await page.evaluate(()=>tab==='plans' && !!document.querySelector('#app [onclick="openNewPlan()"]')));
 await page.evaluate(()=>openBuilder()); await wait(200);
 ok('6 összeállító megnyílt', await page.evaluate(()=>editing==='routine'));
 await page.evaluate(()=>{ draft.name='SS teszt'; draft.ex=['bench','row','ohp']; draftToggleLink('row'); render(); }); await wait(150);
@@ -2269,7 +2269,7 @@ ok('41 kevés adatnál a kártya el sem készül', await page.evaluate(()=>{
   await wait(260);
 
   ok('44 a gyakorlat-kezelés KÜLÖN maradt (az nem új dolog létrehozása)',
-     await page.evaluate(()=>[...document.querySelectorAll('#app > .wrap > button')]
+     await page.evaluate(()=>[...document.querySelectorAll('#app .wrap button')]
        .some(b=>/openManageEx/.test(b.getAttribute('onclick')||''))));
 
   await page.evaluate(()=>{ tab='home'; render(); }); await wait(300);
@@ -2685,6 +2685,29 @@ ok('52 a gyakorlatonkénti munkasúly EGY kártyában, soronként koppintható',
   const egyKartya = rows.length>0 && new Set(rows.map(r=>r.closest('.card'))).size===1;
   const magas = rows.every(r=>r.getBoundingClientRect().height>=44 && r.getBoundingClientRect().height<80);
   tab='home'; render(); return egyKartya && magas; }));
+
+// ---- 53. Szabad edzés + Tervek fül ----
+await seed(backup);
+ok('53 szabad edzés: üresen indul, menet közben épül, naplózódik', await page.evaluate(async ()=>{
+  const n0=S.sessions.length; S.active=null;
+  await startFree(); await new Promise(r=>setTimeout(r,300));
+  const ures = S.active.day==='free' && !!document.querySelector('#rpRows, #pickerRows') && Object.keys(S.active.log).length===0;
+  closeSheet(); await new Promise(r=>setTimeout(r,300));
+  const emptyView = /Mivel kezdesz/.test(document.getElementById('app').textContent);
+  openExPicker('free'); pickerChoose('bench'); openExPicker('free'); pickerChoose('curl');
+  openExPicker('free'); pickerChoose('bench');          // duplikátum nem kerül be kétszer
+  const lista = S.active.free.join()==='bench,curl' && curEx===0 && S.active.log.curl.sets.length===exDef('curl').s;
+  S.active.log.bench.sets[0]=5; await finish(); await new Promise(r=>setTimeout(r,300));
+  const s=S.sessions[S.sessions.length-1];
+  closeSheet(); tab='home'; render();
+  return ures && emptyView && lista && S.sessions.length===n0+1 && s.day==='free' && !!s.log.bench; }));
+ok('53 Tervek fül: nincs nagy cím, egy elsődleges gomb, saját edzések egy kártyán', await page.evaluate(async ()=>{
+  S.routines=[{id:'r_t53a',name:'A',ex:['bench']},{id:'r_t53b',name:'B',ex:['curl']}]; save();
+  tab='plans'; render(); await new Promise(r=>setTimeout(r,250));
+  const pri=document.querySelectorAll('#app .btn.pri').length===1 && !document.querySelector('#app h1');
+  const rows=[...document.querySelectorAll('#app .trow')];
+  const egy = rows.length===2 && new Set(rows.map(r=>r.closest('.card'))).size===1;
+  S.routines=[]; save(); tab='home'; render(); return pri && egy; }));
 
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);

@@ -1069,7 +1069,24 @@ a név-szűrő eddig is kizárta egymást, ezért egy sorban állnak, egyetlen
 „Mind"-dal. A chip az indexével hivatkozik a névre (`setLogFilterIdx`), így
 idézőjeles név sem töri el. E2E: 46. szekció.
 
+## Szabad edzés (menet közben összerakva)
+
+`startFree()` üres edzést indít `day:'free'`-vel; a gyakorlatlista az aktív
+edzésen él (`S.active.free = [exId,…]`, additív), a `dayDef('free')` ebből
+old fel. Gyakorlatot a választó `pickerMode==='free'` ága vesz fel
+(`addToFree`: `startW` súly, `exDef` szettszám; ugyanaz az ID kétszer nem
+kerül be, csak odaugrik). Az üres állapotot a `freeEmptyView` festi (enélkül
+a lejátszó `exs[curEx]`-en elszállna). Az utolsó gyakorlaton az elsődleges
+gomb „+ Következő gyakorlat", a lezárás mellette / a fejléc pipáján.
+Belépő: főoldali kártya + a Tervek fül. A naplózott szabad edzés célja az
+`exDef` alapja. E2E: 53. szekció.
+
 ## Tervek: egyetlen „+ Új" gomb
+
+**Megjelenés (v132):** nincs nagy cím; a „+ Új" FELÜL áll, alatta a szabad
+edzés; a tervek kártyáin a nap-nevek chipek (`.tdays`), a műveletek ikonok;
+a saját edzések EGY kártyán soronként (`.trow`: koppintás = szerkesztés,
+› = indítás, × = törlés).
 
 A lap alján öt egyforma, teljes szélességű gomb állt egymás alatt, pedig
 négy közülük **ugyanarra a kérdésre válaszol**: „hogyan csinálok újat?".

@@ -261,6 +261,12 @@ function homeView(){
     loose.forEach(r=>{ const last=[...S.sessions].reverse().find(s=>s.day===r.id);
       h+=dayCard(r.id, r.name, trn(r.sub)||(r.ex.length+' '+tr('gyakorlat')), last, true); });
   }
+  // Szabad edzés: üresen indul, menet közben állítod össze.
+  if(!S.active) h+=`<div class="card"><button class="daybtn" onclick="startFree()">
+      <span class="daytag">+</span>
+      <span class="grow"><span class="cond" style="font-size:19px;font-weight:600;display:block">${tr('Szabad edzés')}</span>
+      <span class="small dim">${tr('Menet közben rakod össze, gyakorlatról gyakorlatra')}</span></span>
+      <span style="color:var(--dim);font-size:22px">›</span></button></div>`;
   // Összeállítás/kezelés a külön „Tervek" fülön. Itt csak akkor mutatunk
   // belépőt, ha nincs mit startolni (különben a főoldal a startolható
   // aktív edzésekre/tervekre fókuszál).
@@ -318,47 +324,50 @@ function physioView(){
 // „Tervek" fül: az edzések és edzéstervek KEZELÉSE (létrehozás, szerkesztés,
 // sablonok, saját gyakorlatok). A főoldal csak a startolható aktívokat mutatja.
 function plansView(){
-  let h=`<div class="wrap"><div class="top"><span class="eyebrow">Összeállítás</span>
-    <h1 style="font-size:34px;margin-top:4px">Tervek és edzések</h1>
-    <p class="mut small" style="margin:6px 0 0">Hozz létre, szerkessz, vagy válassz kész sablont.</p></div>`;
-  const plist=programsList();
+  // Ugyanaz a nyelv, mint a Naplón/Haladáson: nincs nagy cím, egy elsődleges
+  // gomb FELÜL, a karbantartó műveletek ikonként, a saját edzések egyetlen
+  // kártyán soronként (korábban edzésenként egy kártya két teljes gombbal).
+  const plist=programsList(), act=activeProg(), nR=(S.routines||[]).length;
+  const lastOf=id=>{ for(let i=S.sessions.length-1;i>=0;i--) if(S.sessions[i].day===id) return S.sessions[i]; return null; };
+  let h=`<div class="wrap"><div class="row" style="align-items:center;margin:4px 0 10px">
+    <span class="eyebrow grow">${plist.length} terv · ${nR} saját edzés</span></div>
+    <button class="btn pri" style="margin:0 0 6px" onclick="openNewPlan()">+ Új edzés vagy terv</button>
+    <button class="btn" style="margin:0 0 4px" onclick="startFree()">Szabad edzés – menet közben összerakva</button>`;
   if(plist.length){
-    h+=`<div class="top" style="padding:16px 0 6px"><span class="eyebrow">Edzéstervek</span></div>`;
+    h+=`<span class="eyebrow" style="display:block;margin:18px 0 8px">Edzéstervek</span>`;
     plist.forEach(p=>{
-      const days=p.days.map(d=>{const dd=dayDef(d);return dd?esc(dd.name):null;}).filter(Boolean).join(' · ');
-      h+=`<div class="card"><div class="pad"><div class="row" style="align-items:baseline">
-        <span class="cond grow" style="font-size:19px;font-weight:600">${esc(p.builtin?'Alapterv':p.name)}</span>
-        <span class="small dim">${p.days.length} nap</span></div>
-        <div class="small mut" style="margin:4px 0 10px">${days}</div>
-        <div class="row" style="gap:8px">
-          ${p.builtin
-            ? `<button class="btn ghost" style="flex:1;margin:0;color:var(--red)" onclick="deletePlan()">Elrejtés</button>`
-            : `<button class="btn" style="flex:1;margin:0" onclick="openProgram('${p.id}')">Szerkesztés</button>`}
-          <button class="btn" style="flex:0 0 40%;margin:0" onclick="openSharePlan('${p.id}')">Megosztás</button>
+      const isAct=act&&p.id===act.id;
+      const days=p.days.map(d=>{const dd=dayDef(d);return dd?`<span class="tday">${esc(trn(dd.name))}</span>`:'';}).join('');
+      h+=`<div class="card"><div class="pad">
+        <div class="row" style="align-items:center;gap:6px">
+          <span class="grow" style="min-width:0"><span class="cond" style="font-size:20px;font-weight:600">${esc(p.builtin?'Alapterv':p.name)}</span>
+            ${isAct?'<span class="dchip up" style="margin-left:6px">aktív</span>':''}
+            <span class="small dim" style="display:block">${p.days.length} nap</span></span>
+          ${p.builtin?'':`<button class="iconbtn ghost" onclick="openProgram('${p.id}')" aria-label="Szerkesztés" title="Szerkesztés">${ICON.edit}</button>`}
+          <button class="iconbtn ghost" onclick="openSharePlan('${p.id}')" aria-label="Megosztás" title="Megosztás">${ICON.share}</button>
+          <button class="iconbtn ghost" style="color:var(--red)" onclick="${p.builtin?'deletePlan()':`deleteProgram('${p.id}')`}" aria-label="${p.builtin?'Elrejtés':'Terv törlése'}" title="${p.builtin?'Elrejtés':'Terv törlése'}">×</button>
         </div>
-        ${p.builtin?'':`<button class="btn ghost" style="margin-top:8px;color:var(--red)" onclick="deleteProgram('${p.id}')">Terv törlése</button>`}
+        <div class="tdays">${days}</div>
+        ${isAct?'':`<button class="btn ghost" style="margin:8px 0 0" onclick="setActiveProgram('${p.id}')">Legyen ez az aktív terv</button>`}
         </div></div>`;
     });
   }
-  if((S.routines||[]).length){
-    h+=`<div class="top" style="padding:16px 0 6px"><span class="eyebrow">Saját edzések</span></div>`;
-    S.routines.forEach(r=>{
-      h+=`<div class="card"><div class="pad"><div class="row" style="align-items:baseline">
-        <span class="cond grow" style="font-size:18px;font-weight:600">${esc(r.name)}</span>
-        <span class="small dim">${r.ex.length} gyakorlat</span></div>
-        <div class="row" style="gap:8px;margin-top:8px">
-          <button class="btn" style="flex:1;margin:0" onclick="openBuilder('${r.id}')">Szerkesztés</button>
-          <button class="btn ghost" style="flex:0 0 40%;margin:0;color:var(--red)" onclick="deleteRoutine('${r.id}')">Törlés</button>
-        </div></div></div>`;
-    });
+  if(nR){
+    h+=`<span class="eyebrow" style="display:block;margin:18px 0 8px">Saját edzések</span><div class="card"><div class="pad" style="padding-top:4px;padding-bottom:4px">`;
+    S.routines.forEach(r=>{ const l=lastOf(r.id);
+      h+=`<div class="row trow">
+        <button class="grow pcard" style="text-align:left;min-height:44px;padding:8px 0;min-width:0" onclick="openBuilder('${r.id}')">
+          <span style="font-weight:600;display:block">${esc(r.name)}</span>
+          <span class="small dim">${r.ex.length} gyakorlat${l?' · utoljára '+fmtDate(l.t):''}</span></button>
+        <button class="iconbtn ghost" onclick="startDay('${r.id}')" aria-label="Indítás" title="Indítás" style="color:var(--brass)">›</button>
+        <button class="iconbtn ghost" style="color:var(--red)" onclick="deleteRoutine('${r.id}')" aria-label="Törlés" title="Törlés">×</button>
+      </div>`; });
+    h+=`</div></div>`;
   }
-  // Korábban öt egyforma, teljes szélességű gomb állt itt egymás alatt,
-  // pedig négy közülük ugyanazt a kérdést válaszolja meg: „hogyan csinálok
-  // újat?". Egy elsődleges gomb, mögötte a négy út – a „Saját gyakorlatok"
-  // marad külön, mert az nem új dolog létrehozása, hanem karbantartás.
-  h+=`<button class="btn pri" style="margin-top:14px" onclick="openNewPlan()">+ Új edzés vagy terv</button>
-      ${S.hidePlan?`<button class="btn ghost" style="margin-top:8px;color:var(--mut)" onclick="restorePlan()">Beépített alapterv visszaállítása</button>`:''}
-      <button class="btn ghost" style="margin-top:8px;margin-bottom:4px;color:var(--mut)" onclick="openManageEx()">Saját gyakorlatok kezelése${(S.customEx&&Object.keys(S.customEx).length)?' ('+Object.keys(S.customEx).length+')':''}</button>`;
+  const nC=S.customEx?Object.keys(S.customEx).length:0;
+  h+=`<div class="row" style="gap:8px;margin-top:14px;flex-wrap:wrap">
+      <button class="btn ghost" style="flex:1;margin:0;color:var(--mut)" onclick="openManageEx()">Saját gyakorlatok${nC?' ('+nC+')':''}</button>
+      ${S.hidePlan?`<button class="btn ghost" style="flex:1;margin:0;color:var(--mut)" onclick="restorePlan()">Alapterv vissza</button>`:''}</div>`;
   return h+'</div>';
 }
 // A négy „újat csinálok" út egy lapon. A sorrend a valószínűség szerint:
@@ -422,6 +431,28 @@ async function startPhysioRoutine(rid){
   d.ex.forEach(e=>{ S.active.log[e.id]={w:0, sets:new Array(e.s).fill(null)}; });
   curEx=0; playing=true; save(); render(); window.scrollTo(0,0);
 }
+// Szabad edzés: üres edzés indul, a gyakorlatokat MENET KÖZBEN veszed fel
+// (`openExPicker('free')` → `addToFree`). A napló ugyanaz, mint bármely
+// edzésnél – a `day:'free'` additív nap-azonosító.
+async function startFree(){
+  if(S.active && !(await uiConfirm('Van egy folyamatban lévő edzés. Eldobod és újat kezdesz?', {ok:'Új edzés', danger:true}))) return;
+  S.active={day:'free', t:Date.now(), log:{}, free:[], dayName:tr('Szabad edzés')}; S.activeT=Date.now();
+  curEx=0; playing=true; save(); render(); window.scrollTo(0,0);
+  openExPicker('free');
+}
+function addToFree(id){
+  if(!S.active || S.active.day!=='free') return closeSheet();
+  if(!S.active.free) S.active.free=[];
+  const e=exDef(id);
+  if(!S.active.log[id]){
+    S.active.free.push(id);
+    let w=startW(id); if(S.active.deload && !e.bw) w=roundTo(w*0.85, e.inc);
+    S.active.log[id]={w:w, sets:new Array(e.s).fill(null)};
+  }
+  curEx=S.active.free.indexOf(id); S.activeT=Date.now();
+  closeSheet(); save(); render(); window.scrollTo(0,0);
+}
+function isFreeActive(){ return !!(S.active && S.active.day==='free'); }
 function isPhysioActive(){ return !!(S.active && String(S.active.day).indexOf('physio_')===0); }
 function resumePlayer(){ if(S.active){ playing=true; render(); window.scrollTo(0,0); } }
 function pausePlayer(){ playing=false; tab='home'; stopTimer(); render(); window.scrollTo(0,0); }

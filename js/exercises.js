@@ -45,6 +45,10 @@ function dayDef(id){
       if(o.w!=null) m.ovW=1;                       // előírt SÚLY jelölése
       return m; }),
     ssLinks:(r.ssLinks||[]).slice()};
+  // Szabad edzés: menet közben épül, a gyakorlatlista az AKTÍV edzésen él
+  // (`S.active.free`). Naplózott szabad edzésnél a cél az `exDef` alapja.
+  if(id==='free') return {id:'free', name:tr('Szabad edzés'), sub:'', custom:true, free:1,
+    ex:((S.active && S.active.day==='free' && S.active.free)||[]).map(exDef).filter(Boolean)};
   if(id && id.indexOf('physio_')===0){ const reg=REHAB.find(x=>x.id===id.slice(7));
     if(reg) return {id, name:tr('Mobilitás')+' – '+trn(reg.name), sub:'5 perces rutin', custom:true, physio:1, ex:reg.ex.map(e=>physioExDef(e.id))}; }
   return null;

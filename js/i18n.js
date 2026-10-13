@@ -24,6 +24,8 @@
     en: {
       // — Navigáció, fülek —
       'Edzés':'Workout', 'Tervek':'Plans', 'Napló':'Log', 'Haladás':'Progress', 'Edző':'Coach', 'Barátok':'Friends',
+      'Szabad edzés':'Free workout', 'Menet közben rakod össze, gyakorlatról gyakorlatra':'Build it as you go, one exercise at a time', 'menet közben állítod össze':'built as you go', 'Mivel kezdesz?':'What are you starting with?', 'Vedd fel az első gyakorlatot – a többit akkor, amikor odaérsz.':'Add your first exercise – the rest when you get there.',
+      '+ Következő gyakorlat':'+ Next exercise', 'Lezárás':'Finish',
 
       // — Főoldal —
       'Ez a hét':'This week',

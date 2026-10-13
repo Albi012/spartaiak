@@ -180,7 +180,7 @@ function draftDoseReset(){
 // ezért a `pickerChoose`-on mennek át, nem közvetlenül az `addToDraft`-on.
 let pickerQ='', pickerMg='', pickerMode='draft';
 function openExPicker(mode,q){ pickerQ=q||''; pickerMg=''; pickerMode=mode||'draft'; renderPicker(); openSheet(); }
-function pickerChoose(id){ return pickerMode==='ai' ? aiBindPick(id) : addToDraft(id); }
+function pickerChoose(id){ return pickerMode==='ai' ? aiBindPick(id) : pickerMode==='free' ? addToFree(id) : addToDraft(id); }
 // A találati listát és a chipeket külön frissítjük, hogy a kereső input
 // DOM-eleme gépelés közben ne épüljön újra (megmaradjon a fókusz + kurzor).
 function pickerRowsHtml(){
@@ -281,7 +281,10 @@ function saveCustomEx(){
     rest:Math.max(10,parseInt(document.getElementById('cxRest').value)||90) };
   if(document.getElementById('cxBw').checked) def.bw=1;
   if(cxEditId){ def.id=cxEditId; S.customEx[cxEditId]=def; }
-  else { const id=uid('cx_'); def.id=id; S.customEx[id]=def; if(cxReturn==='picker' && draft) draft.ex.push(id); }
+  else { const id=uid('cx_'); def.id=id; S.customEx[id]=def;
+    // Szabad edzés közben az új gyakorlat RÖGTÖN az edzésbe kerül.
+    if(cxReturn==='picker' && pickerMode==='free' && isFreeActive()){ cxMg=''; cxReturn=null; save(); return addToFree(id); }
+    if(cxReturn==='picker' && draft) draft.ex.push(id); }
   const ret=cxReturn; cxMg=''; cxEditId=null; save();
   if(ret==='manage') openManageEx();
   else { closeSheet(); render(); }

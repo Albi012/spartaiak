@@ -20,6 +20,7 @@ function playerView(){
   const d=dayDef(S.active.day) || {name:S.active.dayName||'Edzés', ex:[]};
   const exs=d.ex.filter(x=>S.active.log[x.id]);   // sérülés miatt kihagyottak nélkül
   if(curEx>=exs.length) curEx=exs.length-1; if(curEx<0) curEx=0;
+  if(!exs.length) return freeEmptyView(d);   // szabad edzés, még üres
   const e=exs[curEx], L=S.active.log[e.id], last=lastFor(e.id), t=parseInt(e.r);
   const complete=exDone(e,L), hit=L.sets.every(x=>x!=null&&x>=t);
   const missed=L.sets.some(x=>x!=null&&x<t);
@@ -132,12 +133,33 @@ function playerView(){
     </div>
     <div class="pfoot">
       <button class="btn" onclick="exNav(${curEx-1})" ${curEx===0?'disabled':''} style="flex:0 0 40%">${tr('‹ Előző')}</button>
-      ${isLast
+      ${isLast && isFreeActive()
+        ? `<button class="btn pri" onclick="openExPicker('free')" style="flex:1">${tr('+ Következő gyakorlat')}</button>`
+        : isLast
         ? `<button class="btn pri" onclick="finish()" style="flex:1">${tr('Edzés lezárása')}</button>`
         : `<button class="btn pri" onclick="exNav(${curEx+1})" style="flex:1">${tr('Következő ›')}</button>`}
     </div>
     <div class="row" style="gap:10px;max-width:560px;margin:0 auto;padding:0 16px 16px;width:100%">
+      ${isFreeActive()&&isLast?`<button class="btn" style="flex:1;margin:0" onclick="finish()">${tr('Lezárás')}</button>`:''}
       <button class="btn" style="flex:1;margin:0" onclick="openPlayerNote()">Jegyzet${noteHasText()?' •':''}</button>
+      <button class="btn ghost" style="flex:1;margin:0;color:var(--red)" onclick="discardActive()">Edzés eldobása</button>
+    </div>
+  </div>`;
+}
+// Szabad edzés, amíg még egy gyakorlat sincs benne: egyetlen teendő van.
+function freeEmptyView(d){
+  return `<div class="player">
+    <div class="ptop">
+      <button class="iconbtn" onclick="pausePlayer()" aria-label="Szünet" title="Szünet">${ICON.back}</button>
+      <div class="pmid"><div class="d">${esc(d.name)}</div><div class="c">${tr('menet közben állítod össze')}</div></div>
+      <span style="width:44px"></span>
+    </div>
+    <div class="pmain" style="justify-content:center;text-align:center">
+      <div class="cond" style="font-size:26px;font-weight:600">${tr('Mivel kezdesz?')}</div>
+      <p class="mut small" style="margin:6px 0 18px">${tr('Vedd fel az első gyakorlatot – a többit akkor, amikor odaérsz.')}</p>
+      <button class="btn pri" onclick="openExPicker('free')">+ Gyakorlat hozzáadása</button>
+    </div>
+    <div class="row" style="gap:10px;max-width:560px;margin:0 auto;padding:0 16px 16px;width:100%">
       <button class="btn ghost" style="flex:1;margin:0;color:var(--red)" onclick="discardActive()">Edzés eldobása</button>
     </div>
   </div>`;
