@@ -1166,6 +1166,8 @@ tartsd meg – a hívási helyek arra épülnek.
 hiánya = rendszerkövetés). Ez FÜGGETLEN a `gymlog_v1` edzésadattól –
 a témaváltás soha nem érinti a naplót.
 
+**Profil lap (`openAuthSheet`, v136):** fejléc avatarral (kezdőbetű) + név/e-mail, szint-kártya, majd a fiók és a beállítások EGY-EGY kártyán soronként (`profRow`, a kapcsolók `.sw` tolókapcsolóval).
+
 **Onboarding-jelző:** külön `gymlog_onboarded` kulcs (`'1'` = látta a
 bemutatót). Szintén FÜGGETLEN a `gymlog_v1`-től. Az `openWelcome` első
 indításkor jön (üres napló + nincs jelző); a fiók-lapról bármikor

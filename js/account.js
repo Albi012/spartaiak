@@ -39,56 +39,65 @@ function updateAuthBtn(){
 // A nyelvváltás csak a FELÜLET nyelvét állítja – a napló (gyakorlat-ID-k,
 // rögzített adat) érintetlen, ahogy a témaváltás sem nyúl hozzá.
 function switchLang(l){ I18N.setLang(l); paintIcons(); render(); openAuthSheet(); }
+// Ugyanaz a nyelv, mint a fülökön: fejléc-kártya, a csoportok EGY-EGY
+// kártyán soronként (.trow), a kapcsolók kis tolókapcsolóval (.sw).
+function profRow(fn, ic, title, sub, right, col){
+  return `<button class="row trow pcard" style="width:100%;text-align:left;min-height:56px;padding:8px 0;gap:12px${col?';color:'+col:''}" onclick="${fn}">
+    <span class="cic"${col?` style="color:${col}"`:''}>${ic}</span>
+    <span class="grow" style="min-width:0"><span style="font-weight:600;display:block">${title}</span>${sub?`<span class="small dim">${sub}</span>`:''}</span>
+    ${right==null?'<span style="color:var(--dim);font-size:22px">›</span>':right}</button>`;
+}
+function swHtml(on){ return `<span class="sw${on?' on':''}" aria-hidden="true"><i></i></span>`; }
 function openAuthSheet(){
   const configured = window.Auth && Auth.configured();
   const loggedIn = window.Auth && Auth.isLoggedIn();
+  const nm=(myProfile&&myProfile.display_name)||'';
+  const mail=loggedIn?(Auth.currentUser()?.email||''):'';
+  const ini=(nm||mail||'?').trim().charAt(0).toUpperCase();
+  const card=inner=>`<div class="card"><div class="pad" style="padding-top:4px;padding-bottom:4px">${inner}</div></div>`;
+  const sect=t=>`<span class="eyebrow" style="display:block;margin:16px 0 8px">${t}</span>`;
   let h=`<div class="grabber"></div>
-    <div class="row"><div class="grow"><span class="eyebrow">Profil</span>
-    <h2 style="font-size:22px">${loggedIn?'Bejelentkezve':'Profil'}</h2></div>
-    <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>`;
+    <div class="row" style="align-items:center;gap:12px">
+      <span class="avatar">${loggedIn?esc(ini):ICON.account}</span>
+      <div class="grow" style="min-width:0"><span class="eyebrow">Profil</span>
+        <div class="cond" style="font-size:22px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${loggedIn?esc(nm||'Bejelentkezve'):'Profil'}</div>
+        ${mail?`<span class="small dim">${esc(mail)}</span>`:''}</div>
+      <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>`;
   h+=`<div style="margin-top:14px">${levelCard()}</div>`;   // szint / XP (streak-fókusz)
-  h+=`<div class="eyebrow" style="margin-top:14px">Fiók · felhő-szinkron</div>`;
+  h+=sect('Fiók · felhő-szinkron');
   if(!configured){
-    h+=`<p class="small mut" style="margin-top:12px">A felhő-szinkron még nincs beállítva ezen a példányon.
+    h+=`<div class="notice"><span class="ntdot"></span><span class="grow small">A felhő-szinkron még nincs beállítva ezen a példányon.
       Másold a <code>supabase-config.example.js</code>-t <code>supabase-config.js</code> néven, és töltsd ki a
       Supabase URL-lel és anon kulccsal. Nélküle az app localStorage-ból fut. Részletek:
-      <code>docs/1-fazis-auth-TODO.md</code>.</p>`;
+      <code>docs/1-fazis-auth-TODO.md</code>.</span></div>`;
   } else if(loggedIn){
-    const nm=(myProfile&&myProfile.display_name)||'';
-    h+=`<p class="small mut" style="margin-top:12px">${esc(Auth.currentUser()?.email||'')}</p>
-      <p class="small dim" style="margin-top:6px">Az edzésadatod a fiókodhoz szinkronizálódik.</p>
-      <div class="small dim" style="margin-top:14px">Megjelenítendő név (a barátaid ezt látják)</div>
-      <div class="row" style="gap:8px;margin-top:4px">
-        <input id="dispName" type="text" placeholder="Neved" value="${esc(nm)}" style="flex:1">
-        <button class="btn" style="width:auto;margin:0;padding:12px 16px" onclick="saveDispName()">Mentés</button>
-      </div>
-      <button class="btn pri" style="margin-top:14px" onclick="closeSheet();tab='friends';render();refreshFriends();">Barátok</button>
-      <button class="btn" style="margin-top:8px;color:var(--mut)" onclick="doSignOut()">Kijelentkezés</button>
-      <button class="btn" style="margin-top:8px;color:var(--red)" onclick="openDeleteAccount()">Fiók végleges törlése</button>`;
+    h+=`<div class="card"><div class="pad">
+        <div class="small dim">Megjelenítendő név (a barátaid ezt látják)</div>
+        <div class="row" style="gap:8px;margin-top:6px">
+          <input id="dispName" type="text" placeholder="Neved" value="${esc(nm)}" style="flex:1;min-width:0;font-size:16px">
+          <button class="btn" style="width:auto;margin:0;padding:12px 16px" onclick="saveDispName()">Mentés</button></div>
+        <div class="small dim" style="margin-top:8px">Az edzésadatod a fiókodhoz szinkronizálódik.</div></div></div>`
+      + card(profRow("closeSheet();tab='friends';render();refreshFriends();", ICON.friends, 'Barátok', 'Kód, kérések, megosztott tervek')
+        + profRow('doSignOut()', ICON.back, 'Kijelentkezés', '', '')
+        + profRow('openDeleteAccount()', '×', 'Fiók végleges törlése', '', '', 'var(--red)'));
   } else {
-    h+=`<input id="authEmail" type="email" inputmode="email" autocomplete="email" placeholder="e-mail"
-        style="width:100%;margin-top:12px">
-      <input id="authPass" type="password" autocomplete="current-password" placeholder="jelszó"
-        style="width:100%;margin-top:8px">
+    h+=`<div class="card"><div class="pad">
+      <input id="authEmail" type="email" inputmode="email" autocomplete="email" placeholder="e-mail" style="width:100%;font-size:16px">
+      <input id="authPass" type="password" autocomplete="current-password" placeholder="jelszó" style="width:100%;margin-top:8px;font-size:16px">
       <div id="authErr" class="small" style="color:var(--red);margin-top:8px;display:none"></div>
       <button class="btn pri" style="margin-top:12px" onclick="doAuth('in')">Belépés</button>
-      <button class="btn" style="margin-top:8px" onclick="doAuth('up')">Regisztráció</button>`;
+      <button class="btn ghost" style="margin-top:6px" onclick="doAuth('up')">Regisztráció</button></div></div>`;
   }
-  // Beállítások (pl. hangjelzés a pihenő végén)
-  h+=`<div class="eyebrow" style="margin-top:20px">Beállítások</div>
-    <button class="btn" style="margin-top:8px;text-align:left" onclick="toggleMute();openAuthSheet()">
-      <span class="small dim">Hangjelzés a pihenő végén</span><br>
-      <b>${restMuted()?'Kikapcsolva':'Bekapcsolva'}</b> <span class="dim">· koppints a váltáshoz</span></button>
-    <button class="btn" style="margin-top:8px;text-align:left" onclick="(async()=>{await toggleNotify();openAuthSheet();})()">
-      <span class="small dim">Időzítő értesítésben (háttérben)</span><br>
-      <b>${(function(){try{return localStorage.getItem('gymlog_notify')==='1'}catch(e){return false}})()?'Bekapcsolva':'Kikapcsolva'}</b> <span class="dim">· ha kiváltasz az appból, a pihenő ideje értesítésben látszik</span></button>`;
-  h+=`<button class="btn ghost" style="margin-top:14px;color:var(--mut)" onclick="openWelcome()">Bemutató megtekintése</button>`;
-  h+=`<div class="top" style="padding:18px 0 6px"><span class="eyebrow">${tr('Nyelv')}</span></div>
-    <div class="seg">
+  const notifOn=(function(){try{return localStorage.getItem('gymlog_notify')==='1'}catch(e){return false}})();
+  h+=sect('Beállítások')+card(
+      profRow('toggleMute();openAuthSheet()', ICON.timer||ICON.check, 'Hangjelzés a pihenő végén', restMuted()?'Kikapcsolva':'Bekapcsolva', swHtml(!restMuted()))
+    + profRow('(async()=>{await toggleNotify();openAuthSheet();})()', ICON.more||ICON.check, 'Időzítő értesítésben', 'Ha kiváltasz az appból, a pihenő ideje értesítésben látszik', swHtml(notifOn))
+    + profRow('openWelcome()', ICON.play||ICON.check, 'Bemutató megtekintése', ''));
+  h+=sect(tr('Nyelv'))+`<div class="seg">
       <button class="${I18N.getLang()==='hu'?'on':''}" onclick="switchLang('hu')">${tr('Magyar')}</button>
       <button class="${I18N.getLang()==='en'?'on':''}" onclick="switchLang('en')">${tr('Angol')}</button>
     </div>`;
-  h+=`<div class="small dim" style="text-align:center;margin-top:14px">${tr('Verzió')} ${APP_VERSION} · <a href="privacy.html" target="_blank" rel="noopener" style="color:var(--mut)">${tr('Adatvédelem')}</a></div>`;
+  h+=`<div class="small dim" style="text-align:center;margin-top:16px">${tr('Verzió')} ${APP_VERSION} · <a href="privacy.html" target="_blank" rel="noopener" style="color:var(--mut)">${tr('Adatvédelem')}</a></div>`;
   document.getElementById('sheetIn').innerHTML=h;
   openSheet();
   if(loggedIn && !myProfile){ loadProfile().then(()=>{ const s=document.getElementById('sheet');
