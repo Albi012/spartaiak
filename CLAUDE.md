@@ -1258,6 +1258,7 @@ Tervek „+ Új" lapjáról ezért kikerült; a heti összefoglaló a Napló ⋯
 menüjében is megmaradt (valódi edzőnek is szól). Beépített módban
 kijelentkezve bejelentkezést kér, nem hibázik.
 
+- **Megjelenés (v133):** nincs nagy cím, keskeny fejsor (mód + „Mód váltása”); a módválasztó és a terv/heti anyag EGY-EGY kártyán soronként (`coachRow`, `.cic` ikon-csempe), ugyanaz a nyelv, mint a Tervek fülön.
 - **A Claude API-kulcs SOHA nem kerülhet a kliensbe** – a hívás az Edge
   Functionön megy (`Auth.askCoach` → `functions.invoke('coach')`), ami a
   JWT-ből azonosít, és csak a `COACH_ALLOWED_EMAILS` listán lévő fióknak

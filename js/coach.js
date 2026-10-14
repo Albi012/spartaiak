@@ -33,45 +33,44 @@ function setCoachMode(m){ try{ if(m) localStorage.setItem('gymlog_coach',m); els
 function coachAvailable(){ return !!(window.Auth && Auth.configured && Auth.configured() && Auth.isLoggedIn()); }
 function coachContext(){ return aiUserContext() + '\n\n--- Ezen a héten ---\n' + weeklyReport(); }
 
+// Ugyanaz a nyelv, mint a Tervek/Napló fülön: nincs nagy cím, egy keskeny
+// fejsor, a választható utak EGY kártyán soronként (.trow), egy elsődleges gomb.
+function coachRow(fn, ic, title, sub){
+  return `<button class="row trow pcard" style="width:100%;text-align:left;min-height:56px;padding:10px 0;gap:12px" onclick="${fn}">
+    <span class="cic">${ic}</span>
+    <span class="grow" style="min-width:0"><span style="font-weight:600;display:block">${title}</span>
+      <span class="small dim">${sub}</span></span>
+    <span style="color:var(--dim);font-size:22px">›</span></button>`;
+}
 function coachView(){
   const m=coachMode();
-  let h=`<div class="wrap"><div class="row" style="align-items:flex-end;margin:4px 0 12px">
-    <div class="grow"><span class="eyebrow">Edző</span><h1 style="margin:0">AI edző</h1></div>
-    ${m?`<button class="btn ghost" style="width:auto;margin:0;padding:8px 12px" onclick="setCoachMode(null)">Mód váltása</button>`:''}</div>`;
+  let h=`<div class="wrap"><div class="row" style="align-items:center;margin:4px 0 10px">
+    <span class="eyebrow grow">AI edző${m?' · '+(m==='in'?'beépített':'saját AI'):''}</span>
+    ${m?`<button class="btn ghost" style="width:auto;margin:0;padding:6px 10px;min-height:44px;color:var(--mut)" onclick="setCoachMode(null)">Mód váltása</button>`:''}</div>`;
   if(!m){
-    h+=`<p class="mut" style="margin:0 0 14px">Melyik edzővel dolgozol? Később bármikor válthatsz.</p>
-      <div class="card"><button class="daybtn" onclick="setCoachMode('in')">
-        <span class="daytag">${ICON.coach}</span>
-        <span class="grow"><span class="cond" style="font-size:21px;font-weight:600;display:block">Beépített edző</span>
-          <span class="small dim">Az appon belül kérdezel, a naplódat ismeri. Fiók kell hozzá.</span></span>
-        <span style="color:var(--brass);font-size:22px">›</span></button></div>
-      <div class="card"><button class="daybtn" onclick="setCoachMode('ext')">
-        <span class="daytag">${ICON.share}</span>
-        <span class="grow"><span class="cond" style="font-size:21px;font-weight:600;display:block">Saját (külső) AI</span>
-          <span class="small dim">ChatGPT, Claude vagy más: az app promptot ad és beolvassa a tervet.</span></span>
-        <span style="color:var(--brass);font-size:22px">›</span></button></div>`;
+    h+=`<div class="card"><div class="pad">
+        <div class="cond" style="font-size:24px;font-weight:600">Melyik edzővel dolgozol?</div>
+        <p class="small dim" style="margin:4px 0 0">Később bármikor válthatsz.</p></div>
+      <div class="pad" style="padding-top:0;padding-bottom:4px">
+        ${coachRow("setCoachMode('in')", ICON.coach, 'Beépített edző', 'Az appon belül kérdezel, a naplódat ismeri. Fiók kell hozzá.')}
+        ${coachRow("setCoachMode('ext')", ICON.share, 'Saját (külső) AI', 'ChatGPT, Claude vagy más: az app promptot ad és beolvassa a tervet.')}
+      </div></div>`;
     return h+'</div>';
   }
   if(m==='in'){
     if(!coachAvailable())
-      h+=`<div class="card"><div class="pad"><b>Ehhez be kell jelentkezned.</b>
-        <p class="small dim" style="margin:6px 0 10px">A beépített edző a fiókodon keresztül fut. Addig a saját AI-oddal is dolgozhatsz.</p>
-        <button class="btn pri" onclick="openAuthSheet()">Bejelentkezés</button>
-        <button class="btn" style="margin-top:8px" onclick="setCoachMode('ext')">Inkább külső AI</button></div></div>`;
+      h+=`<div class="notice"><span class="ntdot"></span><span class="grow"><b>Ehhez be kell jelentkezned.</b>
+        <span class="small dim" style="display:block">A beépített edző a fiókodon keresztül fut. Addig a saját AI-oddal is dolgozhatsz.</span></span></div>
+        <button class="btn pri" style="margin:10px 0 0" onclick="openAuthSheet()">Bejelentkezés</button>
+        <button class="btn ghost" style="margin:6px 0 0" onclick="setCoachMode('ext')">Inkább külső AI</button>`;
     else h+=`<div class="card"><div class="pad" id="coachBox">${coachChatHtml()}</div></div>`;
   }
   // Mindkét módban: terv és heti anyag a külső / valódi edzőnek.
   h+=`<span class="eyebrow" style="display:block;margin:18px 0 8px">${m==='ext'?'A saját AI-oddal':'Edzésterv és heti anyag'}</span>
-    <div class="card"><button class="daybtn" onclick="openAiImport()">
-      <span class="daytag">${ICON.plans}</span>
-      <span class="grow"><span class="cond" style="font-size:20px;font-weight:600;display:block">Edzésterv kérése AI-tól</span>
-        <span class="small dim">Személyre szabott prompt → a válasz beolvasása saját edzéssé</span></span>
-      <span style="color:var(--brass);font-size:22px">›</span></button></div>
-    <div class="card"><button class="daybtn" onclick="openWeeklyExport()">
-      <span class="daytag">${ICON.list}</span>
-      <span class="grow"><span class="cond" style="font-size:20px;font-weight:600;display:block">Heti összefoglaló edzőnek</span>
-        <span class="small dim">Szettek, alvás, testsúly – másold be az AI-odnak vagy küldd el</span></span>
-      <span style="color:var(--brass);font-size:22px">›</span></button></div>`;
+    <div class="card"><div class="pad" style="padding-top:4px;padding-bottom:4px">
+      ${coachRow('openAiImport()', ICON.plans, 'Edzésterv kérése AI-tól', 'Személyre szabott prompt → a válasz beolvasása saját edzéssé')}
+      ${coachRow('openWeeklyExport()', ICON.list, 'Heti összefoglaló edzőnek', 'Szettek, alvás, testsúly – másold be vagy küldd el')}
+    </div></div>`;
   return h+'</div>';
 }
 
@@ -80,7 +79,7 @@ function coachFmt(t){ return esc(t).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replac
 function coachChatHtml(){
   const bubbles=_coachMsgs.map(m=>`<div class="cmsg ${m.role==='user'?'me':'ai'}${m.err?' err':''}">${coachFmt(m.content)}</div>`).join('');
   const off=_coachBusy||coachOut();
-  return `<button class="btn" onclick="coachWeekly()" ${off?'disabled':''}>Heti értékelés kérése</button>
+  return `<button class="btn" style="margin:0" onclick="coachWeekly()" ${off?'disabled':''}>Heti értékelés kérése</button>
     <div id="coachLog" class="clog">${bubbles || `<p class="small dim" style="margin:0">Látja a terved, a munkasúlyaidat, a heti edzéseidet, az alvásod és a testsúlyod összefoglalóját. Nem orvos – fájdalomnál fordulj szakemberhez.</p>`}
       ${_coachBusy?'<div class="cmsg ai dim">Gondolkodik…</div>':''}</div>
     <textarea id="coachIn" rows="2" placeholder="Pl. Mennyit emeljek jövő héten fekvenyomásban?" style="width:100%;margin-top:10px;font-size:16px"></textarea>
