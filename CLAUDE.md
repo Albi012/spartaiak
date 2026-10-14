@@ -1077,6 +1077,21 @@ felhőbe NEM megy). A `del` a síremlék MELLÉ a kukába is beteszi az edzést;
 `untomb`-bal élesíti a kulcsot, hogy a felhő-unió ne ölje meg újra.
 `TRASH_DAYS`=3 után a `trashPurge` végleg kidobja. E2E: 54.
 
+## Lejátszó-elrendezés (v137)
+
+- **A soron következő szett a főszereplő** (`.nextset`): nagy gomb „3. szett ·
+  cél · súly · Rögzítés ›", egy koppintással a rácsra. A chipek maradnak.
+- **„Következik: <név> · s×r"** sor (`.upnext`) a lábléc fölött.
+- **Az „Edzés eldobása" a ⋯ menübe került** (`openPlayerMenu`), a helyén
+  „+ Gyakorlat": BÁRMELY edzésbe felvehető gyakorlat menet közben – az
+  `S.active.extra` (additív) listán, a lejátszó sorrendjét az `activeExList()`
+  adja (nap + extra; szabad edzésnél a `free`). Aki a lejátszó sorrendjét
+  kéri, ezt hívja, ne a `dayDef(...).ex`-et.
+- A tartalom FELÜLRŐL indul (`.pmain` nem középre zárt); a készenlét-sáv halk,
+  egysoros (`.rdystrip`: pötty + szám + tanács); a „Következőre" sor egysoros,
+  az indoklás levágva (teljes szöveg a `title`-ben, koppintásra a választó).
+E2E: 56.
+
 ## Gyógytorna-lejátszó: egy nagy számláló
 
 Physio-módban a súlyállító, eszközsáv és szett-chipek helyett EGY nagy kör

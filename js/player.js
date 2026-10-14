@@ -11,14 +11,22 @@ function ssLabel(id){ const gs=ssGroups(), g=ssGroupOf(id); if(!g) return '';
   return String.fromCharCode(65+gs.indexOf(g))+(g.indexOf(id)+1); }
 // A csoport aktív (naplózott) tagjai, a routine sorrendjében.
 function ssActiveMembers(id){ const g=ssGroupOf(id); if(!g) return [];
-  const order=(dayDef(S.active.day)||{ex:[]}).ex.map(x=>x.id).filter(x=>S.active.log[x]);
+  const order=activeExList().map(x=>x.id);
   return g.filter(x=>order.indexOf(x)>=0).sort((a,b)=>order.indexOf(a)-order.indexOf(b)); }
-function gotoExId(id){ const exs=(dayDef(S.active.day)||{ex:[]}).ex.filter(x=>S.active.log[x.id]);
+// Az aktív edzés gyakorlatai a lejátszó sorrendjében: a nap (sérülés miatt
+// ki nem hagyott) gyakorlatai + az edzés KÖZBEN felvettek (`S.active.extra`,
+// additív; szabad edzésnél a `free` lista maga a nap).
+function activeExList(){ if(!S.active) return [];
+  const l=(dayDef(S.active.day)||{ex:[]}).ex.filter(x=>S.active.log[x.id]);
+  if(S.active.day!=='free') (S.active.extra||[]).forEach(id=>{
+    if(S.active.log[id] && !l.some(x=>x.id===id)) l.push(exDef(id)); });
+  return l; }
+function gotoExId(id){ const exs=activeExList();
   const i=exs.findIndex(x=>x.id===id); if(i>=0) curEx=i; }
 
 function playerView(){
   const d=dayDef(S.active.day) || {name:S.active.dayName||'Edzés', ex:[]};
-  const exs=d.ex.filter(x=>S.active.log[x.id]);   // sérülés miatt kihagyottak nélkül
+  const exs=activeExList();   // sérülés miatt kihagyottak nélkül + menet közben felvettek
   if(curEx>=exs.length) curEx=exs.length-1; if(curEx<0) curEx=0;
   if(!exs.length) return freeEmptyView(d);   // szabad edzés, még üres
   const e=exs[curEx], L=S.active.log[e.id], last=lastFor(e.id), t=parseInt(e.r);
@@ -29,9 +37,11 @@ function playerView(){
   // Készenlét-tanács: CSAK tájékoztat, a súlyt nem állítja el.
   let rdyBar='';
   if(!isPhysioActive()){ const r=readiness();
-    if(r) rdyBar=`<button class="rdystrip" style="border-color:${r.color};background:color-mix(in srgb, ${r.color} 12%, transparent)" onclick="openRdySheet()">
+    // Halk, egysoros: tanács, nem riasztás. Koppintásra a részletek.
+    if(r) rdyBar=`<button class="rdystrip" onclick="openRdySheet()">
+      <span class="rdot" style="background:${r.color}"></span>
       <span class="num" style="color:${r.color}">${r.score}</span>
-      <span class="t" style="color:${r.color}">${esc(r.label[0].toUpperCase()+r.label.slice(1))} készenlét — <b>${esc(r.hint)}</b>.</span></button>`; }
+      <span class="t">${esc(r.hint)}</span><span class="dim">›</span></button>`; }
 
   let dots='';
   exs.forEach((x,i)=>{ const done=exDone(x,S.active.log[x.id]);
@@ -74,7 +84,7 @@ function playerView(){
   if(!e.bw && L.sets.some(x=>x!=null)){
     const nx=progNext(e.id,{w:L.w,sets:L.sets},e);
     const arrow = nx.delta>0?`↑ ${wLabel(e,nx.w)} kg`:nx.delta<0?`↓ ${wLabel(e,nx.w)} kg`:`= ${wLabel(e,nx.w)} kg`;
-    hint=`<div class="hint" onclick="openProgPolicy('${e.id}')" style="cursor:pointer">Következőre: <b>${arrow}</b> · ${esc(nx.reason)} <span class="dim">›</span></div>`;
+    hint=`<button class="hint" onclick="openProgPolicy('${e.id}')" title="${esc(nx.reason)}">Következőre: <b>${arrow}</b> <span class="hr">${esc(nx.reason)}</span> <span class="dim">›</span></button>`;
   }
 
   // Állandó gyakorlat-jegyzet + fotó
@@ -92,6 +102,17 @@ function playerView(){
       ${[['busy','Gép foglalt'],['heavy','Túl nehéz volt'],['time','Kevés idő']].map(([k,lab])=>
         `<button class="whyc ${cur===k?'on':''}" onclick="setWhy('${e.id}','${k}')">${lab}</button>`).join('')}</div>`;
   }
+
+  // A soron következő szett a FŐSZEREPLŐ: egy nagy gomb, egy koppintással
+  // a rácsra (a chipek maradnak a javításhoz / áttekintéshez).
+  const ni=L.sets.findIndex(x=>x==null);
+  const nextSet = (!physioMode && ni>=0) ? `<button class="nextset" onclick="openSet('${e.id}',${ni})">
+      <span class="ns-n">${ni+1}. szett</span>
+      <span class="ns-t">cél ${esc(e.r)}${e.time?' mp':' ism.'}${e.time?'':' · '+wLabel(e,L.w)+(e.bw&&L.w<=0?'':' kg')}</span>
+      <span class="ns-go">${e.time?'Indítás':'Rögzítés'} ›</span></button>` : '';
+  // Mi jön utána – a pöttysor nevet nem mond.
+  const nx2=exs[curEx+1];
+  const upNext = nx2 ? `<button class="upnext" onclick="exNav(${curEx+1})"><span class="dim">Következik:</span> <b>${esc(exN(nx2))}</b> <span class="dim">· ${nx2.s}×${esc(nx2.r)}</span></button>` : '';
 
   const deloadBanner = S.active.deload ? `<div class="banner">Kihagyás utáni visszaépítés: kisebb súly, a célnál pár ismétléssel több.</div>` : '';
 
@@ -127,9 +148,11 @@ function playerView(){
       ${wt}
       ${tools}
       <div class="pchips">${chips}</div>
+      ${nextSet}
       ${note}${hint}`}
       ${why}
     </div>
+    ${upNext}
     <div class="pfoot">
       <button class="btn" onclick="exNav(${curEx-1})" ${curEx===0?'disabled':''} style="flex:0 0 40%">${tr('‹ Előző')}</button>
       ${isLast && isFreeActive()
@@ -139,9 +162,9 @@ function playerView(){
         : `<button class="btn pri" onclick="exNav(${curEx+1})" style="flex:1">${tr('Következő ›')}</button>`}
     </div>
     <div class="row" style="gap:10px;max-width:560px;margin:0 auto;padding:0 16px 16px;width:100%">
-      ${isFreeActive()&&isLast?`<button class="btn" style="flex:1;margin:0" onclick="finish()">${tr('Lezárás')}</button>`:''}
+      ${isFreeActive()&&isLast?`<button class="btn" style="flex:1;margin:0" onclick="finish()">${tr('Lezárás')}</button>`:`<button class="btn" style="flex:1;margin:0" onclick="openExPicker('free')">+ Gyakorlat</button>`}
       <button class="btn" style="flex:1;margin:0" onclick="openPlayerNote()">Jegyzet${noteHasText()?' •':''}</button>
-      <button class="btn ghost" style="flex:1;margin:0;color:var(--red)" onclick="discardActive()">Edzés eldobása</button>
+      <button class="iconbtn" style="flex:none;width:52px;height:52px" onclick="openPlayerMenu()" aria-label="Továbbiak" title="Továbbiak">${ICON.more}</button>
     </div>
   </div>`;
 }
@@ -200,6 +223,18 @@ function phTap(id){ if(_phFor!==id){ _phFor=id; _phCount=0; } _phCount++; try{ i
 function phStep(d){ _phCount=Math.max(0,_phCount+d); render(); }
 function phSave(id){ cur={id, i:0}; _rpePick=null; const n=_phCount; _phCount=0; setRep(n); }
 function phRedo(id){ const L=S.active.log[id]; L.sets[0]=null; _phCount=0; _phFor=id; save(); render(); }
+// A ritka, veszélyes vagy másodlagos műveletek egy lapon – az „Eldobás"
+// korábban piros, egyenrangú gombként a hüvelykujj alatt állt.
+function openPlayerMenu(){
+  document.getElementById('sheetIn').innerHTML=`<div class="grabber"></div>
+    <div class="row" style="align-items:baseline"><span class="eyebrow grow">Edzés</span>
+      <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
+    <h2 style="font-size:22px;margin:2px 0 12px">${esc(S.active.dayName||'Edzés')}</h2>
+    <button class="btn" style="margin-bottom:8px" onclick="closeSheet();openExPicker('free')">+ Gyakorlat hozzáadása</button>
+    <button class="btn" style="margin-bottom:8px" onclick="closeSheet();finish()">Edzés lezárása</button>
+    <button class="btn" style="margin-bottom:8px" onclick="closeSheet();pausePlayer()">Szünet – vissza a főoldalra</button>
+    <button class="btn ghost" style="margin-bottom:4px;color:var(--red)" onclick="closeSheet();discardActive()">Edzés eldobása</button>`;
+  openSheet(); }
 function setWhy(id,k){ const L=S.active.log[id]; L.why=(L.why===k?null:k); save(); render(); }
 
 function bump(id,dir){ const e=activeExDef(id),L=S.active.log[id];

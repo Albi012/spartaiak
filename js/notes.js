@@ -12,8 +12,7 @@ function noteDayMode(){ try{ return localStorage.getItem('gymlog_noteday')==='1'
 // Az éppen mutatott gyakorlat a lejátszóban (a playerView ugyanezt számolja).
 function playerExId(){
   if(!S.active) return null;
-  const d=dayDef(S.active.day)||{ex:[]};
-  const exs=d.ex.filter(x=>S.active.log[x.id]);
+  const exs=activeExList();
   if(!exs.length) return null;
   const e=exs[Math.max(0, Math.min(curEx, exs.length-1))];
   return e?e.id:null;

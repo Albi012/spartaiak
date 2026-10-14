@@ -283,7 +283,7 @@ function saveCustomEx(){
   if(cxEditId){ def.id=cxEditId; S.customEx[cxEditId]=def; }
   else { const id=uid('cx_'); def.id=id; S.customEx[id]=def;
     // Szabad edzés közben az új gyakorlat RÖGTÖN az edzésbe kerül.
-    if(cxReturn==='picker' && pickerMode==='free' && isFreeActive()){ cxMg=''; cxReturn=null; save(); return addToFree(id); }
+    if(cxReturn==='picker' && pickerMode==='free' && S.active){ cxMg=''; cxReturn=null; save(); return addToFree(id); }
     if(cxReturn==='picker' && draft) draft.ex.push(id); }
   const ret=cxReturn; cxMg=''; cxEditId=null; save();
   if(ret==='manage') openManageEx();

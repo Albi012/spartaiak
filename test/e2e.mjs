@@ -2742,6 +2742,21 @@ ok('55 gyógytorna: nagy számláló, koppintásonként +1, a célnál rögzít'
   stopTimer(); S.active=null; playing=false; tab='home'; render();
   return !!ring && nincsRacs && rogzitve; }));
 
+// ---- 56. Lejátszó: következő szett gomb, „Következik", ⋯ menü, + Gyakorlat ----
+ok('56 a lejátszó: nagy következő-szett gomb, „Következik" sor, eldobás a ⋯ menüben', await page.evaluate(async ()=>{
+  const bak=S.sessions; S.sessions=[]; S.active=null; await startDay('pa'); await new Promise(r=>setTimeout(r,250));
+  const app=document.getElementById('app');
+  const ns=app.querySelector('.nextset'), up=/Következik/.test(app.textContent);
+  const nincsEldobas=!/discardActive/.test(app.innerHTML);
+  ns.click(); await new Promise(r=>setTimeout(r,150));
+  const racs=!!document.querySelector('#sheetIn #repMan'); closeSheet(); await new Promise(r=>setTimeout(r,250));
+  openPlayerMenu(); const menu=/discardActive/.test(document.getElementById('sheetIn').innerHTML); closeSheet();
+  // + Gyakorlat egy RENDES edzésbe: az `extra` listán át a lejátszó sorába kerül
+  const n0=activeExList().length; openExPicker('free'); pickerChoose('x_legpress' in LIB?'x_legpress':Object.keys(LIB)[0]);
+  const plusz=activeExList().length===n0+1 && S.active.extra.length===1 && curEx===n0;
+  S.sessions=bak; S.active=null; playing=false; tab='home'; render();
+  return !!ns && up && nincsEldobas && racs && menu && plusz; }));
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));

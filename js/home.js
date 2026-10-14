@@ -180,8 +180,8 @@ function homeView(){
     </div></div></div>`;
   if(S.active){
     const d=dayDef(S.active.day) || {name:S.active.dayName||'Edzés', ex:[]};
-    const exN=d.ex.filter(e=>S.active.log[e.id]).length;
-    const doneN=d.ex.filter(e=>exDone(e,S.active.log[e.id])).length;
+    const _al=activeExList(), exN=_al.length;
+    const doneN=_al.filter(e=>exDone(e,S.active.log[e.id])).length;
     const frac=exN?doneN/exN:0, R=19, C=2*Math.PI*R, off=(C*(1-frac)).toFixed(1);
     const pct=Math.round(frac*100);
     h+=`<div class="card" style="border-color:var(--brass)"><button class="daybtn" onclick="resumePlayer()">
@@ -441,15 +441,18 @@ async function startFree(){
   openExPicker('free');
 }
 function addToFree(id){
-  if(!S.active || S.active.day!=='free') return closeSheet();
-  if(!S.active.free) S.active.free=[];
+  if(!S.active) return closeSheet();
+  // Szabad edzésnél a `free` maga a nap; bármely más edzésnél az `extra`
+  // lista viszi a menet közben felvett gyakorlatot (additív).
+  const k=S.active.day==='free'?'free':'extra';
+  if(!S.active[k]) S.active[k]=[];
   const e=exDef(id);
   if(!S.active.log[id]){
-    S.active.free.push(id);
+    S.active[k].push(id);
     let w=startW(id); if(S.active.deload && !e.bw) w=roundTo(w*0.85, e.inc);
     S.active.log[id]={w:w, sets:new Array(e.s).fill(null)};
   }
-  curEx=S.active.free.indexOf(id); S.activeT=Date.now();
+  curEx=Math.max(0, activeExList().findIndex(x=>x.id===id)); S.activeT=Date.now();
   closeSheet(); save(); render(); window.scrollTo(0,0);
 }
 function isFreeActive(){ return !!(S.active && S.active.day==='free'); }
@@ -457,6 +460,6 @@ function isPhysioActive(){ return !!(S.active && String(S.active.day).indexOf('p
 function resumePlayer(){ if(S.active){ playing=true; render(); window.scrollTo(0,0); } }
 function pausePlayer(){ playing=false; tab='home'; stopTimer(); render(); window.scrollTo(0,0); }
 async function discardActive(){ if(await uiConfirm('Biztos eldobod ezt az edzést?', {ok:'Eldobás', danger:true})){ S.active=null; S.activeT=Date.now(); playing=false; stopTimer(); tab='home'; save(); render(); window.scrollTo(0,0); } }
-function exNav(i){ const d=dayDef(S.active.day)||{ex:[]}; const n=d.ex.filter(x=>S.active.log[x.id]).length;
+function exNav(i){ const n=activeExList().length;
   curEx=Math.max(0,Math.min(n-1,i)); render(); window.scrollTo(0,0); }
 
