@@ -4,7 +4,7 @@
    ================================================================== */
 let S = {sessions:[], active:null, weights:{}, notes:{}, photos:{}, injury:null, lastBackup:0,
          customEx:{}, routines:[], programs:[], hidePlan:false, activeProgram:null,
-         deleted:[], activeT:0, prog:{}, bw:{}, sleep:{}, rdy:null, sched:{}};
+         deleted:[], activeT:0, prog:{}, bw:{}, sleep:{}, rdy:null, sched:{}, trash:[]};
 let tab='home', playing=false, curEx=0, tInt=null, tEnd=0, tLen=0, wl=null, nagOff=false;
 let logFilter=null;   // Napló szűrő a nap NEVÉRE (dayName) – null = mind
 // Napló-nézet: nap-típus szűrő (null = minden nap, 'ex' = csak edzés,
@@ -50,7 +50,7 @@ function logRdyBadge(t){
 }
 let physioRegion='';  // Gyógytorna oldal aktív testtáj (üres = első)
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v134';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v135';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';
@@ -101,7 +101,7 @@ async function save(){
   const v=JSON.stringify({sessions:S.sessions,active:S.active,weights:S.weights,
     notes:S.notes,photos:S.photos,injury:S.injury,lastBackup:S.lastBackup,
     customEx:S.customEx,routines:S.routines,programs:S.programs,hidePlan:S.hidePlan,activeProgram:S.activeProgram,
-    deleted:S.deleted,activeT:S.activeT,prog:S.prog,bw:S.bw,sleep:S.sleep,rdy:S.rdy,sched:S.sched});
+    deleted:S.deleted,activeT:S.activeT,prog:S.prog,bw:S.bw,sleep:S.sleep,rdy:S.rdy,sched:S.sched,trash:S.trash});
   const ok=await writeKey(KEY,v);
   if(!ok&&storeMode!=='none'){ storeMode='none'; render(); }
 }

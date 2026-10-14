@@ -310,7 +310,7 @@ function physioView(){
   h+=`<button class="btn pri" style="margin:0 0 12px;display:flex;align-items:center;justify-content:center;gap:8px" onclick="startPhysioRoutine('${reg.id}')">${ICON.play} 5 perces rutin – ${esc(reg.name)}</button>
     <p class="small dim" style="margin:-4px 2px 12px">Vezetett kör: minden gyakorlat 1 sor, rövid váltással; a tartásokat óra méri. Nem kerül a naplóba.</p>`;
   reg.ex.forEach(e=>{
-    h+=`<div class="card"><div class="pad">
+    h+=`<div class="card phlist"><div class="pad">
       <div class="row" style="align-items:baseline"><span class="cond grow" style="font-size:18px;font-weight:600">${esc(exN(e))}</span>
         <span class="small dim" style="white-space:nowrap">${esc(e.r)}</span></div>
       <div class="small mut" style="margin:4px 0 10px">${esc(e.cue)}</div>

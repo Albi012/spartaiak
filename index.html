@@ -307,6 +307,19 @@ a.btn{text-decoration:none;color:var(--ink)}
 .trow:last-child{border-bottom:none}
 .cic{flex:none;width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:var(--card2);color:var(--brass)}
 .cic svg{width:20px;height:20px}
+.phcard{display:flex;flex-direction:column;align-items:center;gap:12px;padding:18px 16px;border-radius:24px;border:1px solid color-mix(in srgb,var(--sage) 45%,transparent);background:color-mix(in srgb,var(--sage) 9%,var(--card))}
+.phbadge{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--sage);background:color-mix(in srgb,var(--sage) 16%,transparent)}
+.phbadge svg{width:15px;height:15px}
+.phcue{margin:0;text-align:center;color:var(--mut);font-size:15px;line-height:1.4}
+.phring{position:relative;width:min(64vw,240px);aspect-ratio:1;display:grid;place-items:center;border-radius:50%;color:var(--ink)}
+.phring svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg)}
+.phring .bg{fill:none;stroke:color-mix(in srgb,var(--sage) 18%,transparent);stroke-width:10}
+.phring .fg{fill:none;stroke:var(--sage);stroke-width:10;stroke-linecap:round;transition:stroke-dashoffset .25s var(--ease-out)}
+.phnum{font-size:76px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums;margin-top:-12px}
+.phunit{position:absolute;bottom:26%;font-size:14px;color:var(--dim);font-weight:600}
+.phring.done .phunit{color:var(--sage)}
+.phring:active{transform:scale(var(--press-md))}
+.card.phlist{border-left:3px solid var(--sage);background:color-mix(in srgb,var(--sage) 6%,var(--card))}
 .histrow{display:flex;align-items:baseline;gap:10px;padding:9px 0;border-top:1px solid var(--line)}
 .histrow .d{color:var(--mut);font-size:14px;flex:0 0 82px;font-variant-numeric:tabular-nums}
 .histrow .w{font-family:'Barlow Condensed',sans-serif;font-variant-numeric:tabular-nums;font-size:20px;font-weight:700;flex:0 0 auto}

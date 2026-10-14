@@ -1069,6 +1069,23 @@ a név-szűrő eddig is kizárta egymást, ezért egy sorban állnak, egyetlen
 „Mind"-dal. A chip az indexével hivatkozik a névre (`setLogFilterIdx`), így
 idézőjeles név sem töri el. E2E: 46. szekció.
 
+## Kuka – törölt edzés 3 napig
+
+`S.trash = [{s, at}]` (additív, `save()`/`backup()`/`restore()` viszi, a
+felhőbe NEM megy). A `del` a síremlék MELLÉ a kukába is beteszi az edzést;
+`openTrash` (Napló ⋯ menü) listázza, `trashRestore` visszateszi és
+`untomb`-bal élesíti a kulcsot, hogy a felhő-unió ne ölje meg újra.
+`TRASH_DAYS`=3 után a `trashPurge` végleg kidobja. E2E: 54.
+
+## Gyógytorna-lejátszó: egy nagy számláló
+
+Physio-módban a súlyállító, eszközsáv és szett-chipek helyett EGY nagy kör
+(`physioCounterHtml`, `.phcard` zsálya tónus + „Gyógytorna" címke + a `cue`):
+ismétlésnél koppintásonként +1 (`phTap`, a célnál magától rögzít), tartásnál
+a kör indítja az órát. A számláló nézet-állapot (`_phCount`). A gyógytorna-lap
+tételkártyái `.phlist` (zsálya szegély). A lejátszóból a **Bemelegítés gomb
+kikerült** (felhasználói kérés; az `openWarmup` függvény megmaradt). E2E: 55.
+
 ## Szabad edzés (menet közben összerakva)
 
 `startFree()` üres edzést indít `day:'free'`-vel; a gyakorlatlista az aktív

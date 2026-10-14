@@ -118,7 +118,8 @@ function openLogTools(){
     <button class="btn pri" style="margin-bottom:8px" onclick="closeSheet();openWeeklyExport()">${tr('Heti összefoglaló edzőnek')}</button>
     <button class="btn" style="margin-bottom:8px" onclick="closeSheet();copyAll()">Napló másolása szövegként</button>
     <button class="btn" style="margin-bottom:8px;color:var(--mut)" onclick="closeSheet();backup()">Biztonsági mentés (adatfájl)</button>
-    <button class="btn" style="margin-bottom:6px;color:var(--mut)" onclick="closeSheet();restore()">Visszaállítás mentésből</button>`;
+    <button class="btn" style="margin-bottom:8px;color:var(--mut)" onclick="closeSheet();restore()">Visszaállítás mentésből</button>
+    <button class="btn ghost" style="margin-bottom:6px;color:var(--mut)" onclick="openTrash()">Kuka – törölt edzések${trashPurge().length?' ('+S.trash.length+')':''}</button>`;
   openSheet();
 }
 // A mentés a TELJES állapotot viszi – azt, amit a `save()` is eltesz. Korábban
@@ -136,7 +137,7 @@ function backup(){
     sessions:S.sessions,weights:S.weights,notes:S.notes,photos:S.photos,
     customEx:S.customEx,routines:S.routines,programs:S.programs,bw:S.bw,sleep:S.sleep,rdy:S.rdy,
     prog:S.prog,injury:S.injury,hidePlan:S.hidePlan,activeProgram:S.activeProgram,
-    deleted:S.deleted,lastBackup:S.lastBackup,sched:S.sched});
+    deleted:S.deleted,lastBackup:S.lastBackup,sched:S.sched,trash:S.trash});
   const b=new Blob([v],{type:'application/json'}), u=URL.createObjectURL(b);
   const a=document.createElement('a'); a.href=u;
   a.download='edzesnaplo-'+fmtDate(Date.now()).replace(/\./g,'')+'.json';
@@ -153,6 +154,7 @@ function restore(){
       if(d.customEx)S.customEx=d.customEx; if(d.routines)S.routines=d.routines; if(d.programs)S.programs=d.programs;
       if(d.bw)S.bw=d.bw; if(d.sleep)S.sleep=d.sleep; if(d.rdy)S.rdy=d.rdy; if(d.prog)S.prog=d.prog;
       if(d.sched)S.sched=d.sched;
+      if(d.trash)S.trash=d.trash;
       // Mindegyik `if`-fel: a RÉGI, szűkebb mentésfájlok is betöltődnek, csak
       // az akkor még nem mentett mezőket hagyják érintetlenül.
       if(d.injury!==undefined) S.injury=d.injury;
@@ -317,8 +319,37 @@ function closeEditSession(){ editSess=null; editRep=null; closeSheet(); render()
 
 async function del(i, skipConfirm){ if(skipConfirm || await uiConfirm('Törlöd ezt az edzést?', {ok:'Törlés', danger:true})){
   const s=S.sessions[i];
-  if(s) tombstone((s.t||0)+'|'+(s.day||''));
-  S.sessions.splice(i,1); await save(); flushCloud(); render(); } }   // a tombstone azonnal a felhőbe
+  if(s){ tombstone((s.t||0)+'|'+(s.day||''));
+    // Kuka: a törölt edzés 3 napig visszahívható (helyi, additív `trash`).
+    trashPurge(); S.trash.push({s, at:Date.now()}); }
+  S.sessions.splice(i,1); await save(); flushCloud(); render();
+  if(s) toast('Edzés a kukában – 3 napig visszahozható (Napló ⋯ menü).'); } }
+/* ---- Kuka: törölt edzések 3 napig ----------------------------------
+   `S.trash = [{s, at}]` – additív, HELYI mező (a mentésfájl is viszi). A
+   törlés síremléke ettől változatlanul megy a felhőbe; a visszahozás
+   `untomb`-bal élesít, így a felhő-unió sem öli meg újra. */
+const TRASH_DAYS=3;
+function trashPurge(){ const lim=Date.now()-TRASH_DAYS*864e5;
+  S.trash=(S.trash||[]).filter(x=>x && x.s && x.at>lim); return S.trash; }
+async function trashRestore(i){ const it=trashPurge()[i]; if(!it) return;
+  const s=it.s; S.trash.splice(i,1);
+  untomb((s.t||0)+'|'+(s.day||''));
+  if(!S.sessions.some(x=>x.t===s.t && x.day===s.day)){ S.sessions.push(s); S.sessions.sort((a,b)=>a.t-b.t); }
+  await save(); flushCloud(); render(); toast('Edzés visszaállítva.');
+  if(S.trash.length) openTrash(); else closeSheet(); }
+function openTrash(){ const list=trashPurge();
+  const left=x=>{ const h=Math.max(0,Math.ceil((x.at+TRASH_DAYS*864e5-Date.now())/36e5)); return h>=24?Math.ceil(h/24)+' nap':h+' óra'; };
+  document.getElementById('sheetIn').innerHTML=`<div class="grabber"></div>
+    <div class="row" style="align-items:baseline"><span class="eyebrow grow">Napló</span>
+      <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
+    <h2 style="font-size:24px;margin:2px 0 4px">Kuka</h2>
+    <p class="small dim" style="margin:0 0 12px">A törölt edzés ${TRASH_DAYS} napig visszahozható, utána végleg törlődik.</p>
+    ${list.length ? `<div class="card"><div class="pad" style="padding-top:4px;padding-bottom:4px">`+list.map((x,i)=>`<div class="row trow" style="gap:10px;padding:8px 0;min-height:56px">
+      <span class="grow" style="min-width:0"><span style="font-weight:600;display:block">${esc(dayName(x.s))}</span>
+      <span class="small dim">${fmtDate(x.s.t)} · még ${left(x)}</span></span>
+      <button class="btn" style="width:auto;margin:0;padding:10px 14px;color:var(--brass)" onclick="trashRestore(${i})">Visszaállítás</button></div>`).join('')+`</div></div>`
+      : '<div class="empty">A kuka üres.</div>'}`;
+  openSheet(); }   // a tombstone azonnal a felhőbe
 function copyAll(){
   let t='Edzésnapló\n\n';
   S.sessions.forEach(s=>{ const d=dayDef(s.day)||{ex:[]};

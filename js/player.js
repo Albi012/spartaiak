@@ -57,7 +57,6 @@ function playerView(){
   let tools='';
   if(!e.time && !physioMode){
     const t=[];
-    if(!e.bw) t.push(`<button class="tool" onclick="openWarmup('${e.id}')">Bemelegítés</button>`);
     if(!e.bw) t.push(`<button class="tool" onclick="openPlateCalc(${L.w})">${ICON.dumbbell} Tárcsák</button>`);
     t.push(`<button class="tool" onclick="openProgPolicy('${e.id}')">Progresszió: ${esc(POLICY_NAME[progPolicy(e.id)].split(' ')[0])}</button>`);
     tools=`<div class="toolrow">${t.join('')}</div>`;
@@ -123,12 +122,12 @@ function playerView(){
           <button class="iconbtn" onclick="openNoteSheet('ex','${e.id}')" aria-label="Jegyzet és fotó" title="Jegyzet és fotó">${ICON.edit}</button>
         </div>
       </div>
-      ${noteBlock}
+      ${physioMode ? physioCounterHtml(e,L) : `${noteBlock}
       ${ssHint}
       ${wt}
       ${tools}
       <div class="pchips">${chips}</div>
-      ${note}${hint}
+      ${note}${hint}`}
       ${why}
     </div>
     <div class="pfoot">
@@ -164,6 +163,43 @@ function freeEmptyView(d){
     </div>
   </div>`;
 }
+/* ---- Gyógytorna-lejátszó: EGY nagy számláló -------------------------
+   Mobilitás-gyakorlatnál nincs súly és nincs szett-rács: egyetlen nagy kör
+   a feladat. Ismétlésnél minden koppintás +1 (a célnál magától rögzít),
+   tartásnál a kör indítja az órát. A kártya zsálya tónusú, hogy gyógytornát
+   sugalljon, ne edzést. A számláló NÉZET-állapot (`_phCount`). */
+let _phCount=0, _phFor='';
+function rehabCue(id){ for(const r of REHAB){ const x=r.ex.find(y=>y.id===id); if(x) return x.cue; } return ''; }
+function physioCounterHtml(e,L){
+  if(_phFor!==e.id){ _phFor=e.id; _phCount=0; }
+  const t=parseInt(e.r)||10, done=L.sets[0]!=null, cue=rehabCue(e.id);
+  const R=88, C=2*Math.PI*R;
+  const val = done ? L.sets[0] : (e.time ? t : _phCount);
+  const frac = done ? 1 : (e.time ? 0 : Math.min(1,_phCount/t));
+  const unit = e.time ? 'mp' : (done||_phCount ? '/ '+t : 'ismétlés');
+  const act = done ? `phRedo('${e.id}')` : (e.time ? `openSet('${e.id}',0)` : `phTap('${e.id}')`);
+  const lbl = done ? 'Kész – koppints az újrakezdéshez' : (e.time ? 'Koppints az óra indításához' : 'Koppints minden ismétlésnél');
+  return `<div class="phcard">
+    <span class="phbadge">${ICON.physio} Gyógytorna</span>
+    ${cue?`<p class="phcue">${esc(cue)}</p>`:''}
+    <button class="phring${done?' done':''}" onclick="${act}" aria-label="${lbl}">
+      <svg viewBox="0 0 200 200"><circle cx="100" cy="100" r="${R}" class="bg"/>
+        <circle cx="100" cy="100" r="${R}" class="fg" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${(C*(1-frac)).toFixed(1)}"/></svg>
+      <span class="phnum">${val}</span><span class="phunit">${done?'✓ kész':unit}</span></button>
+    <div class="small dim" style="text-align:center">${lbl}</div>
+    ${!done && !e.time ? `<div class="row" style="gap:8px;width:100%">
+      <button class="btn" style="flex:0 0 30%;margin:0" onclick="phStep(-1)" ${_phCount?'':'disabled'}>−1</button>
+      <button class="btn" style="flex:1;margin:0" onclick="phSave('${e.id}')" ${_phCount?'':'disabled'}>Rögzítés (${_phCount})</button></div>` : ''}
+    <div class="small dim" style="text-align:center">Fájdalmasan soha ne erőltesd.</div>
+  </div>`;
+}
+function phTap(id){ if(_phFor!==id){ _phFor=id; _phCount=0; } _phCount++; try{ if(!reducedMotion() && navigator.vibrate) navigator.vibrate(8); }catch(x){}
+  const t=parseInt(activeExDef(id).r)||10;
+  if(_phCount>=t) return phSave(id);
+  render(); }
+function phStep(d){ _phCount=Math.max(0,_phCount+d); render(); }
+function phSave(id){ cur={id, i:0}; _rpePick=null; const n=_phCount; _phCount=0; setRep(n); }
+function phRedo(id){ const L=S.active.log[id]; L.sets[0]=null; _phCount=0; _phFor=id; save(); render(); }
 function setWhy(id,k){ const L=S.active.log[id]; L.why=(L.why===k?null:k); save(); render(); }
 
 function bump(id,dir){ const e=activeExDef(id),L=S.active.log[id];

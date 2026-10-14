@@ -2709,6 +2709,39 @@ ok('53 Tervek fül: nincs nagy cím, egy elsődleges gomb, saját edzések egy k
   const egy = rows.length===2 && new Set(rows.map(r=>r.closest('.card'))).size===1;
   S.routines=[]; save(); tab='home'; render(); return pri && egy; }));
 
+// ---- 54. Kuka: törölt edzés 3 napig visszahozható ----
+await seed(backup);
+ok('54 a törölt edzés a kukába kerül és visszaállítható', await page.evaluate(async ()=>{
+  const n0=S.sessions.length, s=S.sessions[n0-1];
+  await del(n0-1, true);
+  const kukaban = S.sessions.length===n0-1 && S.trash.length===1 && S.deleted.some(d=>d.k===s.t+'|'+s.day && !d.alive);
+  openTrash(); await new Promise(r=>setTimeout(r,200));
+  const lista=/Visszaállítás/.test(document.getElementById('sheetIn').textContent);
+  await trashRestore(0); closeSheet();
+  const vissza = S.sessions.length===n0 && S.sessions.some(x=>x.t===s.t) && S.trash.length===0
+    && S.deleted.find(d=>d.k===s.t+'|'+s.day).alive===1;
+  return kukaban && lista && vissza; }));
+ok('54 3 nap után a kuka kiürül, a mentésfájl viszi', await page.evaluate(()=>{
+  S.trash=[{s:{t:1,day:'pa',log:{}}, at:Date.now()-4*864e5},{s:{t:2,day:'pa',log:{}}, at:Date.now()}];
+  const n=trashPurge().length; S.trash=[];
+  return n===1 && /trash:S\.trash/.test(backup.toString()); }));
+
+// ---- 55. Gyógytorna-lejátszó: nagy számláló, bemelegítés kikerült ----
+ok('55 a lejátszóban nincs Bemelegítés gomb', await page.evaluate(async ()=>{
+  const bak=S.sessions; S.sessions=[];        // ne kérdezzen visszaépítést
+  S.active=null; await startDay('pa'); await new Promise(r=>setTimeout(r,250));
+  const nincs=!/openWarmup/.test(document.getElementById('app').innerHTML);
+  S.sessions=bak; S.active=null; playing=false; tab='home'; render(); return nincs; }));
+ok('55 gyógytorna: nagy számláló, koppintásonként +1, a célnál rögzít', await page.evaluate(async ()=>{
+  S.active=null; await startPhysioRoutine('back'); await new Promise(r=>setTimeout(r,250));
+  const e=activeExDef(Object.keys(S.active.log)[0]);
+  const ring=document.querySelector('#app .phcard .phring');
+  const nincsRacs=!document.querySelector('#app .pchips') && !!document.querySelector('#app .phbadge');
+  const t=parseInt(e.r); for(let i=0;i<t;i++) phTap(e.id);
+  const rogzitve=S.active.log[e.id].sets[0]===t;
+  stopTimer(); S.active=null; playing=false; tab='home'; render();
+  return !!ring && nincsRacs && rogzitve; }));
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));
