@@ -1220,6 +1220,10 @@ hiánya = rendszerkövetés). Ez FÜGGETLEN a `gymlog_v1` edzésadattól –
 a témaváltás soha nem érinti a naplót.
 
 **Profil lap (`openAuthSheet`, v136):** fejléc avatarral (kezdőbetű) + név/e-mail, szint-kártya, majd a fiók és a beállítások EGY-EGY kártyán soronként (`profRow`, a kapcsolók `.sw` tolókapcsolóval).
+**v144:** a név a fejlécben helyben szerkeszthető (`_nameEdit`); mini-stat csempék (`.profstats`); szinkron-sor (`Auth.syncInfo`/`syncNow`, csak kijelzés);
+kijelentkezés megerősítéssel (`confirmSignOut`); belépésnél Google (`doOAuth`) és „Elfelejtett jelszó" (`Auth.resetPassword`);
+„Adataim" kártya (mentés + utolsó dátum, visszaállítás, Kuka); téma-választó Rendszer/Világos/Sötét (`setThemeMode` – a „Rendszer" törli a
+`gymlog_theme` kulcsot); sérülés-mód és készenlét-tényezők sorként; a fiók törlése legalul, halkan (`.profdanger`). E2E: 63.
 
 **Onboarding-jelző:** külön `gymlog_onboarded` kulcs (`'1'` = látta a
 bemutatót). Szintén FÜGGETLEN a `gymlog_v1`-től. Az `openWelcome` első

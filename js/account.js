@@ -48,6 +48,16 @@ function profRow(fn, ic, title, sub, right, col){
     ${right==null?'<span style="color:var(--dim);font-size:22px">›</span>':right}</button>`;
 }
 function swHtml(on){ return `<span class="sw${on?' on':''}" aria-hidden="true"><i></i></span>`; }
+// v144: fejléc (helyben szerkeszthető név) → szint + mini-stat → fiók
+// (szinkron-állapot) → Adataim → Beállítások (téma, nyelv, sérülés,
+// készenlét) → legalul, halkan a fiók törlése.
+let _nameEdit=false;
+function agoTxt(t){ if(!t) return ''; const m=Math.round((Date.now()-t)/6e4);
+  return m<1?'épp most':m<60?m+' perce':m<1440?Math.round(m/60)+' órája':Math.round(m/1440)+' napja'; }
+function themeSeg(){ const t=currentTheme();
+  return `<div class="seg" style="margin:8px 0">${[['auto','Rendszer'],['light','Világos'],['dark','Sötét']].map(([k,l])=>
+    `<button class="${t===k?'on':''}" onclick="setThemeMode('${k}')">${tr(l)}</button>`).join('')}</div>`; }
+function setThemeMode(m){ try{ if(m==='auto') localStorage.removeItem('gymlog_theme'); else localStorage.setItem('gymlog_theme',m); }catch(e){} applyTheme(); openAuthSheet(); }
 function openAuthSheet(){
   const configured = window.Auth && Auth.configured();
   const loggedIn = window.Auth && Auth.isLoggedIn();
@@ -56,53 +66,79 @@ function openAuthSheet(){
   const ini=(nm||mail||'?').trim().charAt(0).toUpperCase();
   const card=inner=>`<div class="card"><div class="pad" style="padding-top:4px;padding-bottom:4px">${inner}</div></div>`;
   const sect=t=>`<span class="eyebrow" style="display:block;margin:16px 0 8px">${t}</span>`;
+  const nameLine = loggedIn && _nameEdit
+    ? `<div class="row" style="gap:6px;margin:2px 0"><input id="dispName" type="text" placeholder="Neved" value="${esc(nm)}" style="flex:1;min-width:0;font-size:16px" onkeydown="if(event.key==='Enter')saveDispName()">
+        <button class="iconbtn" style="color:var(--brass)" onclick="saveDispName()" aria-label="Mentés">${ICON.check}</button></div>`
+    : `<button class="row profname" style="gap:6px;align-items:center;max-width:100%;min-height:36px" ${loggedIn?`onclick="_nameEdit=true;openAuthSheet();setTimeout(()=>{const i=document.getElementById('dispName');if(i)i.focus();},50)"`:''}>
+        <span class="cond" style="font-size:22px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${loggedIn?esc(nm||'Adj nevet'):'Profil'}</span>
+        ${loggedIn?`<span class="dim" style="width:16px;height:16px;flex:none">${ICON.edit}</span>`:''}</button>`;
   let h=`<div class="grabber"></div>
     <div class="row" style="align-items:center;gap:12px">
       <span class="avatar">${loggedIn?esc(ini):ICON.account}</span>
-      <div class="grow" style="min-width:0"><span class="eyebrow">Profil</span>
-        <div class="cond" style="font-size:22px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${loggedIn?esc(nm||'Bejelentkezve'):'Profil'}</div>
+      <div class="grow" style="min-width:0"><span class="eyebrow">Profil</span>${nameLine}
         ${mail?`<span class="small dim">${esc(mail)}</span>`:''}</div>
-      <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>`;
-  h+=`<div style="margin-top:14px">${levelCard()}</div>`;   // szint / XP (streak-fókusz)
+      <button onclick="_nameEdit=false;closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>`;
+  h+=`<div style="margin-top:14px">${levelCard()}</div>`;
+  // Mini-statisztika – rólad, nem a fiókról.
+  const ps=progStats(), first=S.sessions.length?Math.min(...S.sessions.map(s=>s.t)):0;
+  const tile=(v,l)=>`<div class="frtile"><div class="num" style="font-size:22px;font-weight:700">${v}</div><div class="small dim">${l}</div></div>`;
+  h+=`<div class="frtiles profstats">${tile(ps.total,'edzés')}${tile(ps.month,'e hónapban')}${tile(first?`<span style="font-size:15px">${friendlyDate(first)}</span>`:'–','óta naplózol')}</div>`;
   h+=sect('Fiók · felhő-szinkron');
   if(!configured){
-    h+=`<div class="notice"><span class="ntdot"></span><span class="grow small">A felhő-szinkron még nincs beállítva ezen a példányon.
-      Másold a <code>supabase-config.example.js</code>-t <code>supabase-config.js</code> néven, és töltsd ki a
-      Supabase URL-lel és anon kulccsal. Nélküle az app localStorage-ból fut. Részletek:
-      <code>docs/1-fazis-auth-TODO.md</code>.</span></div>`;
+    h+=`<div class="notice"><span class="ntdot"></span><span class="grow small">Ezen a példányon nincs felhő-fiók – a naplód a telefonodon van. Készíts néha biztonsági mentést (lent, az Adataim alatt).</span></div>`;
   } else if(loggedIn){
-    h+=`<div class="card"><div class="pad">
-        <div class="small dim">Megjelenítendő név (a barátaid ezt látják)</div>
-        <div class="row" style="gap:8px;margin-top:6px">
-          <input id="dispName" type="text" placeholder="Neved" value="${esc(nm)}" style="flex:1;min-width:0;font-size:16px">
-          <button class="btn" style="width:auto;margin:0;padding:12px 16px" onclick="saveDispName()">Mentés</button></div>
-        <div class="small dim" style="margin-top:8px">Az edzésadatod a fiókodhoz szinkronizálódik.</div></div></div>`
-      + card(profRow("closeSheet();tab='friends';render();refreshFriends();", ICON.friends, 'Barátok', 'Kód, kérések, megosztott tervek')
-        + profRow('doSignOut()', ICON.back, 'Kijelentkezés', '', '')
-        + profRow('openDeleteAccount()', '×', 'Fiók végleges törlése', '', '', 'var(--red)'));
+    const si=Auth.syncInfo?Auth.syncInfo():{at:0,ok:true};
+    const syncSub= !si.ok ? 'Nincs kapcsolat – később újrapróbálja' : si.at ? 'Szinkronizálva · '+agoTxt(si.at) : 'Még nem szinkronizált ebben a munkamenetben';
+    h+=card(profRow('doSyncNow()', ICON.check, 'Felhő-szinkron', syncSub, `<span class="nbtn" style="display:inline-flex;align-items:center">Most</span>`, si.ok?'':'var(--red)')
+        + profRow("closeSheet();tab='friends';render();refreshFriends();", ICON.friends, 'Barátok', 'Kód, kérések, megosztott tervek')
+        + profRow('confirmSignOut()', ICON.back, 'Kijelentkezés', ''));
   } else {
     h+=`<div class="card"><div class="pad">
       <input id="authEmail" type="email" inputmode="email" autocomplete="email" placeholder="e-mail" style="width:100%;font-size:16px">
       <input id="authPass" type="password" autocomplete="current-password" placeholder="jelszó" style="width:100%;margin-top:8px;font-size:16px">
       <div id="authErr" class="small" style="color:var(--red);margin-top:8px;display:none"></div>
       <button class="btn pri" style="margin-top:12px" onclick="doAuth('in')">Belépés</button>
-      <button class="btn ghost" style="margin-top:6px" onclick="doAuth('up')">Regisztráció</button></div></div>`;
+      <button class="btn ghost" style="margin-top:6px" onclick="doAuth('up')">Regisztráció</button>
+      <button class="btn" style="margin-top:6px" onclick="doOAuth('google')">Belépés Google-fiókkal</button>
+      <button class="small" style="display:block;margin:10px auto 0;min-height:44px;color:var(--mut)" onclick="doResetPw()">Elfelejtett jelszó?</button></div></div>`;
   }
+  // Adataim – mentés, visszaállítás, kuka.
+  const trashN=(typeof trashPurge==='function'?trashPurge():(S.trash||[])).length;
+  h+=sect('Adataim')+card(
+      profRow('backup();openAuthSheet()', ICON.share, 'Biztonsági mentés letöltése', S.lastBackup?'Utoljára: '+friendlyDate(S.lastBackup):'Még nem készült mentés')
+    + profRow('closeSheet();restore()', ICON.back, 'Visszaállítás mentésből', 'A mentésfájlból tölti vissza a naplót')
+    + profRow('openTrash()', '×', 'Kuka', trashN?trashN+' törölt edzés (3 napig visszahozható)':'Üres'));
   const notifOn=(function(){try{return localStorage.getItem('gymlog_notify')==='1'}catch(e){return false}})();
-  h+=sect('Beállítások')+card(
-      profRow('toggleMute();openAuthSheet()', ICON.timer||ICON.check, 'Hangjelzés a pihenő végén', restMuted()?'Kikapcsolva':'Bekapcsolva', swHtml(!restMuted()))
-    + profRow('(async()=>{await toggleNotify();openAuthSheet();})()', ICON.more||ICON.check, 'Időzítő értesítésben', 'Ha kiváltasz az appból, a pihenő ideje értesítésben látszik', swHtml(notifOn))
-    + profRow('openWelcome()', ICON.play||ICON.check, 'Bemutató megtekintése', ''));
-  h+=sect(tr('Nyelv'))+`<div class="seg">
+  const inj=S.injury&&S.injury.parts&&S.injury.parts.length;
+  h+=sect('Beállítások')+`<span class="small dim">${tr('Téma')}</span>${themeSeg()}`
+    +`<span class="small dim">${tr('Nyelv')}</span><div class="seg" style="margin:8px 0 10px">
       <button class="${I18N.getLang()==='hu'?'on':''}" onclick="switchLang('hu')">${tr('Magyar')}</button>
-      <button class="${I18N.getLang()==='en'?'on':''}" onclick="switchLang('en')">${tr('Angol')}</button>
-    </div>`;
+      <button class="${I18N.getLang()==='en'?'on':''}" onclick="switchLang('en')">${tr('Angol')}</button></div>`
+    +card(
+      profRow('toggleMute();openAuthSheet()', ICON.check, 'Hangjelzés a pihenő végén', restMuted()?'Kikapcsolva':'Bekapcsolva', swHtml(!restMuted()))
+    + profRow('(async()=>{await toggleNotify();openAuthSheet();})()', ICON.more, 'Időzítő értesítésben', 'Ha kiváltasz az appból, a pihenő ideje értesítésben látszik', swHtml(notifOn))
+    + profRow('openInjury()', ICON.injury, 'Sérülés-mód', inj?'Bekapcsolva: '+S.injury.parts.map(trmg).join(', '):'Kikapcsolva', '', inj?'var(--red)':'')
+    + profRow('openRdySheet()', ICON.chart, 'Készenlét-tényezők', 'Mi számítson bele a napi számba')
+    + profRow('openWelcome()', ICON.play, 'Bemutató megtekintése', ''));
+  if(loggedIn) h+=`<button class="profdanger" onclick="openDeleteAccount()">Fiók végleges törlése</button>`;
   h+=`<div class="small dim" style="text-align:center;margin-top:16px">${tr('Verzió')} ${APP_VERSION} · <a href="privacy.html" target="_blank" rel="noopener" style="color:var(--mut)">${tr('Adatvédelem')}</a></div>`;
   document.getElementById('sheetIn').innerHTML=h;
   openSheet();
   if(loggedIn && !myProfile){ loadProfile().then(()=>{ const s=document.getElementById('sheet');
-    if(s&&s.classList.contains('on') && document.getElementById('dispName')) openAuthSheet(); }); }
+    if(s&&s.classList.contains('on') && document.querySelector('.profname,#dispName')) openAuthSheet(); }); }
 }
+async function doSyncNow(){ let ok=false; try{ ok=await Auth.syncNow(); }catch(e){}
+  if(ok) toast('Szinkronizálva.'); else uiAlert('Nem sikerült szinkronizálni – ellenőrizd a hálózatot.');
+  openAuthSheet(); }
+async function confirmSignOut(){
+  if(!(await uiConfirm('Kijelentkezel? A telefonon lévő naplód megmarad, és újra belépve összefésülődik a felhővel.', {ok:'Kijelentkezés'}))) return;
+  doSignOut(); }
+async function doOAuth(p){ try{ const r=await Auth.signInOAuth(p); if(r&&r.error) authErr(r.error.message||'Hiba történt.'); }catch(e){ authErr('Nem sikerült – ellenőrizd a hálózatot.'); } }
+async function doResetPw(){
+  const email=(document.getElementById('authEmail')||{}).value;
+  if(!email){ authErr('Írd be fent az e-mail-címed, aztán koppints újra.'); return; }
+  try{ const r=await Auth.resetPassword(email); if(r&&r.error){ authErr(r.error.message||'Hiba történt.'); return; } }catch(e){ authErr('Nem sikerült – ellenőrizd a hálózatot.'); return; }
+  toast('Elküldtük a jelszó-visszaállító levelet.'); }
 function authErr(msg){ const e=document.getElementById('authErr'); if(e){ e.textContent=msg; e.style.display='block'; } }
 async function doAuth(kind){
   const email=(document.getElementById('authEmail')||{}).value;
@@ -201,7 +237,7 @@ async function saveDispName(){
   const v=(document.getElementById('dispName').value||'').trim();
   if(!v){ uiAlert('Adj meg egy nevet.'); return; }
   await Auth.saveDisplayName(v); if(myProfile) myProfile.display_name=v; else myProfile={display_name:v};
-  syncStats(); toast('Név elmentve.');
+  _nameEdit=false; syncStats(); toast('Név elmentve.'); openAuthSheet();
 }
 // Csak nem érzékeny összefoglaló megy a barátoknak (nincs jegyzet/fotó/sérülés).
 function shareSummary(){

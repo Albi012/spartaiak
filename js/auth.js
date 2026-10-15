@@ -229,7 +229,16 @@
       data: JSON.parse(value),
       updated_at: new Date().toISOString()
     });
+    syncState = error ? {at:syncState.at, ok:false} : {at:Date.now(), ok:true};
     return !error;
+  }
+  // A profil-lap „Szinkronizálva · 2 perce" sora ebből olvas (csak kijelzés).
+  let syncState = {at:0, ok:true};
+  function syncInfo(){ return syncState; }
+  async function syncNow(){ const r = await cloudRead(); if(r && hooks.reload) hooks.reload(); return syncState.ok; }
+  async function resetPassword(email){
+    const c = await ensureClient(); if(!c) return { error:{message:'nincs konfig'} };
+    return c.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
   }
   async function fetchCloud(){
     const c = await ensureClient(); if(!c || !cloudUser) return null;
@@ -247,6 +256,7 @@
     if(merged){
       hooks.setLocal(merged);
       if(merged !== cloudStr){ try{ await rawWrite(merged); }catch(e){} }
+      else if(cloudStr) syncState = {at:Date.now(), ok:true};
     }
     return merged;
   }
@@ -394,6 +404,7 @@
     cloudRead, cloudWrite, maybeImport, mergeGym,
     getProfile, saveDisplayName, requestFriend, listFriendships,
     respondFriend, removeFriend, friendStats, publishStats,
+    syncInfo, syncNow, resetPassword,
     sharePlan, listSharedPlans, deleteSharedPlan, deleteAccount, askCoach,
     isLoggedIn: () => !!cloudUser
   };

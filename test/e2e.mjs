@@ -2862,6 +2862,25 @@ ok('62 barátok: Rád vár felül, megosztás, utolsó edzés a soron, visszavon
   closeSheet(); window.Auth=bak; friendsData=null; sharedPlansData=null; friendStatsMap={}; tab='home'; render();
   return felul && oszt && sor && lat && vissza && csempe; }));
 
+// ---- 63. Profil: mini-stat, szinkron-sor, Adataim, téma-választó, megerősített kilépés, törlés legalul ----
+ok('63 profil: stat-csempék, szinkron, adataim, téma, kilépés megerősítéssel, törlés a lap alján', await page.evaluate(async ()=>{
+  const bak=window.Auth; let out=0;
+  window.Auth=Object.assign({},bak||{},{configured:()=>true,isLoggedIn:()=>true,currentUser:()=>({id:'x',email:'a@b.hu'}),
+    syncInfo:()=>({at:Date.now()-120000,ok:true}),signOut:async()=>{out++;}});
+  myProfile={display_name:'Albi',friend_code:'ABC123'};
+  openAuthSheet(); const sh=document.getElementById('sheetIn'), tx=sh.textContent;
+  const stat=sh.querySelectorAll('.profstats .frtile').length===3;
+  const sync=/Szinkronizálva · 2 perce/.test(tx), adat=/Adataim/.test(tx)&&/Kuka/.test(tx)&&/Biztonsági mentés/.test(tx);
+  const tema=[...sh.querySelectorAll('.seg button')].some(b=>/Rendszer/.test(b.textContent));
+  const last=[...sh.querySelectorAll('button')].filter(b=>/Fiók végleges törlése/.test(b.textContent));
+  const torles=last.length===1 && last[0].classList.contains('profdanger');
+  const nev=!!sh.querySelector('.profname') && !document.getElementById('dispName');
+  confirmSignOut(); await new Promise(r=>setTimeout(r,60));
+  const kerdez=out===0 && !!document.querySelector('.modal.on, .modal');
+  if(typeof _closeModal==='function') _closeModal(false);
+  closeSheet(); window.Auth=bak; myProfile=null;
+  return stat && sync && adat && tema && torles && nev && kerdez; }));
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));
