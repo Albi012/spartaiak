@@ -985,6 +985,16 @@ alatt kikapcsol (`reducedMotion()`), a haptika opcionális (`navigator.vibrate`)
   hozzáadás közben újra meg újra. Ha a gesztus egy ténylegesen görgethető
   belső dobozban indul, nincs lehúzás; a fejlécről/fogantyúról továbbra is
   van. Az oldalirányú mozdulat (`|dx| > dy`) sem lehúzás. E2E: 47. szekció.
+  **Görgethető lapon CSAK a fejről** (felső 96 px: fogantyú, cím) indulhat
+  lehúzás (`inHead`) – a lista lendületből a tetejére érve (iOS-en negatív
+  scrollTop a rugózás alatt) különben a következő visszagörgetésre bezárt.
+  A **háttér-koppintás** is figyelmen kívül marad, ha 350 ms-on belül
+  görgetés volt (`_lastMove`). E2E: 57.
+- **Dupla koppintásos nagyítás:** a második gyors koppintást (`<320 ms`) a
+  `touchend`-en elnyeljük, de CSAK nem-interaktív elemen (gomb, link, mező,
+  `[onclick]` kivétel) – a szett-rács és a számláló gyors koppintásai
+  érintetlenek. A csippentős nagyítás SZÁNDÉKOSAN megmarad (akadálymentesség,
+  és `user-scalable=no` továbbra is tilos). E2E: 57.
 - **Az edzés-összegző az app EGYETLEN ünnepi pillanata** (edzésenként egyszer
   látod), ezért ott belefér a gyönyörködtetés: a `.finish` burokra kötött
   40 ms-os lépcső, és az XP-sáv KÉSLELTETVE (250 ms) tölt fel, hogy a

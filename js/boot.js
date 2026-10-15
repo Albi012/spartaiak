@@ -39,7 +39,22 @@ applyTheme();
 
 document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>{tab=b.dataset.tab==='log'?_logSub:b.dataset.tab;render();window.scrollTo(0,0);
   if(tab==='friends') refreshFriends();});
-document.getElementById('sheet').onclick=e=>{ if(e.target.id==='sheet') closeSheet(); };
+// A háttérre koppintás zár – de egy GÖRGETÉS végén a háttéren felengedett
+// ujj nem koppintás (ettől is „magától" bezárult a lap).
+let _lastMove=0;
+document.addEventListener('touchmove',()=>{ _lastMove=Date.now(); },{passive:true});
+document.getElementById('sheet').onclick=e=>{ if(e.target.id==='sheet' && Date.now()-_lastMove>350) closeSheet(); };
+// Dupla koppintásos nagyítás tiltása. A `touch-action:manipulation` ezt
+// elvileg elintézi, de iOS a nem-interaktív szövegen (címek, számok) mégis
+// rázoomol. A MÁSODIK gyors koppintást csak ott nyeljük el, ahol nincs mit
+// megnyomni – a gombok (szett-rács, súlyállító, számláló) gyors egymás utáni
+// koppintásai érintetlenek. A csippentős nagyítás megmarad (akadálymentesség).
+let _lastTap=0;
+document.addEventListener('touchend',e=>{
+  const now=Date.now(), quick=now-_lastTap<320; _lastTap=now;
+  if(quick && e.cancelable && !(e.target.closest && e.target.closest('button,a,input,textarea,select,label,summary,[onclick],[contenteditable]')))
+    e.preventDefault();
+},{passive:false});
 document.getElementById('modal').onclick=e=>{ if(e.target.id==='modal') _closeModal(false); };
 
 // Húzható alsó lap: felül állva, lefelé húzva bezárható (egykezes záráshoz).
@@ -60,8 +75,16 @@ document.getElementById('modal').onclick=e=>{ if(e.target.id==='modal') _closeMo
     }
     return false;
   }
+  // Lehúzni CSAK a lap FEJÉRŐL lehet (fogantyú, cím – a felső ~96 px), vagy
+  // ha a lap tartalma nem is görgethető. Korábban bárhonnan lehetett, és ha a
+  // lista lendületből épp a tetejére ért (iOS-en a rugózás alatt a scrollTop
+  // akár negatív is), a következő visszagörgetés bezárta a lapot.
+  const HEAD=96;
+  function inHead(el){ const r=el.getBoundingClientRect(), top=inner.getBoundingClientRect().top;
+    return r.top-top < HEAD; }
   inner.addEventListener('touchstart',e=>{
-    if(e.touches.length!==1 || inner.scrollTop>0 || inScroller(e.target)){ dragging=false; return; }
+    const scrollable = inner.scrollHeight > inner.clientHeight+1;
+    if(e.touches.length!==1 || inner.scrollTop>0 || inScroller(e.target) || (scrollable && !inHead(e.target))){ dragging=false; return; }
     startY=e.touches[0].clientY; startX=e.touches[0].clientX; dy=0; dragging=true; moved=false;
     startT=Date.now(); sheet.classList.remove('snap');
   },{passive:true});

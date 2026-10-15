@@ -2757,6 +2757,28 @@ ok('56 a lejátszó: nagy következő-szett gomb, „Következik" sor, eldobás 
   S.sessions=bak; S.active=null; playing=false; tab='home'; render();
   return !!ns && up && nincsEldobas && racs && menu && plusz; }));
 
+// ---- 57. Lehúzás csak a lap fejéről, ha a lap görgethető; dupla koppintás ----
+ok('57 hosszú lapon a tartalom közepéről lefelé húzás NEM zár', await page.evaluate(async ()=>{
+  openAuthSheet(); await new Promise(r=>setTimeout(r,320));
+  const inner=document.getElementById('sheetIn'); inner.scrollTop=0;
+  const scrollable=inner.scrollHeight>inner.clientHeight+1;
+  const tgt=[...inner.querySelectorAll('.trow')].pop();
+  const t=(y)=>new Touch({identifier:1,target:tgt,clientX:100,clientY:y});
+  tgt.dispatchEvent(new TouchEvent('touchstart',{touches:[t(300)],bubbles:true}));
+  await new Promise(r=>setTimeout(r,40));
+  tgt.dispatchEvent(new TouchEvent('touchmove',{touches:[t(520)],bubbles:true}));
+  tgt.dispatchEvent(new TouchEvent('touchend',{touches:[],bubbles:true}));
+  await new Promise(r=>setTimeout(r,400));
+  const nyitva=document.getElementById('sheet').classList.contains('on'); closeSheet();
+  await new Promise(r=>setTimeout(r,300));
+  return scrollable && nyitva; }));
+ok('57 dupla koppintás: nem-interaktív szövegen elnyelve, gombon NEM', await page.evaluate(()=>{
+  const fire=el=>{ const ev=new TouchEvent('touchend',{bubbles:true,cancelable:true,touches:[]}); el.dispatchEvent(ev); return ev.defaultPrevented; };
+  const txt=document.querySelector('#app .eyebrow')||document.body, btn=document.querySelector('#app button');
+  fire(txt); const a=fire(txt);
+  fire(btn); const b=fire(btn);
+  return a===true && b===false; }));
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));
