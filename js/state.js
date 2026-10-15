@@ -39,7 +39,27 @@ function logRestRow(it){
 // Törlés gomb mellett). Üres, ha az adott napra nem számolható.
 function logRdyInline(t){
   const r=readiness(t); if(!r) return '';
-  return ` · készenlét <b class="num" style="color:${r.color}">${r.score}</b>`;
+  // Múltbeli adat, nem riasztás: halk szám, a sáv színe csak egy kis pöttyön.
+  return ` · <span class="rdyin"><i style="background:${r.color}"></i>készenlét <span class="num">${r.score}</span></span>`;
+}
+// Egymás utáni pihenőnapok EGY vékony sorban: hány nap, mikor, átlagos
+// testsúly és alvás (csak a ténylegesen rögzítettből), és az utolsó nap
+// készenléte halkan.
+function logRestRun(run){
+  const ks=run.map(r=>r.k), bws=ks.map(k=>(S.bw||{})[k]).filter(x=>x>0);
+  const sls=ks.map(k=>(S.sleep||{})[k]).filter(x=>x&&x.min>0).map(x=>x.min);
+  const bits=[];
+  if(bws.length) bits.push((bws.length>1?'átl. ':'')+'testsúly '+bwNum(bws.reduce((a,b)=>a+b,0)/bws.length));
+  if(sls.length) bits.push((sls.length>1?'átl. ':'')+'alvás '+slpFmt(Math.round(sls.reduce((a,b)=>a+b,0)/sls.length)));
+  const first=run[run.length-1].t, last=run[0].t;
+  const a=new Date(first), b=new Date(last);
+  const when = run.length>1 ? HU_MON3[a.getMonth()]+' '+a.getDate()+'–'+(a.getMonth()===b.getMonth()?'':HU_MON3[b.getMonth()]+' ')+b.getDate()+'.' : friendlyDate(last);
+  const r=readiness(last);
+  return `<div class="restrow"><span class="grow" style="min-width:0">
+      <span style="font-weight:600;color:var(--mut)">Pihenő${run.length>1?' · '+run.length+' nap':''}</span>
+      <span class="small dim"> · ${esc(when)}</span>
+      ${bits.length?`<span class="small dim" style="display:block">${esc(bits.join(' · '))}</span>`:''}</span>
+    ${r?`<button class="rdyin" onclick="openRdySheet()" aria-label="Készenlét ${r.score}"><i style="background:${r.color}"></i>készenlét <span class="num">${r.score}</span></button>`:''}</div>`;
 }
 // Pihenőnap-soron a készenlét kis jelvényként (üres, ha nem számolható).
 function logRdyBadge(t){
@@ -50,7 +70,7 @@ function logRdyBadge(t){
 }
 let physioRegion='';  // Gyógytorna oldal aktív testtáj (üres = első)
 let editing=false, draft=null;   // edzés-összeállító
-const APP_VERSION='v138';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
+const APP_VERSION='v139';         // látható build-jelző (a sw.js VERSION-jével együtt emeld)
 
 const KEY='gymlog_v1';
 let storeMode='none';

@@ -2225,7 +2225,7 @@ ok('41 kevés adatnál a kártya el sem készül', await page.evaluate(()=>{
   ok('44 csukva is ott a név, dátum, szettszám és összterhelés',
      await page.evaluate(()=>{
        const sum=document.querySelectorAll('#app .lgfold')[1].querySelector('summary').textContent;
-       return /szett/.test(sum) && /kg/.test(sum) && /\d{4}\.\d{2}\.\d{2}/.test(sum); }));
+       return /szett/.test(sum) && /kg/.test(sum) && /(Ma|Tegnap|[a-zé]+\.? \d+\.)/.test(sum); }));
 
   ok('44 a Javítás és a Törlés a LENYITOTT állapotba került',
      await page.evaluate(()=>{
@@ -2778,6 +2778,22 @@ ok('57 dupla koppintás: nem-interaktív szövegen elnyelve, gombon NEM', await 
   fire(txt); const a=fire(txt);
   fire(btn); const b=fire(btn);
   return a===true && b===false; }));
+
+// ---- 58. Napló: hetek, összevont pihenőnapok, barátságos dátum, egysoros szűrő ----
+ok('58 napló: heti fejlécek, összevont pihenő, Ma/Tegnap, vízszintes szűrősor', (r=>{ if(r!==true) console.log(r); return r===true; })(await page.evaluate(async ()=>{
+  const bak={s:S.sessions,bw:S.bw,sl:S.sleep}; const D=864e5, now=Date.now();
+  const k=t=>bwKey(t);
+  S.sessions=[{day:'pa',t:now-1*D,log:{bench:{w:50,sets:[5,5]}}},{day:'pb',t:now-9*D,log:{ohp:{w:30,sets:[8]}}}];
+  S.bw={}; S.sleep={}; [3,4,5].forEach(i=>{ S.bw[k(now-i*D)]=80; });
+  tab='log'; logKind=null; logFilter=null; render(); await new Promise(r=>setTimeout(r,250));
+  const app=document.getElementById('app'), t=app.textContent;
+  const heti=app.querySelectorAll('.wkhead').length>=1 && /Ez a hét|Múlt hét/.test(t);
+  const runs=[...app.querySelectorAll('.restrow')];
+  const ossze=runs.some(r=>/[23] nap/.test(r.textContent));   // a hét határán ketté is válhat
+  const ma=/Tegnap/.test(t);
+  const fs=app.querySelector('.whyrow'); const egysor=!fs || getComputedStyle(fs).flexWrap==='nowrap';
+  S.sessions=bak.s; S.bw=bak.bw; S.sleep=bak.sl; tab='home'; render();
+  return (heti && ossze && ma && egysor) || JSON.stringify({heti,ossze,ma,egysor,r:runs.map(x=>x.textContent.trim().slice(0,60))}); })));
 
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);

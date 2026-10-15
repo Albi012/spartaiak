@@ -11,6 +11,27 @@ function logMatch(s){ return !logFilter || dayName(s)===logFilter; }
 function setLogFilter(name){ logKind=null; logFilter=(name===logFilter?null:name); render(); window.scrollTo(0,0); }
 function setLogFilterIdx(i){ setLogFilter(i==null?null:_logNames[i]); }
 const HU_MONTHS=['január','február','március','április','május','június','július','augusztus','szeptember','október','november','december'];
+const HU_MON3=['jan.','febr.','márc.','ápr.','máj.','jún.','júl.','aug.','szept.','okt.','nov.','dec.'];
+const HU_WD=['Vasárnap','Hétfő','Kedd','Szerda','Csütörtök','Péntek','Szombat'];
+// Barátságos dátum a naplóhoz: Ma / Tegnap / „Hétfő, okt. 13." (egy héten
+// belül) / „okt. 5." (régebbi; más évben évszámmal). A teljes dátum a
+// title-ben marad.
+function friendlyDate(t){
+  const d=new Date(t), day=rdyDayStart(t), today=rdyDayStart(Date.now());
+  const diff=Math.round((today-day)/864e5), md=HU_MON3[d.getMonth()]+' '+d.getDate()+'.';
+  if(diff===0) return 'Ma'; if(diff===1) return 'Tegnap';
+  if(diff>1 && diff<7) return HU_WD[d.getDay()]+', '+md;
+  return (d.getFullYear()!==new Date().getFullYear()?d.getFullYear()+'. ':'')+md; }
+function weekLabel(ws){
+  const cur=weekStart(Date.now());
+  if(ws===cur) return 'Ez a hét';
+  if(ws===weekStart(dayShift(cur,-7))) return 'Múlt hét';
+  const a=new Date(ws), b=new Date(dayShift(ws,6));
+  return HU_MON3[a.getMonth()]+' '+a.getDate()+'–'+(a.getMonth()===b.getMonth()?'':HU_MON3[b.getMonth()]+' ')+b.getDate()+'.'; }
+// A nap típusának jele (színes csík a kártya szélén): név szerint állandó
+// szín, téma-tokenekből keverve – görgetés közben ránézésre megvan a nap.
+const DAY_TONES=['var(--brass)','var(--sage)','var(--red)','color-mix(in srgb,var(--brass) 50%,var(--red))','color-mix(in srgb,var(--sage) 55%,var(--ink))','var(--mut)'];
+function dayTone(name){ let h=0; for(const c of String(name)) h=(h*31+c.charCodeAt(0))>>>0; return DAY_TONES[h%DAY_TONES.length]; }
 function monthLabel(t){ const d=new Date(t); return d.getFullYear()+'. '+HU_MONTHS[d.getMonth()]; }
 // A lenyitott edzések nyilvántartása. NÉZET-állapot, NEM tárolódik – mint a
 // `logKind`. `null` = még nem nyúlt hozzá a felhasználó, ilyenkor a legfrissebb
@@ -57,7 +78,7 @@ function logView(){
   const kinds = restAll.length ? [['ex','Edzés'],['rest','Pihenő']] : [];
   const names = _logNames.length>1 ? _logNames : [];
   if(kinds.length || names.length){
-    h+=`<div class="whyrow" style="flex-wrap:wrap;margin-bottom:10px">
+    h+=`<div class="whyrow hscroll" style="margin-bottom:10px">
       <button class="whyc ${!logKind&&!logFilter?'on':''}" onclick="logKind=null;setLogFilterIdx(null)">Mind</button>`+
       kinds.map(([k,lab])=>`<button class="whyc ${logKind===k?'on':''}" onclick="setLogKind('${k}')">${lab}</button>`).join('')+
       names.map((n,i)=>`<button class="whyc ${logFilter===n?'on':''}" onclick="setLogFilterIdx(${i})">${esc(n)}</button>`).join('')+
@@ -66,15 +87,25 @@ function logView(){
   const loads=S.sessions.map(sessionLoad);
   const avg=loads.reduce((a,b)=>a+b,0)/(loads.length||1);
   const WHY={busy:'gép foglalt',heavy:'túl nehéz',time:'kevés idő'};
-  let curMonth=null, nyitottVolt=false;
+  let curWeek=null, nyitottVolt=false;
   const items=[];
   if(logKind!=='rest') [...S.sessions].filter(logMatch).forEach(s=>items.push({t:s.t,kind:'ex',s}));
   if(logKind!=='ex' && !logFilter) restAll.forEach(r=>items.push(Object.assign({kind:'rest'},r)));
   items.sort((a,b)=>b.t-a.t);
+  // Hetekre bontva (hétfőtől, mint a főoldal és a heti összefoglaló), a
+  // fejlécben a hét összesítője. Az egymás utáni pihenőnapok EGY vékony sorrá
+  // olvadnak – korábban mindegyik teljes kártya volt, a lista fele „Pihenő".
+  const wkSum={}; items.forEach(it=>{ if(it.kind!=='ex') return; const w=weekStart(it.t);
+    const o=wkSum[w]||(wkSum[w]={n:0,sets:0}); o.n++;
+    o.sets+=Object.values(it.s.log).reduce((a,l)=>a+l.sets.filter(x=>x!=null).length,0); });
+  let run=[];
+  const flush=()=>{ if(run.length){ h+=logRestRun(run); run=[]; } };
   items.forEach(it=>{
-    const mk=monthLabel(it.t); if(mk!==curMonth){ curMonth=mk;
-      h+=`<div class="top" style="padding:14px 0 6px"><span class="eyebrow">${mk}</span></div>`; }
-    if(it.kind==='rest'){ h+=logRestRow(it); return; }
+    const wk=weekStart(it.t);
+    if(wk!==curWeek){ flush(); curWeek=wk; const ws=wkSum[wk];
+      h+=`<div class="wkhead"><span class="eyebrow">${weekLabel(wk)}</span><span class="small dim">${ws?ws.n+' edzés · '+ws.sets+' szett':'pihenőhét'}</span></div>`; }
+    if(it.kind==='rest'){ run.push(it); return; }
+    flush();
     const s=it.s;
     const d=dayDef(s.day)||{ex:[]}; const dn=dayName(s); const idx=S.sessions.indexOf(s);
     const tot=Object.values(s.log).reduce((a,l)=>a+l.sets.filter(x=>x!=null).length,0);
@@ -82,9 +113,9 @@ function logView(){
     // A LEGFRISSEBB (első kirajzolt) edzés van nyitva, a többi csukva –
     // amíg a felhasználó nem nyúl hozzá; onnantól az ő választása számít.
     const nyitva = logIsOpen(s.t, !nyitottVolt); nyitottVolt = true;
-    h+=`<details class="card lgfold" data-t="${s.t}"${nyitva?' open':''} ontoggle="logToggle()">
+    h+=`<details class="card lgfold" data-t="${s.t}"${nyitva?' open':''} ontoggle="logToggle()" style="--tone:${dayTone(dn)}">
       <summary><div class="grow"><span class="cond" style="font-size:20px;font-weight:600">${esc(dn)}</span>
-      <div class="small dim">${fmtDate(s.t)}${dur?' · '+fmtDur(dur):''} · ${tot} szett · <span class="num">${load.toLocaleString('hu')}</span> kg${hi?' <span style="color:var(--red);font-weight:600">· kiugró</span>':''}${logRdyInline(s.t)}</div>
+      <div class="small dim" title="${fmtDate(s.t)}">${friendlyDate(s.t)}${dur?' · '+fmtDur(dur):''} · ${tot} szett · <span class="num">${load.toLocaleString('hu')}</span> kg${hi?' <span style="color:var(--red);font-weight:600">· kiugró</span>':''}${logRdyInline(s.t)}</div>
       ${(()=>{ const js=dayNotes(s); if(!js.length) return '';
         return js.map(n=>{ const e=n.ex&&exDef(n.ex);
           return `<div class="small mut" style="margin-top:4px">${e?`<span style="color:var(--brass)">${esc(exN(e))}</span> <span class="dim">közben:</span> `:'<span class="dim">Jegyzet: </span>'}${esc(n.txt)}</div>`;
@@ -107,6 +138,7 @@ function logView(){
       <button class="btn ghost" style="flex:0 0 38%;margin:0;color:var(--mut)" onclick="del(${idx})">${tr('Törlés')}</button></div>`;
     h+='</details>';
   });
+  flush();
   return h+'<div style="height:12px"></div></div>';
 }
 // A napló küldés/mentés műveletei egy lapon, a fejléc menü-gombja mögött.

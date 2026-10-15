@@ -1079,6 +1079,16 @@ a név-szűrő eddig is kizárta egymást, ezért egy sorban állnak, egyetlen
 „Mind"-dal. A chip az indexével hivatkozik a névre (`setLogFilterIdx`), így
 idézőjeles név sem töri el. E2E: 46. szekció.
 
+**Megjelenés (v139):** a lista HETEKRE bontva (`weekLabel`: „Ez a hét" /
+„Múlt hét" / „okt. 6–12.", `.wkhead` a hét összesítőjével), az egymás utáni
+pihenőnapok EGY vékony, szaggatott keretes sorrá olvadnak (`logRestRun`:
+„Pihenő · 3 nap", átlag testsúly/alvás csak a rögzítettből; a hét határán
+ketté válik). Dátum: `friendlyDate` (Ma / Tegnap / „Hétfő, okt. 13." / „okt.
+5."), a teljes dátum a `title`-ben. A szűrősor EGY vízszintesen görgethető
+sor (`.whyrow.hscroll`). A készenlét a naplóban halk (`.rdyin`: színes pötty +
+szürke szám) – múltbeli adat, nem riasztás. Az edzéskártya bal szélén a nap
+NEVÉBŐL származó, téma-tokenből kevert színcsík (`dayTone`). E2E: 58.
+
 ## Kuka – törölt edzés 3 napig
 
 `S.trash = [{s, at}]` (additív, `save()`/`backup()`/`restore()` viszi, a
