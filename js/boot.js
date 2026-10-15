@@ -12,12 +12,10 @@ function applyTheme(){
   if(t==='auto') delete root.dataset.theme; else root.dataset.theme=t;
   const dark=effectiveDark();
   const m=document.querySelector('meta[name="theme-color"]'); if(m) m.content=dark?'#0F1317':'#F4F2EC';
-  const b=document.getElementById('themeBtn'); if(b) b.innerHTML=dark?ICON.moon:ICON.sun;
 }
 function paintIcons(){
   const set=(sel,svg)=>{ const el=document.querySelector(sel); if(el) el.innerHTML=svg; };
   set('#accountBtn', ICON.account);
-  set('#injuryBtn', ICON.injury);
   set('#physioBtn', ICON.physio);
   const navIcon={home:ICON.dumbbell, plans:ICON.plans, log:ICON.list, prog:ICON.chart, coach:ICON.coach, friends:ICON.friends};
   // A statikus nav feliratai nem sablonból jönnek, ezért a nyelvet ITT
@@ -29,11 +27,6 @@ function paintIcons(){
     if(lb && k) lb.textContent = tr(k);
   });
 }
-function toggleTheme(){
-  try{ localStorage.setItem('gymlog_theme', effectiveDark()?'light':'dark'); }catch(e){}
-  applyTheme();
-}
-document.getElementById('themeBtn').onclick=toggleTheme;
 if(window.matchMedia){ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{ if(currentTheme()==='auto') applyTheme(); }); }
 applyTheme();
 
@@ -121,11 +114,11 @@ document.getElementById('modal').onclick=e=>{ if(e.target.id==='modal') _closeMo
   });
 })();
 paintIcons();
-load().then(()=>{ updateInjuryBtn(); maybeOnboard(); });
+load().then(()=>{ maybeOnboard(); });
 
 // Felhő-szinkron indítása (inert, ha nincs supabase-config.js).
 if(window.Auth){
-  Auth.hooks.reload = ()=>load().then(updateInjuryBtn);
+  Auth.hooks.reload = ()=>load();
   Auth.hooks.onChange = async ()=>{ updateAuthBtn();
     if(Auth.isLoggedIn()){ await loadProfile(); syncStats(); refreshFriends(); }
     else { myProfile=null; friendsData=null; sharedPlansData=null; updateFriendsBadge(); if(tab==='friends') render(); } };

@@ -20,10 +20,9 @@ function toggleInjury(m){
   const parts=(S.injury&&S.injury.parts)?S.injury.parts.slice():[];
   const i=parts.indexOf(m); if(i>=0) parts.splice(i,1); else parts.push(m);
   S.injury = parts.length ? {parts:parts,since:Date.now()} : null;
-  save(); openInjury(); updateInjuryBtn();
+  save(); openInjury(); render();
 }
-function clearInjury(){ S.injury=null; save(); closeSheet(); render(); updateInjuryBtn(); }
-function updateInjuryBtn(){ const b=document.getElementById('injuryBtn'); if(b) b.style.color=injuryOn()?'var(--red)':'var(--mut)'; }
+function clearInjury(){ S.injury=null; save(); closeSheet(); render(); }
 
 /* ---- Mentés-emlékeztető ------------------------------------------- */
 function needsBackup(){ return !nagOff && S.sessions.length>0 && (Date.now()-(S.lastBackup||0) > 30*864e5); }

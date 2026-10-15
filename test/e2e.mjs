@@ -73,9 +73,9 @@ ok('1 „Mit edzek ma?" kártya', await page.$$eval('#app .eyebrow',es=>es.some(
 
 // ---- 2. Téma váltás ----
 const t0=await page.evaluate(()=>document.documentElement.getAttribute('data-theme'));
-await page.evaluate(()=>toggleTheme && toggleTheme()); await wait(150);
+await page.evaluate(()=>setThemeMode(effectiveDark()?'light':'dark')); await wait(150); await page.evaluate(()=>closeSheet());
 ok('2 téma vált', t0!==await page.evaluate(()=>document.documentElement.getAttribute('data-theme')));
-await page.evaluate(()=>toggleTheme && toggleTheme()); await wait(100);
+await page.evaluate(()=>{ setThemeMode('auto'); closeSheet(); }); await wait(250);
 
 // ---- 3. Edzés indítás + naplózás + eszközök ----
 await page.evaluate(()=>{ window.uiConfirm=()=>Promise.resolve(true); window.uiAlert=()=>Promise.resolve(); });
@@ -113,7 +113,7 @@ ok('4 a napló fejlécében van a küldés/mentés menü',
 ok('4 a menüben ott a heti export', await page.evaluate(async ()=>{
   openLogTools(); await new Promise(r=>setTimeout(r,120));
   const van=[...document.querySelectorAll('#sheetIn button')].some(b=>/Heti összefoglaló/.test(b.textContent));
-  const mind=['copyAll','backup()','restore()'].every(f=>
+  const mind=['copyAll','openTrash()'].every(f=>
     [...document.querySelectorAll('#sheetIn button')].some(b=>(b.getAttribute('onclick')||'').includes(f)));
   closeSheet(); return van && mind; }));
 await wait(260);
@@ -148,11 +148,6 @@ ok('5 fmtDur formátum', await page.evaluate(()=>fmtDur(70*60000).includes('ó')
 ok('5 videoUrl kereső-fallback + override', await page.evaluate(()=>{
   const s=videoUrl(exDef('x_squat')); VIDEO['x_squat']='https://youtu.be/x'; const o=videoUrl(exDef('x_squat')); delete VIDEO['x_squat'];
   return s.startsWith('https://www.youtube.com/results?search_query=') && o==='https://youtu.be/x'; }));
-ok('5 warmupSets lépcsők', await page.evaluate(()=>{ const w=warmupSets(60,20); return w.length>=3 && w[0].w<60; }));
-ok('5 warmupSets rúd alatt üres', await page.evaluate(()=>warmupSets(20,20).length===0));
-await page.evaluate(()=>openWarmup('bench')); await wait(150);
-ok('5 bemelegítő lap renderel', (await page.$$('#sheet .wrow')).length>0);
-await page.evaluate(()=>closeSheet()); await wait(120);
 // idő-alapú gyakorlat (plank) → beépített óra
 ok('5 fmtSec formátum', await page.evaluate(()=>fmtSec(90)==='1:30' && fmtSec(45)==='45'));
 await page.evaluate(()=>{ S.active={day:'pb',t:Date.now(),log:{plank:{w:0,sets:[null,null,null]}}}; openSet('plank',0); }); await wait(150);
@@ -925,12 +920,6 @@ ok('23 a heti edzői export súlyai vesszősek', await page.evaluate(()=>{
 ok('23 a tárcsa-kalkulátor is vesszős', await page.evaluate(()=>{
   openPlateCalc(102.5); const t=document.getElementById('plRes').textContent; closeSheet();
   return /41,25 kg/.test(t) && !/41\.25/.test(t); }));
-ok('23 a bemelegítő tárcsakiosztása is vesszős', await page.evaluate(()=>{
-  const bak=S.active;                       // az openWarmup az aktív edzésből veszi a súlyt
-  S.active={t:Date.now(),day:'pa',log:{bench:{w:62.5,sets:[null,null,null]}}};
-  openWarmup('bench'); const t=document.getElementById('sheetIn').textContent;
-  closeSheet(); S.active=bak;
-  return /62,5 kg/.test(t) && !/\d\.\d/.test(t); }));
 ok('23 a testsúlyos gyakorlat felirata nem változott', await page.evaluate(()=>
   wLabel({bw:1},0)==='testsúly' && wLabel({bw:1},12.5)==='+12,5' && wLabel({},0)==='0'));
 
@@ -2880,6 +2869,13 @@ ok('63 profil: stat-csempék, szinkron, adataim, téma, kilépés megerősítés
   if(typeof _closeModal==='function') _closeModal(false);
   closeSheet(); window.Auth=bak; myProfile=null;
   return stat && sync && adat && tema && torles && nev && kerdez; }));
+
+// ---- 64. Redundancia: nincs téma-/sérülés-gomb a felső sávban, a mentés a Profilban, a bemelegítés kivezetve ----
+ok('64 felső sáv: nincs téma és sérülés gomb; Napló ⋯ mentés nélkül; openWarmup nincs', await page.evaluate(()=>{
+  const sav=!document.getElementById('themeBtn') && !document.getElementById('injuryBtn') && !!document.getElementById('physioBtn');
+  openLogTools(); const t=document.getElementById('sheetIn').textContent; closeSheet();
+  const menu=/Heti összefoglaló/.test(t) && /Kuka/.test(t) && !/Visszaállítás mentésből/.test(t) && /Profil → Adataim/.test(t);
+  return sav && menu && typeof openWarmup==='undefined' && typeof toggleTheme==='undefined'; }));
 
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);

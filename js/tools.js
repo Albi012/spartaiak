@@ -1,6 +1,5 @@
 /* ==================================================================
-   Terem-segedek: tarcsa-kalkulator (platesPerSide) es
-   bemelegito-lepcso (warmupSets).
+   Terem-segedek: tarcsa-kalkulator (platesPerSide).
    ================================================================== */
 /* ---- Tárcsa-kalkulátor -------------------------------------------- */
 // Egy rúdra oldalanként kirakandó tárcsák egy cél-súlyhoz. Standard
@@ -44,49 +43,4 @@ function renderPlateRes(){
   el.innerHTML=`<div class="plateres">${bars||'<span class="dim">–</span>'}</div><div class="platesum">${sum}</div>`;
 }
 
-/* ---- Bemelegítő-szettek ------------------------------------------- */
-// A munkasúlyból származtatott bemelegítő lépcsők (a working set ELŐTT).
-// Százalékos ráépülés, 2,5 kg-ra kerekítve, a rúdnál (üres) nem kevesebb;
-// duplikátumok kiszűrve. Testsúlyos gyakorlatnál nincs értelme.
-function warmupSets(W, bar){
-  bar = bar>0 ? bar : 20;
-  if(!(W>bar)) return [];                       // a rúd körül nincs mit építeni
-  const R=w=>Math.round(w/2.5)*2.5;
-  const plan=[[0.4,10],[0.55,5],[0.7,3],[0.85,2]];
-  const out=[]; let prev=0;
-  plan.forEach(([p,reps])=>{ let w=Math.max(bar, R(W*p));
-    if(w>=W) return;                            // ne érje el a munkasúlyt
-    if(w===prev) return;                        // ne ismételjen
-    out.push({w, reps}); prev=w; });
-  return out;
-}
-function openWarmup(exId){
-  const e=exDef(exId), L=S.active&&S.active.log[exId];
-  const W=L?L.w:startW(exId);
-  const steps=warmupSets(W, plateBar);
-  let h=`<div class="grabber"></div>
-    <div class="row"><div class="grow"><span class="eyebrow">Bemelegítés</span>
-      <h2 style="font-size:22px">${esc(exN(e))}</h2>
-      <span class="small dim">Munkasúly: ${kgNum(W)} kg · ${plateBar} kg rúd</span></div>
-      <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>`;
-  if(!steps.length){
-    h+=`<div class="empty" style="padding:18px 0">Ehhez a súlyhoz nincs szükség külön bemelegítő lépcsőre – pár lazább ismétlés a rúddal elég.</div>`;
-  } else {
-    h+=`<div style="margin-top:8px">`;
-    steps.forEach((s,i)=>{ const pr=platesPerSide(s.w, plateBar);
-      const side = pr.belowBar||pr.perSide===0 ? 'csak rúd'
-        : ('oldalanként: '+pr.used.map(kgNum).join(' + ')+(pr.rem>0.01?` (+${kgNum(pr.rem)} marad)`:''));
-      h+=`<div class="wrow">
-        <span class="wrow-n">${i+1}</span>
-        <span class="grow"><span class="num" style="font-size:22px;font-weight:700">${kgNum(s.w)}<span class="small dim" style="font-weight:400"> kg</span></span>
-          <span class="small dim"> × ${s.reps}</span><div class="small mut" style="margin-top:2px">${side}</div></span>
-      </div>`; });
-    h+=`<div class="wrow" style="border:0"><span class="wrow-n" style="background:var(--brass);color:var(--on-brass)">✓</span>
-      <span class="grow"><span class="num" style="font-size:22px;font-weight:700;color:var(--brass)">${kgNum(W)}<span class="small dim" style="font-weight:400"> kg</span></span>
-        <span class="small dim"> · munkasúly</span></span></div>`;
-    h+=`</div><p class="small dim" style="margin-top:8px">Tipp: a bemelegítő szetteket nem kell naplózni – csak a munkaszetteket rögzítsd.</p>`;
-  }
-  document.getElementById('sheetIn').innerHTML=h;
-  openSheet();
-}
 

@@ -146,12 +146,11 @@ function openLogTools(){
   document.getElementById('sheetIn').innerHTML=`
     <div class="row" style="align-items:baseline"><span class="eyebrow grow">Napló</span>
       <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
-    <h2 style="font-size:24px;margin:2px 0 14px">Küldés és mentés</h2>
+    <h2 style="font-size:24px;margin:2px 0 14px">Küldés</h2>
     <button class="btn pri" style="margin-bottom:8px" onclick="closeSheet();openWeeklyExport()">${tr('Heti összefoglaló edzőnek')}</button>
     <button class="btn" style="margin-bottom:8px" onclick="closeSheet();copyAll()">Napló másolása szövegként</button>
-    <button class="btn" style="margin-bottom:8px;color:var(--mut)" onclick="closeSheet();backup()">Biztonsági mentés (adatfájl)</button>
-    <button class="btn" style="margin-bottom:8px;color:var(--mut)" onclick="closeSheet();restore()">Visszaállítás mentésből</button>
-    <button class="btn ghost" style="margin-bottom:6px;color:var(--mut)" onclick="openTrash()">Kuka – törölt edzések${trashPurge().length?' ('+S.trash.length+')':''}</button>`;
+    <button class="btn ghost" style="margin-bottom:6px;color:var(--mut)" onclick="openTrash()">Kuka – törölt edzések${trashPurge().length?' ('+S.trash.length+')':''}</button>
+    <p class="small dim" style="text-align:center;margin:8px 0 0">Biztonsági mentés és visszaállítás: Profil → Adataim</p>`;
   openSheet();
 }
 // A mentés a TELJES állapotot viszi – azt, amit a `save()` is eltesz. Korábban

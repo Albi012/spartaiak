@@ -213,7 +213,7 @@ töltődött be. A `boot.js`-en kívül nincs top-level végrehajtás.
 | `daily.js` | testsúly- és alvás-napló |
 | `readiness.js` | a készenlét-pontszám |
 | `progress.js` | a Haladás fül nézete és a gyakorlat-részletlap |
-| `tools.js` | tárcsa-kalkulátor, bemelegítő-lépcső |
+| `tools.js` | tárcsa-kalkulátor |
 | `notes.js` | jegyzetek (állandó + napi) és a gépbeállítás-fotó |
 | `account.js` | sérülés-mód, fiók, barátok, terv-megosztás, onboarding |
 | `coach.js` | Edző AI: csevegés + heti értékelés (szerveroldali Claude-hívás) |
@@ -1098,6 +1098,14 @@ sor (`.whyrow.hscroll`). A készenlét a naplóban halk (`.rdyin`: színes pött
 szürke szám) – múltbeli adat, nem riasztás. Az edzéskártya bal szélén a nap
 NEVÉBŐL származó, téma-tokenből kevert színcsík (`dayTone`). E2E: 58.
 
+## Redundancia-takarítás (v145)
+
+A felső sávban csak a fiók és a gyógytorna ikon maradt: a téma-gomb (→ Profil
+téma-választó) és a sérülés-gomb (→ Profil sor + a főoldali sérülés-kártya,
+ha be van kapcsolva) kikerült. A Napló ⋯ menüje csak küld (heti összefoglaló,
+másolás) és a Kukát nyitja; a biztonsági mentés és a visszaállítás CSAK a
+Profil „Adataim” kártyáján van. E2E: 64.
+
 ## Kuka – törölt edzés 3 napig
 
 `S.trash = [{s, at}]` (additív, `save()`/`backup()`/`restore()` viszi, a
@@ -1128,7 +1136,7 @@ Physio-módban a súlyállító, eszközsáv és szett-chipek helyett EGY nagy k
 ismétlésnél koppintásonként +1 (`phTap`, a célnál magától rögzít), tartásnál
 a kör indítja az órát. A számláló nézet-állapot (`_phCount`). A gyógytorna-lap
 tételkártyái `.phlist` (zsálya szegély). A lejátszóból a **Bemelegítés gomb
-kikerült** (felhasználói kérés; az `openWarmup` függvény megmaradt). E2E: 55.
+kikerült** (felhasználói kérés); v145-ben a `warmupSets`/`openWarmup` kód is törölve. E2E: 55.
 
 ## Szabad edzés (menet közben összerakva)
 
@@ -1430,8 +1438,9 @@ elárnyékolna, és csak futásidőben derülne ki.
 
 ## Téma (világos / sötét)
 
-Az app követi a rendszer beállítását, és a felső sávban lévő gombbal
-kézzel is váltható. A tokenek CSS-változók a `:root`-on:
+Az app követi a rendszer beállítását, és a Profil lap téma-választójával
+(Rendszer / Világos / Sötét, `setThemeMode`) kézzel is váltható. A felső
+sáv téma-gombja v145-ben kikerült (redundáns volt). A tokenek CSS-változók a `:root`-on:
 
 - Alap `:root` = **sötét** (teremben ez az alapértelmezett).
 - `@media (prefers-color-scheme: light) :root:not([data-theme])` =
