@@ -1036,6 +1036,15 @@ sárga tömb – a többi `.seg` változatlan). A gyakorlatsorban görbe CSAK ot
 van, ahol a súly mozdult (vízszintes vonal 25 sorban zaj), a változás
 `.dchip` címke (`up` zsálya / `down` piros, téma-tokenből).
 
+**Haladás (v140):** a szakaszok FONTOSSÁG szerint jönnek: összesítő (a
+„becsült 1RM a kezdés óta" – a `mostImproved` növekményeinek összege – áll az
+átlag készenlét helyén; ha nincs, „e hónap") → Erő-fejlődés → Munkasúly →
+Heti terhelés (az izomtérkép lenyitható) → stagnálás → készenlét (kisebb
+görbe) → testsúly → eltérés-okok → naptár. A munkasúly-lista alapból max. 8
+sort mutat (előbb a mozdult súlyúak, aztán a legutóbb edzettek), a többi
+„További N gyakorlat" mögött. A naptár csak az első edzés óta eltelt heteket
+mutatja (8–16 hét). E2E: 59.
+
 ## Napló: lenyitható edzés-kártyák
 
 A napló hét edzésnél 3469 px volt (négy képernyő), és ebből **1869 px – az

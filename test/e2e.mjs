@@ -2795,6 +2795,18 @@ ok('58 napló: heti fejlécek, összevont pihenő, Ma/Tegnap, vízszintes szűr�
   S.sessions=bak.s; S.bw=bak.bw; S.sleep=bak.sl; tab='home'; render();
   return (heti && ossze && ma && egysor) || JSON.stringify({heti,ossze,ma,egysor,r:runs.map(x=>x.textContent.trim().slice(0,60))}); })));
 
+// ---- 59. Haladás: sorrend, rövid gyakorlatlista, 1RM-összesítő ----
+await seed(backup);
+ok('59 haladás: az Erő-fejlődés a naptár előtt, max 8 látható gyakorlatsor, 1RM-összesítő', await page.evaluate(async ()=>{
+  tab='prog'; render(); await new Promise(r=>setTimeout(r,250));
+  const t=document.getElementById('app').textContent;
+  const sorrend = !/Erő-fejlődés/.test(t) || t.indexOf('Erő-fejlődés') < t.indexOf('Edzésnaptár');
+  const card=[...document.querySelectorAll('#app .pcard')][0].closest('.card');
+  const lathato=[...card.querySelectorAll(':scope > .pad > .pcard')].length;
+  const nincsKeszAtlag=!/átlag készenlét/.test(t);
+  tab='home'; render();
+  return sorrend && lathato<=8 && nincsKeszAtlag; }));
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));

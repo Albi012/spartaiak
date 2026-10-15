@@ -17,27 +17,39 @@ function progView(){
   const rHist=rdyHistory(30), rVals=rHist.filter(x=>x.v!=null).map(x=>x.v);
   const rAvg=rVals.length?Math.round(rVals.reduce((a,b)=>a+b,0)/rVals.length):null;
   const rNow=readiness();
+  // A haladás összesítője a fejlődést mutatja (becsült 1RM-növekmény
+  // gyakorlatonként összeadva), nem a készenlétet – az a saját kártyáján él.
+  const gainAll=mostImproved(999).reduce((a,x)=>a+x.gain,0);
+  // A szakaszok külön gyűlnek, és a végén a FONTOSSÁG szerinti sorrendben
+  // kerülnek ki: előbb az erő (amiért a fület megnyitod), utána a terhelés,
+  // a regeneráció és a naptár.
+  const P={};
   // A cím helyett a fül tetején álló Napló | Haladás kapcsoló (logSegWrap).
   let h=`<div class="wrap">
     <div class="card"><div class="pad"><div class="statgrid">
-      ${rAvg!=null?`<div class="stat"><span class="num" data-cu="${rAvg}">${rAvg}</span><span class="statlbl">átlag készenlét</span></div>`:''}
+      ${gainAll>0?`<div class="stat"><span class="num">+${kgNum(Math.round(gainAll))}<span style="font-size:16px"> kg</span></span><span class="statlbl">becsült 1RM a kezdés óta</span></div>`:''}
       <div class="stat"><span class="num" data-cu="${st.total}">${st.total}</span><span class="statlbl">edzés</span></div>
       <div class="stat"><span class="num" data-cu="${st.streak}">${st.streak}</span><span class="statlbl">hetes sorozat</span></div>
       <div class="stat"><span class="num">${fmtTon(st.tonnage)}</span><span class="statlbl">össztömeg</span></div>
-      ${rAvg==null?`<div class="stat"><span class="num" data-cu="${st.month}">${st.month}</span><span class="statlbl">e hónap</span></div>`:''}
+      ${gainAll>0?'':`<div class="stat"><span class="num" data-cu="${st.month}">${st.month}</span><span class="statlbl">e hónap</span></div>`}
     </div></div></div>`;
+  let h0=h; h='';
   if(rVals.length>=5){
     const trend = rVals.length>=10 ? rdyTrendLabel(rHist) : '';
     h+=`<div class="card"><div class="pad">
       <div class="row" style="align-items:baseline"><span class="eyebrow grow">Készenlét · 30 nap</span>
         ${rNow?`<span class="num" style="font-size:17px;font-weight:700;color:${rNow.color}">${rNow.score} ma</span>`:''}</div>
-      ${rdySpark(rHist,88)}
+      ${rdySpark(rHist,56)}
       <div class="row small dim" style="justify-content:space-between;margin-top:8px"><span>30 napja</span>${trend?`<span>${trend}</span>`:''}<span>ma</span></div>
       </div></div>`;
   }
-  h+=bwProgCard();
-  h+=stallCard();
-  const WEEKS=16, cols=trainingHeatmap(WEEKS);
+  P.rdy=h; h='';
+  P.bw=bwProgCard();
+  P.stall=stallCard();
+  // A naptár csak az első edzés óta eltelt heteket mutatja (min. 8, max. 16)
+  // – egy friss naplónál a 16 hét java része üres rács volt.
+  const firstT=Math.min(...S.sessions.map(x=>x.t));
+  const WEEKS=Math.max(8, Math.min(16, Math.round((weekStart(Date.now())-weekStart(firstT))/(7*864e5))+1)), cols=trainingHeatmap(WEEKS);
   h+=`<div class="card"><div class="pad">
     <span class="eyebrow">Edzésnaptár · utolsó ${WEEKS} hét</span>
     <div class="hmwrap"><div class="hm">`;
@@ -56,14 +68,15 @@ function progView(){
       <span class="mgtrack"><span class="mgfill" style="--p:${(pct/100).toFixed(4)};background:var(--brass)"></span></span>
       <span class="mgval num">${m.count}</span></div>`; });
   h+=`</div></details></div></div>`;
+  P.cal=h; h='';
   const wv=weekVolume();
   if(wv.length){
     const mx=Math.max(...wv.map(v=>v.sets));
     const wmap=weeklyMgSets(), missing=MGS.filter(mg=>!wmap[mg]);
     h+=`<div class="card"><div class="pad">
-      <span class="eyebrow">Heti terhelés · izomtérkép</span>
+      <span class="eyebrow">Heti terhelés</span>
       <p class="mut small" style="margin:4px 0 6px">Ezen a héten (hétfőtől) · a színek erőssége a szettszámot mutatja</p>
-      ${muscleMap(wmap)}${mmLegend()}
+      <details class="mmfold"><summary class="small dim">Izomtérkép</summary>${muscleMap(wmap)}${mmLegend()}</details>
       <div class="small" style="margin:8px 0 12px;text-align:center;color:${missing.length?'var(--mut)':'var(--sage)'}">${missing.length?('Ezen a héten kimaradt: <b>'+missing.map(m=>esc(trmg(m))).join(', ')+'</b>'):'Minden fő izomcsoport kapott terhelést ezen a héten'}</div>`;
     wv.forEach(v=>{ const pct=Math.max(8,Math.round(v.sets/mx*100)), good=v.sets>=10;
       h+=`<div class="mgrow"><span class="mglbl">${esc(trmg(v.mg))}</span>
@@ -71,6 +84,7 @@ function progView(){
         <span class="mgval num">${v.sets}</span></div>`; });
     h+=`</div></div>`;
   }
+  P.load=h; h='';
   // Legtöbbet fejlődő gyakorlatok
   const imp=mostImproved(3);
   if(imp.length){
@@ -91,6 +105,7 @@ function progView(){
         <span class="small num" style="color:var(--sage);font-weight:700;flex:none">+${kgNum(x.gain)} kg</span></button>`; });
     h+=`</div></div>`;
   }
+  P.str=h; h='';
   // Terv-kontra-valóság: miért tért el
   const wb=whyBreakdown();
   if(wb.total){
@@ -102,6 +117,7 @@ function progView(){
         ${seg(wb.time,'kevés idő')}${seg(wb.busy,'gép foglalt')}${seg(wb.heavy,'túl nehéz')}
       </div></div></div>`;
   }
+  P.why=h; h='';
   // Munkasúly gyakorlatonként: EGY kártya, gyakorlatonként egy sor (név,
   // változás, kis görbe, mostani súly). Korábban gyakorlatonként egy 141 px-es
   // kártya volt – 25 gyakorlatnál 3500 px, a fül háromnegyede. A részletes
@@ -109,7 +125,7 @@ function progView(){
   h+=`<div class="card"><div class="pad">
     <span class="eyebrow">Munkasúly gyakorlatonként</span>
     <p class="mut small" style="margin:4px 0 4px">Koppints a részletekért ›</p>`;
-  ids.forEach(id=>{
+  const rowOf=id=>{ let h='';
     const e=exDef(id);
     const pts=S.sessions.filter(s=>s.log[id]&&s.log[id].sets.some(x=>x!=null)).map(s=>s.log[id].w);
     const last=pts[pts.length-1], delta=last-pts[0];
@@ -125,9 +141,20 @@ function progView(){
         <span class="small dim" style="display:block;font-weight:400;margin-top:2px">${delta?`<span class="dchip ${delta>0?'up':'down'}">${delta>0?'+':''}${kgNum(delta)} kg</span> `:''}${pts.length} alkalom</span></span>
       ${sp}
       <span class="num" style="font-size:18px;font-weight:700;flex:none;min-width:58px;text-align:right">${wLabel(e,last)}<span class="small dim" style="font-weight:400">${e.bw&&last<=0?'':' kg'}</span></span></button>`;
-  });
+  return h; };
+  // Alapból a MOZDULT súlyú és a legutóbb edzett gyakorlatok látszanak
+  // (legfeljebb 8); a többi egy lenyitható sor mögött – 25 sorból a
+  // legtöbb „2 alkalom, változatlan" volt.
+  const lastT=id=>{ for(let i=S.sessions.length-1;i>=0;i--){ const L=S.sessions[i].log[id]; if(L&&L.sets.some(x=>x!=null)) return S.sessions[i].t; } return 0; };
+  const movedOf=id=>{ const w=S.sessions.filter(s=>s.log[id]&&s.log[id].sets.some(x=>x!=null)).map(s=>s.log[id].w); return w.length>1 && Math.max(...w)!==Math.min(...w); };
+  const ranked=[...ids].sort((x,y)=>(movedOf(y)-movedOf(x)) || (lastT(y)-lastT(x)));
+  const top=ranked.slice(0,8), rest=ranked.slice(8);
+  top.forEach(id=>{ h+=rowOf(id); });
+  if(rest.length){ h+=`<details class="mmfold"><summary class="small dim">További ${rest.length} gyakorlat</summary>`;
+    rest.forEach(id=>{ h+=rowOf(id); }); h+=`</details>`; }
   h+=`</div></div>`;
-  return h+'</div>';
+  P.ex=h;
+  return h0+P.str+P.ex+P.load+(P.stall||'')+P.rdy+P.bw+P.why+P.cal+'</div>';
 }
 
 // Egy edzés–gyakorlat metrikája a részletlap görbéjéhez. 'w' = munkasúly;
