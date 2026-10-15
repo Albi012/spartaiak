@@ -333,32 +333,43 @@ function plansView(){
     <span class="eyebrow grow">${plist.length} terv · ${nR} saját edzés</span></div>
     <button class="btn pri" style="margin:0 0 6px" onclick="openNewPlan()">+ Új edzés vagy terv</button>
     <button class="btn" style="margin:0 0 4px" onclick="startFree()">Szabad edzés – menet közben összerakva</button>`;
+  // Az AKTÍV terv áll elöl; a terv napjai a terv kártyáján élnek (chipre
+  // koppintva szerkeszthetők), a „Saját edzések" alatt csak a tervhez NEM
+  // tartozók – korábban ugyanaz a nap kétszer szerepelt.
+  const isAiProg=p=>!p.builtin && (p.ai || (p.days.length && p.days.every(d=>{ const r=(S.routines||[]).find(x=>x.id===d); return r && r.at; })));
+  const exPreview=ids=>{ const n=ids.map(id=>exN(exDef(id))); return n.slice(0,3).join(', ')+(n.length>3?' +'+(n.length-3):''); };
   if(plist.length){
     h+=`<span class="eyebrow" style="display:block;margin:18px 0 8px">Edzéstervek</span>`;
-    plist.forEach(p=>{
-      const isAct=act&&p.id===act.id;
-      const days=p.days.map(d=>{const dd=dayDef(d);return dd?`<span class="tday">${esc(trn(dd.name))}</span>`:'';}).join('');
-      h+=`<div class="card"><div class="pad">
+    const ordered=[...plist].sort((x,y)=>((act&&y.id===act.id)?1:0)-((act&&x.id===act.id)?1:0));
+    ordered.forEach(p=>{
+      const isAct=act&&p.id===act.id, ai=isAiProg(p);
+      const days=p.days.map(d=>{const dd=dayDef(d); if(!dd) return '';
+        const isR=(S.routines||[]).some(x=>x.id===d);
+        return isR ? `<button class="tday" onclick="openBuilder('${d}')">${esc(trn(dd.name))} ${ICON.edit}</button>` : `<span class="tday">${esc(trn(dd.name))}</span>`;}).join('');
+      h+=`<div class="card"${isAct?' style="border-color:color-mix(in srgb,var(--sage) 45%,var(--line))"':''}><div class="pad">
         <div class="row" style="align-items:center;gap:6px">
           <span class="grow" style="min-width:0"><span class="cond" style="font-size:20px;font-weight:600">${esc(p.builtin?'Alapterv':p.name)}</span>
-            ${isAct?'<span class="dchip up" style="margin-left:6px">aktív</span>':''}
+            ${isAct?'<span class="dchip up" style="margin-left:6px">aktív</span>':''}${ai?'<span class="dchip" style="margin-left:6px;color:var(--brass)">AI</span>':''}
             <span class="small dim" style="display:block">${p.days.length} nap</span></span>
+          ${isAct?'':`<button class="nbtn" onclick="setActiveProgram('${p.id}')">Aktiválás</button>`}
           ${p.builtin?'':`<button class="iconbtn ghost" onclick="openProgram('${p.id}')" aria-label="Szerkesztés" title="Szerkesztés">${ICON.edit}</button>`}
           <button class="iconbtn ghost" onclick="openSharePlan('${p.id}')" aria-label="Megosztás" title="Megosztás">${ICON.share}</button>
           <button class="iconbtn ghost" style="color:var(--red)" onclick="${p.builtin?'deletePlan()':`deleteProgram('${p.id}')`}" aria-label="${p.builtin?'Elrejtés':'Terv törlése'}" title="${p.builtin?'Elrejtés':'Terv törlése'}">×</button>
         </div>
         <div class="tdays">${days}</div>
-        ${isAct?'':`<button class="btn ghost" style="margin:8px 0 0" onclick="setActiveProgram('${p.id}')">Legyen ez az aktív terv</button>`}
+        ${ai?'<div class="small dim" style="margin-top:8px">AI-import – a következő AI-terv ezt cseréli le.</div>':''}
         </div></div>`;
     });
   }
-  if(nR){
+  const inProg=new Set(); (S.programs||[]).forEach(p=>p.days.forEach(x=>inProg.add(x)));
+  const loose=(S.routines||[]).filter(r=>!inProg.has(r.id));
+  if(loose.length){
     h+=`<span class="eyebrow" style="display:block;margin:18px 0 8px">Saját edzések</span><div class="card"><div class="pad" style="padding-top:4px;padding-bottom:4px">`;
-    S.routines.forEach(r=>{ const l=lastOf(r.id);
+    loose.forEach(r=>{ const l=lastOf(r.id);
       h+=`<div class="row trow">
         <button class="grow pcard" style="text-align:left;min-height:44px;padding:8px 0;min-width:0" onclick="openBuilder('${r.id}')">
           <span style="font-weight:600;display:block">${esc(r.name)}</span>
-          <span class="small dim">${r.ex.length} gyakorlat${l?' · utoljára '+fmtDate(l.t):''}</span></button>
+          <span class="small dim" style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(exPreview(r.ex))||'üres'}${l?' · '+friendlyDate(l.t):''}</span></button>
         <button class="iconbtn ghost" onclick="startDay('${r.id}')" aria-label="Indítás" title="Indítás" style="color:var(--brass)">›</button>
         <button class="iconbtn ghost" style="color:var(--red)" onclick="deleteRoutine('${r.id}')" aria-label="Törlés" title="Törlés">×</button>
       </div>`; });

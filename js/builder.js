@@ -52,22 +52,27 @@ async function deleteRoutine(id){
 function builderView(){
   const canSave = draft.name.trim() && draft.ex.length>0;
   let items='';
+  // Gyakorlatonként EGY kompakt sor (korábban ~130 px-es kártya három nagy
+  // gombbal + teljes szélességű superset-felirat minden pár közt). A
+  // superset-kapcsoló egy kis lánc-ikon a sor bal szélén (az előzőhöz köt).
+  items='<div class="card"><div class="pad" style="padding:4px 10px">';
   draft.ex.forEach((exId,i)=>{ const e=exDef(exId);
     const linked = i>0 && (draft.ssLinks||[]).includes(exId);
-    if(i>0) items+=`<button class="sslink ${linked?'on':''}" onclick="draftToggleLink('${exId}')">${linked?'⛓ Superset az előzővel · bontás':'+ Superset az előzővel'}</button>`;
     const dz=draftDose(exId), restOv=((draft.exOv||{})[exId]||{}).rest!=null, wOv=draftWLive(exId), w=draftW(exId);
-    items+=`<div class="card"${linked?' style="border-color:var(--brass)"':''}><div class="pad">
-      <div class="row" style="align-items:center">
-        <span class="grow cond" style="font-size:18px;font-weight:600">${esc(exN(e))}</span>
-        <button class="iconbtn" onclick="draftMove(${i},-1)" ${i===0?'disabled':''} aria-label="fel">↑</button>
-        <button class="iconbtn" onclick="draftMove(${i},1)" ${i===draft.ex.length-1?'disabled':''} aria-label="le">↓</button>
-        <button class="iconbtn" style="color:var(--red)" onclick="draftRemove(${i})" aria-label="törlés">×</button></div>
-      <div class="row" style="gap:10px;margin-top:8px;align-items:center;flex-wrap:wrap">
-        <button class="dose${draftOvHas(exId)?' on':''}" onclick="openDraftDose(${i})" aria-label="Szett, ismétlés és pihenő szerkesztése">
-          <span class="num">${dz.s} × ${esc(dz.r)}</span>${ICON.edit}</button>
-        <span class="small dim">${doseIsTime(exId)?'':`<span${wOv?' style="color:var(--brass)"':''}>${wLabel(e,w)}${e.bw&&w<=0?'':' kg'}</span> · `}<span${restOv?' style="color:var(--brass)"':''}>pihenő ${restFmt(dz.rest)}</span>${e.mg?' · '+esc(trmg(e.mg)):''}</span></div>
-    </div></div>`;
+    items+=`<div class="bxrow${linked?' linked':''}">
+      ${i>0?`<button class="sslink ${linked?'on':''}" onclick="draftToggleLink('${exId}')" aria-label="${linked?'Superset bontása':'Superset az előzővel'}" title="${linked?'Superset bontása':'Superset az előzővel'}">${ICON.link}</button>`:'<span class="sslink-sp"></span>'}
+      <div class="grow" style="min-width:0">
+        <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(exN(e))}</div>
+        <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap;margin-top:2px">
+          <button class="dose${draftOvHas(exId)?' on':''}" onclick="openDraftDose(${i})" aria-label="Szett, ismétlés és pihenő szerkesztése">
+            <span class="num">${dz.s} × ${esc(dz.r)}</span>${ICON.edit}</button>
+          <span class="small dim">${doseIsTime(exId)?'':`<span${wOv?' style="color:var(--brass)"':''}>${wLabel(e,w)}${e.bw&&w<=0?'':' kg'}</span> · `}<span${restOv?' style="color:var(--brass)"':''}>pihenő ${restFmt(dz.rest)}</span></span></div></div>
+      <button class="iconbtn ghost" onclick="draftMove(${i},-1)" ${i===0?'disabled':''} aria-label="fel">↑</button>
+      <button class="iconbtn ghost" onclick="draftMove(${i},1)" ${i===draft.ex.length-1?'disabled':''} aria-label="le">↓</button>
+      <button class="iconbtn ghost" style="color:var(--red)" onclick="draftRemove(${i})" aria-label="törlés">×</button>
+    </div>`;
   });
+  items+='</div></div>';
   if(!draft.ex.length) items=`<div class="empty" style="padding:24px">Még nincs gyakorlat.<br>Add hozzá lentebb.</div>`;
   return `<div class="player">
     <div class="ptop">

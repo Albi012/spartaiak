@@ -2807,6 +2807,25 @@ ok('59 haladás: az Erő-fejlődés a naptár előtt, max 8 látható gyakorlats
   tab='home'; render();
   return sorrend && lathato<=8 && nincsKeszAtlag; }));
 
+// ---- 60. Tervek: aktív terv elöl, nap nem duplikálódik, AI-jelölés; kompakt összeállító ----
+ok('60 tervek: aktív elöl, tervhez tartozó nap nincs a Saját edzések között, AI-címke', await page.evaluate(async ()=>{
+  const bak={r:S.routines,p:S.programs,a:S.activeProgram};
+  S.routines=[{id:'r_a60',name:'Nap A',ex:['bench'],at:1,ai:1},{id:'r_b60',name:'Laza',ex:['curl']}];
+  S.programs=[{id:'p_60',name:'AI terv',days:['r_a60'],ai:1}]; S.activeProgram='p_60';
+  tab='plans'; render(); await new Promise(r=>setTimeout(r,250));
+  const app=document.getElementById('app'), cards=[...app.querySelectorAll('.card')];
+  const elso=cards.find(c=>/aktív/.test(c.textContent)); const elol=elso && /AI terv/.test(elso.textContent) && /AI-import/.test(elso.textContent);
+  const rows=[...app.querySelectorAll('.trow')].map(r=>r.textContent);
+  const nincsDup=rows.length===1 && /Laza/.test(rows[0]);
+  S.routines=bak.r; S.programs=bak.p; S.activeProgram=bak.a; tab='home'; render();
+  return !!elol && nincsDup; }));
+ok('60 összeállító: gyakorlatonként egy kompakt sor, lánc-ikonos superset', await page.evaluate(async ()=>{
+  openBuilder(); draft.name='X'; draft.ex=['bench','row','ohp']; render(); await new Promise(r=>setTimeout(r,250));
+  const rows=[...document.querySelectorAll('#app .bxrow')];
+  const kompakt=rows.length===3 && rows.every(r=>r.getBoundingClientRect().height<120)   // korábban kártya + felirat ≈ 170 px;
+  const lanc=document.querySelectorAll('#app .bxrow .sslink').length===2;
+  closeBuilder(); return kompakt && lanc; }));
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));

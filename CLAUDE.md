@@ -1149,6 +1149,15 @@ edzés; a tervek kártyáin a nap-nevek chipek (`.tdays`), a műveletek ikonok;
 a saját edzések EGY kártyán soronként (`.trow`: koppintás = szerkesztés,
 › = indítás, × = törlés).
 
+**v141:** az AKTÍV terv áll elöl (zsálya keret), a többin kis „Aktiválás"
+gomb; a terv napjai chipek, a routine-ok chipje koppintásra `openBuilder`. A
+„Saját edzések" CSAK a tervhez nem tartozó routine-okat listázza (a terv napja
+nem duplikálódik), soronként az első gyakorlatok nevével. Az AI-importált
+terv „AI" címkét és „a következő AI-terv ezt cseréli le" megjegyzést kap
+(ugyanaz a felismerés, mint az `aiPrevImport`-é). Az összeállító
+gyakorlatonként EGY kompakt sor (`.bxrow`), a superset-kapcsoló lánc-ikon
+(`ICON.link`, `.sslink`) a sor bal szélén. E2E: 60.
+
 A lap alján öt egyforma, teljes szélességű gomb állt egymás alatt, pedig
 négy közülük **ugyanarra a kérdésre válaszol**: „hogyan csinálok újat?".
 Most egy elsődleges gomb (`openNewPlan`) nyitja a lapot: kész sablon → új
