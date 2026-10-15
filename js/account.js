@@ -231,7 +231,15 @@ function friendsPending(){
 }
 function updateFriendsBadge(){ const d=document.getElementById('friendsDot'); if(d) d.classList.toggle('on', friendsPending()>0); }
 // Ugyanaz a nyelv, mint a Tervek/Edző fülön: nincs nagy cím, keskeny
-// fejsor, a listák EGY kártyán soronként (.trow), egy elsődleges gomb.
+// fejsor, a listák EGY kártyán soronként (.trow). v143: a TEENDŐ (bejövő
+// kérés, kapott terv) áll legfelül; a barát-sor a publikált összesítőből
+// mutatja az utolsó edzést (friendStatsMap, csak származtatott adat).
+let friendStatsMap={};
+async function loadFriendStats(ids){
+  await Promise.all(ids.map(async id=>{ try{ const st=await Auth.friendStats(id); friendStatsMap[id]=st||{}; }catch(e){ friendStatsMap[id]={}; } }));
+  if(tab==='friends') render();
+}
+function friendAgo(last){ if(!last) return null; return Math.floor((Date.now()-last)/864e5); }
 function friendsView(){
   const wrap = (inner, sub) => `<div class="wrap"><div class="row" style="align-items:center;margin:4px 0 10px">
     <span class="eyebrow grow">Barátok${sub?' · '+sub:''}</span></div>${inner}</div>`;
@@ -254,38 +262,77 @@ function friendsView(){
   const otherId=r=> r.requester===me ? r.addressee : r.requester;
   const ini=n=>`<span class="cic" style="font-weight:700;font-size:16px">${esc((n||'?').trim().charAt(0).toUpperCase())}</span>`;
   const sect=(t)=>`<span class="eyebrow" style="display:block;margin:18px 0 8px">${t}</span>`;
-  const list=inner=>`<div class="card"><div class="pad" style="padding-top:4px;padding-bottom:4px">${inner}</div></div>`;
-  let h=`<div class="card"><div class="pad">
-      <span class="small dim">A te barát-kódod</span>
-      <div class="cond" style="font-size:30px;font-weight:700;letter-spacing:.14em;color:var(--brass)">${esc((myProfile&&myProfile.friend_code)||'…')}</div>
-      <div class="small mut" style="margin:2px 0 12px">Oszd meg egy baráttal, hogy bejelöljön.</div>
-      <div class="row" style="gap:8px">
-        <input id="friendCode" type="text" placeholder="Barát kódja" style="flex:1;min-width:0;text-transform:uppercase;font-size:16px">
-        <button class="btn pri" style="width:auto;margin:0;padding:12px 16px" onclick="doAddFriend()">Bejelölés</button></div>
-      <div id="friendErr" class="small" style="color:var(--red);margin-top:6px;display:none"></div></div></div>`;
-  // Beérkezett megosztott edzéstervek
+  const list=(inner,cls)=>`<div class="card${cls?' '+cls:''}"><div class="pad" style="padding-top:4px;padding-bottom:4px">${inner}</div></div>`;
+  let h='';
+  // 1) Rád vár – a teendők legfelül, sárgarézzel.
   const shared=sharedPlansData||[];
-  if(shared.length){ h+=sect('Megosztott edzéstervek')+list(shared.map(sp=>`<div class="row trow" style="gap:10px;padding:8px 0;min-height:56px">
+  if(shared.length||incoming.length){
+    h+=`<span class="eyebrow" style="display:block;margin:0 0 8px;color:var(--brass)">Rád vár (${shared.length+incoming.length})</span>`;
+    h+=list(incoming.map(r=>`<div class="row trow" style="gap:10px;padding:8px 0;min-height:56px">
+      ${ini(r.requester_name)}<span class="grow" style="min-width:0"><span style="font-weight:600;display:block">${esc(r.requester_name||'Barát')}</span>
+      <span class="small dim">bejelölt barátnak</span></span>
+      <button class="nbtn" onclick="doRespond('${r.requester}',true)">Elfogad</button>
+      <button class="iconbtn ghost" style="color:var(--mut)" onclick="doRespond('${r.requester}',false)" aria-label="Elutasít" title="Elutasít">×</button></div>`).join('')
+      + shared.map(sp=>`<div class="row trow" style="gap:10px;padding:8px 0;min-height:56px">
       <span class="cic">${ICON.plans}</span>
       <span class="grow" style="min-width:0"><span style="font-weight:600;display:block">${esc(sp.name||'Terv')}</span>
       <span class="small dim">${esc(sp.from_name||'Barát')} küldte</span></span>
-      <button class="btn" style="width:auto;margin:0;padding:10px 12px;color:var(--brass)" onclick="doImportPlan('${sp.id}')">Importálás</button>
-      <button class="iconbtn ghost" style="color:var(--mut)" onclick="doDiscardPlan('${sp.id}')" aria-label="Elvet" title="Elvet">×</button></div>`).join('')); }
-  if(incoming.length){ h+=sect('Bejövő kérések')+list(incoming.map(r=>`<div class="row trow" style="gap:10px;padding:8px 0;min-height:56px">
-      ${ini(r.requester_name)}<span class="grow" style="font-weight:600;min-width:0">${esc(r.requester_name||'Barát')}</span>
-      <button class="btn" style="width:auto;margin:0;padding:10px 14px;color:var(--sage)" onclick="doRespond('${r.requester}',true)">Elfogad</button>
-      <button class="iconbtn ghost" style="color:var(--red)" onclick="doRespond('${r.requester}',false)" aria-label="Elutasít">×</button></div>`).join('')); }
+      <button class="nbtn" onclick="doImportPlan('${sp.id}')">Importálás</button>
+      <button class="iconbtn ghost" style="color:var(--mut)" onclick="doDiscardPlan('${sp.id}')" aria-label="Elvet" title="Elvet">×</button></div>`).join(''), 'frwait');
+  }
+  // 2) A saját kód – fő elem, megosztás-gombbal; a bejelölés kisebb.
+  const code=(myProfile&&myProfile.friend_code)||'…';
+  h+=`<div class="card"${h?' style="margin-top:14px"':''}><div class="pad">
+      <span class="small dim">A te barát-kódod</span>
+      <div class="row" style="align-items:center;gap:8px">
+        <div class="cond grow" style="font-size:30px;font-weight:700;letter-spacing:.14em;color:var(--brass)">${esc(code)}</div>
+        <button class="nbtn" onclick="shareFriendCode()">${ICON.send} Megosztás</button></div>
+      <div class="small mut" style="margin:2px 0 12px">Küldd el egy barátnak, hogy bejelöljön.</div>
+      <div class="row" style="gap:8px">
+        <input id="friendCode" type="text" placeholder="Barát kódja" autocomplete="off" style="flex:1;min-width:0;text-transform:uppercase;font-size:16px">
+        <button class="iconbtn" style="color:var(--brass)" onclick="doAddFriend()" aria-label="Bejelölés" title="Bejelölés">${ICON.plus}</button></div>
+      <div id="friendErr" class="small" style="color:var(--red);margin-top:6px;display:none"></div></div></div>`;
+  // 3) Barátok
   h+=sect(`Barátaid (${accepted.length})`);
-  if(!accepted.length) h+=`<div class="notice"><span class="ntdot"></span><span class="grow small">Még nincs barátod. Add meg egy barát kódját fentebb.</span></div>`;
-  else h+=list(accepted.map(r=>{ const id=otherId(r);
-    return `<div class="row trow" style="gap:6px">
+  if(!accepted.length){
+    h+=`<div class="card"><div class="pad"><span class="cond" style="font-size:18px;font-weight:600">Így működik</span>
+      <ol class="csteps"><li>Oszd meg a kódodat egy baráttal.</li><li>Ő beírja és bejelöl – vagy te az övét.</li><li>Az elfogadás után látjátok egymás összesítőjét.</li></ol></div></div>`;
+  } else {
+    const need=accepted.map(otherId).filter(id=>!(id in friendStatsMap));
+    if(need.length){ need.forEach(id=>friendStatsMap[id]=null); loadFriendStats(need); }
+    h+=list(accepted.map(r=>{ const id=otherId(r), st=friendStatsMap[id], d=st&&st.data;
+      const ago=d?friendAgo(d.last):null;
+      const dot= ago==null?'':`<span class="frdot${ago<=7?' on':''}" title="${ago<=7?'Ezen a héten edzett':'Régóta nem edzett'}"></span>`;
+      const meta= st===null||st===undefined ? 'Betöltés…'
+        : !d||!d.sessions ? 'Még nincs megosztott adat'
+        : `Utolsó: ${friendlyDate(d.last)} · 7 napban ${d.week||0} edzés`;
+      return `<div class="row trow" style="gap:6px">
       <button class="row grow pcard" style="text-align:left;gap:10px;padding:8px 0;min-height:56px;min-width:0" onclick="openFriendStats('${id}','${esc(nameOf(r))}')">
-        ${ini(nameOf(r))}<span class="grow" style="min-width:0"><span style="font-weight:600;display:block">${esc(nameOf(r))}</span>
-        <span class="small dim">haladás ›</span></span></button>
-      <button class="iconbtn ghost" style="color:var(--red)" onclick="doRemoveFriend('${id}')" aria-label="Törlés">×</button></div>`; }).join(''));
+        ${ini(nameOf(r))}<span class="grow" style="min-width:0"><span style="font-weight:600;display:block">${esc(nameOf(r))}${dot}</span>
+        <span class="small dim frmeta">${meta}</span></span><span class="dim">›</span></button>
+      <button class="iconbtn ghost" style="color:var(--mut)" onclick="doRemoveFriend('${id}')" aria-label="Törlés" title="Törlés">×</button></div>`; }).join(''));
+  }
   if(outgoing.length){ h+=sect('Elküldött kérések')+list(outgoing.map(r=>`<div class="row trow" style="gap:10px;padding:8px 0;min-height:52px">
-      ${ini(r.addressee_name)}<span class="grow small mut">${esc(r.addressee_name||'Barát')} · függőben</span></div>`).join('')); }
+      ${ini(r.addressee_name)}<span class="grow small mut">${esc(r.addressee_name||'Barát')} · függőben</span>
+      <button class="nbtn" onclick="doCancelRequest('${r.addressee}')">Visszavonás</button></div>`).join('')); }
+  // 4) Átláthatóság: pontosan ez megy ki rólad.
+  const my=shareSummary();
+  h+=`<details class="card mmfold frseen" style="margin-top:14px"><summary class="pad row" style="gap:10px;align-items:center">
+      <span class="cic">${ICON.friends}</span><span class="grow" style="font-weight:600">Mit látnak rólam?</span><span class="dim">›</span></summary>
+      <div class="pad" style="padding-top:0"><div class="small dim" style="margin-bottom:8px">Csak ez az összesítő megy át – napló, jegyzet, fotó, testsúly, alvás és sérülés SOHA.</div>
+      <div class="hrow"><span class="small grow">Összes edzés</span><span class="small num">${my.sessions}</span></div>
+      <div class="hrow"><span class="small grow">Az utolsó 7 napban</span><span class="small num">${my.week}</span></div>
+      <div class="hrow"><span class="small grow">Utolsó edzés</span><span class="small">${my.last?friendlyDate(my.last):'–'}</span></div>
+      ${my.lifts.map(l=>`<div class="hrow"><span class="small grow">${esc(exN({n:l.n}))}</span><span class="small num mut">${kgNum(l.w)} kg</span></div>`).join('')}
+      </div></details>`;
   return wrap(h, accepted.length?accepted.length+' fő':'');
+}
+async function shareFriendCode(){
+  const code=myProfile&&myProfile.friend_code; if(!code) return;
+  const txt='Jelölj be az edzésnaplóban! A barát-kódom: '+code;
+  if(navigator.share){ try{ await navigator.share({text:txt}); return; }catch(e){ if(e&&e.name==='AbortError') return; } }
+  try{ await navigator.clipboard.writeText(code); toast('Kód vágólapra másolva: '+code); }
+  catch(e){ uiAlert('Nem sikerült a másolás. A kódod: '+code); }
 }
 async function doAddFriend(){
   const code=(document.getElementById('friendCode').value||'').trim();
@@ -294,29 +341,43 @@ async function doAddFriend(){
   const errEl=document.getElementById('friendErr');
   const msg={ notfound:'Nincs ilyen kód.', self:'Ez a saját kódod.', error:'Hiba történt – ellenőrizd a hálózatot.' }[res];
   if(msg){ if(errEl){ errEl.textContent=msg; errEl.style.display='block'; } return; }
+  toast(res==='accepted'?'Barátok lettetek.':'Kérés elküldve.');
   refreshFriends();   // 'ok' vagy 'accepted' → frissítés
 }
 async function doRespond(requesterId, accept){ try{ await Auth.respondFriend(requesterId, accept); }catch(e){} refreshFriends(); }
-async function doRemoveFriend(id){ if(!(await uiConfirm('Törlöd ezt a barátot?', {ok:'Törlés', danger:true}))) return; try{ await Auth.removeFriend(id); }catch(e){} refreshFriends(); }
+async function doRemoveFriend(id){ if(!(await uiConfirm('Törlöd ezt a barátot?', {ok:'Törlés', danger:true}))) return; try{ await Auth.removeFriend(id); }catch(e){} delete friendStatsMap[id]; refreshFriends(); }
+// A függő kimenő kérés visszavonása – ugyanaz a törlés, mint a barátnál
+// (a sémában a kérelmező is törölhet).
+async function doCancelRequest(id){ try{ await Auth.removeFriend(id); }catch(e){} toast('Kérés visszavonva.'); refreshFriends(); }
 async function openFriendStats(id, name){
   const head=n=>`<div class="grabber"></div>
-    <div class="row"><div class="grow"><span class="eyebrow">Barát haladása</span><h2 style="font-size:22px">${esc(n)}</h2></div>
+    <div class="row" style="gap:12px;align-items:center"><span class="cic" style="width:52px;height:52px;font-weight:700;font-size:22px">${esc((n||'?').trim().charAt(0).toUpperCase())}</span>
+    <div class="grow"><span class="eyebrow">Barát haladása</span><h2 style="font-size:22px">${esc(n)}</h2></div>
     <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>`;
   document.getElementById('sheetIn').innerHTML=head(name)+`<div class="empty" style="padding:16px 0">Betöltés…</div>`;
   openSheet();
   let st=null; try{ st=await Auth.friendStats(id); }catch(e){}
+  friendStatsMap[id]=st||{};
   let h=head((st&&st.display_name)||name);
   if(!st||!st.data||!st.data.sessions){ h+=`<div class="empty" style="padding:16px 0">Ez a barát még nem osztott meg adatot.</div>`; }
   else{ const d=st.data;
-    h+=`<div class="card"><div class="pad row">
-      <div class="grow"><div class="num" style="font-size:30px;font-weight:700">${d.sessions||0}</div><div class="small dim">edzés</div></div>
-      <div class="grow"><div class="num" style="font-size:30px;font-weight:700">${d.week||0}</div><div class="small dim">7 napban</div></div>
-      ${d.last?`<div class="grow small dim" style="align-self:center">Utolsó:<br>${fmtDate(d.last)}</div>`:''}</div></div>`;
-    if(d.lifts&&d.lifts.length){ h+=`<div class="top" style="padding:12px 0 6px"><span class="eyebrow">Legnagyobb súlyok</span></div><div class="card">`;
-      d.lifts.forEach(l=>{ h+=`<div class="hrow"><span class="small grow">${esc(l.n)}</span><span class="small num mut">${kgNum(l.w)} kg</span></div>`; });
-      h+=`</div>`; }
+    const tile=(v,l)=>`<div class="frtile"><div class="num" style="font-size:26px;font-weight:700">${v}</div><div class="small dim">${l}</div></div>`;
+    h+=`<div class="frtiles">${tile(d.sessions||0,'edzés')}${tile(d.week||0,'7 napban')}${tile(d.last?`<span style="font-size:17px">${friendlyDate(d.last)}</span>`:'–','utolsó')}</div>`;
+    if(d.lifts&&d.lifts.length){ h+=`<span class="eyebrow" style="display:block;margin:16px 0 8px">Legnagyobb súlyok</span><div class="card"><div class="pad" style="padding-top:4px;padding-bottom:4px">`;
+      d.lifts.forEach(l=>{ h+=`<div class="row trow" style="padding:10px 0;min-height:48px"><span class="grow">${esc(exN({n:l.n}))}</span><span class="num" style="font-weight:600">${kgNum(l.w)} kg</span></div>`; });
+      h+=`</div></div>`; }
   }
+  if((S.programs||[]).length) h+=`<button class="btn" style="margin-top:14px" onclick="openSharePlanTo('${id}','${esc((st&&st.display_name)||name)}')">${ICON.send} Terv küldése neki</button>`;
   document.getElementById('sheetIn').innerHTML=h;
+}
+// Fordított irány: a barátból indulva választod ki, melyik tervedet küldöd.
+function openSharePlanTo(friendId, name){
+  let h=`<div class="grabber"></div>
+    <div class="row"><div class="grow"><span class="eyebrow">Terv küldése · ${esc(name)}</span><h2 style="font-size:22px">Melyik tervet?</h2></div>
+    <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>`;
+  h+=`<div class="card"><div class="pad" style="padding-top:4px;padding-bottom:4px">`+(S.programs||[]).map(p=>`<button class="row trow pcard" style="width:100%;text-align:left;gap:10px;padding:8px 0;min-height:56px" onclick="doSharePlan('${p.id}','${friendId}','${esc(name)}')">
+    <span class="cic">${ICON.plans}</span><span class="grow"><span style="font-weight:600;display:block">${esc(p.name)}</span><span class="small dim">${(p.days||[]).length} nap</span></span><span class="dim">›</span></button>`).join('')+`</div></div>`;
+  document.getElementById('sheetIn').innerHTML=h; openSheet();
 }
 
 /* ---- Edzésterv megosztása / importálása ---------------------------- */

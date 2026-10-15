@@ -2840,6 +2840,28 @@ ok('61 edző: gyors-kérdés gombok, küldés-ikon, lista a válaszban, AI-terv 
   coachReset(); _coachQuota=null; window.Auth=bak; localStorage.removeItem('gymlog_coach'); tab='home'; render();
   return gyors && ikon && allapot && lista; }));
 
+// ---- 62. Barátok: teendő felül, kód-megosztás, barát-sor összesítővel, visszavonás, „Mit látnak rólam?" ----
+ok('62 barátok: Rád vár felül, megosztás, utolsó edzés a soron, visszavonás, átláthatóság, csempék', await page.evaluate(async ()=>{
+  const bak=window.Auth, now=Date.now(); let removed=null;
+  window.Auth=Object.assign({},bak||{},{configured:()=>true,isLoggedIn:()=>true,currentUser:()=>({id:'en'}),
+    friendStats:async id=>({display_name:'Béla',data:{sessions:12,week:2,last:now-864e5,lifts:[{n:'Fekvenyomás',w:80}]}}),
+    removeFriend:async id=>{removed=id;return true;},listFriendships:async()=>friendsData,listSharedPlans:async()=>sharedPlansData});
+  myProfile={friend_code:'ABC123'}; friendStatsMap={};
+  friendsData=[{requester:'en',addressee:'b1',addressee_name:'Béla',status:'accepted'},{requester:'c1',addressee:'en',requester_name:'Csaba',status:'pending'},{requester:'en',addressee:'d1',addressee_name:'Dóra',status:'pending'}];
+  sharedPlansData=[{id:'sp1',name:'Erő blokk',from_name:'Béla'}];
+  tab='friends'; render(); await new Promise(r=>setTimeout(r,300));
+  const app=document.getElementById('app');
+  const first=app.querySelector('.wrap > .eyebrow + .card, .wrap .frwait');
+  const felul=!!app.querySelector('.frwait') && app.textContent.indexOf('Rád vár')<app.textContent.indexOf('barát-kódod');
+  const oszt=!!app.querySelector('[onclick="shareFriendCode()"]');
+  const sor=/Tegnap · 7 napban 2 edzés/.test(app.textContent) && !!app.querySelector('.frdot.on');
+  const lat=/Mit látnak rólam/.test(app.textContent);
+  await doCancelRequest('d1'); const vissza=removed==='d1';
+  await openFriendStats('b1','Béla'); const sh=document.getElementById('sheetIn');
+  const csempe=sh.querySelectorAll('.frtile').length===3;
+  closeSheet(); window.Auth=bak; friendsData=null; sharedPlansData=null; friendStatsMap={}; tab='home'; render();
+  return felul && oszt && sor && lat && vissza && csempe; }));
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));

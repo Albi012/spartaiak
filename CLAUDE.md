@@ -1308,6 +1308,12 @@ felhő-konfig ÉS be vagy lépve** – enélkül egy mondattal kimondja, miért
 - **Edzésterv-küldés** (`plan_shares`): a címzett külön dönt az importálásról
   (`doImportPlan`) vagy elvetésről; a terve addig érintetlen.
 - **Szerveroldal:** `supabase/schema-friends.sql` + `schema-plan-shares.sql`.
+- **v143:** a teendő („Rád vár": bejövő kérés + kapott terv, `.frwait`) áll
+  legfelül; a saját kód mellett „Megosztás" (`shareFriendCode`); a barát-sor a
+  publikált összesítőből (`friendStatsMap`) mutatja az utolsó edzést + 7 napot,
+  aktivitás-pöttyel (`.frdot`); a kimenő kérés visszavonható
+  (`doCancelRequest`); „Mit látnak rólam?" lenyitható a `shareSummary()`-ből;
+  a barát-lapon csempék + „Terv küldése neki" (`openSharePlanTo`). E2E: 62.
 
 **Ha ÚJ táblát vagy RPC-t veszel fel az `auth.js`-be, három dolgot csinálj:**
 sémafájl hozzá, `on delete cascade` az `auth.users`-re, és vedd fel a
