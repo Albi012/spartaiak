@@ -1331,6 +1331,14 @@ menüjében is megmaradt (valódi edzőnek is szól). Beépített módban
 kijelentkezve bejelentkezést kér, nem hibázik.
 
 - **Megjelenés (v133):** nincs nagy cím, keskeny fejsor (mód + „Mód váltása”); a módválasztó és a terv/heti anyag EGY-EGY kártyán soronként (`coachRow`, `.cic` ikon-csempe), ugyanaz a nyelv, mint a Tervek fülön.
+- **v142:** a csevegés egy üzenetküldő: gyors-kérdés gombsor (`COACH_QUICK`,
+  `coachQuick`) a „Heti értékelés kérése" gomb helyett, a mező mellett kerek
+  küldés-ikon (`.csend`, Enter is küld), az „Új beszélgetés" ikon a fejlécben,
+  a kérdéskeret a mező fölött. A válasz-formázó (`coachFmt`) felsorolást is
+  listává alakít; gépelés-jelző (`.ctyping`). Külső módban 3 lépéses
+  „Így működik" kártya; mindkét módban az „Edzésterv kérése" sor az AI-terv
+  állapotát mutatja (`aiPlanStatus` – ugyanaz a felismerés, mint az
+  `aiPrevImport`). E2E: 61.
 - **A Claude API-kulcs SOHA nem kerülhet a kliensbe** – a hívás az Edge
   Functionön megy (`Auth.askCoach` → `functions.invoke('coach')`), ami a
   JWT-ből azonosít, és csak a `COACH_ALLOWED_EMAILS` listán lévő fióknak

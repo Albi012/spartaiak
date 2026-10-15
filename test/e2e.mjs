@@ -2826,6 +2826,20 @@ ok('60 összeállító: gyakorlatonként egy kompakt sor, lánc-ikonos superset'
   const lanc=document.querySelectorAll('#app .bxrow .sslink').length===2;
   closeBuilder(); return kompakt && lanc; }));
 
+// ---- 61. Edző: gyors-kérdések, kerek küldés, felsorolás, AI-terv állapot ----
+ok('61 edző: gyors-kérdés gombok, küldés-ikon, lista a válaszban, AI-terv állapotsor', await page.evaluate(async ()=>{
+  const bak=window.Auth;
+  window.Auth=Object.assign({},bak||{},{configured:()=>true,isLoggedIn:()=>true,currentUser:()=>({id:'x'}),
+    askCoach:async()=>({reply:'Terv:\n- A: 60 kg\n- B: 40 kg',limit:20,remaining:19})});
+  localStorage.setItem('gymlog_coach','in'); tab='coach'; render(); await new Promise(r=>setTimeout(r,250));
+  const app=document.getElementById('app');
+  const gyors=app.querySelectorAll('.cquick .whyc').length===4, ikon=!!app.querySelector('.csend');
+  const allapot=/AI-terv/.test(app.textContent);
+  await coachQuick(1); await new Promise(r=>setTimeout(r,100));
+  const lista=document.querySelectorAll('#coachLog .cmsg.ai li').length===2;
+  coachReset(); _coachQuota=null; window.Auth=bak; localStorage.removeItem('gymlog_coach'); tab='home'; render();
+  return gyors && ikon && allapot && lista; }));
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));

@@ -486,6 +486,22 @@ button.hint .hr{flex:1;min-width:0;color:var(--dim);font-weight:400;white-space:
 .cmsg.me{align-self:flex-end;background:var(--brass-d);color:var(--ink)}
 .cmsg.ai{align-self:flex-start;background:var(--card2);border:1px solid var(--line)}
 .cmsg.err{color:var(--red)}
+.cmsg ul,.cmsg ol{margin:4px 0;padding-left:20px}
+.cmsg li{margin:2px 0}
+.cquick{margin:0 -16px 4px;padding:0 16px}
+.cinput{display:flex;align-items:flex-end;gap:8px;margin-top:10px}
+.cinput textarea{flex:1;min-width:0;min-height:48px;max-height:140px;resize:none;border-radius:24px;padding:12px 16px}
+.csend{flex:none;width:48px;height:48px;border-radius:50%;display:grid;place-items:center;background:var(--brass);color:var(--on-brass)}
+.csend svg{width:20px;height:20px}
+.csend:disabled{opacity:.4}
+.csend:active{transform:scale(var(--press-sm))}
+.ctyping{display:flex;gap:5px;padding:14px}
+.ctyping i{width:7px;height:7px;border-radius:50%;background:var(--dim);opacity:.4}
+@media (prefers-reduced-motion: no-preference){ .ctyping i{animation:ctdot 1s var(--ease-in-out) infinite} .ctyping i:nth-child(2){animation-delay:.15s} .ctyping i:nth-child(3){animation-delay:.3s} }
+@keyframes ctdot{0%,100%{opacity:.3;transform:translateY(0)}50%{opacity:1;transform:translateY(-3px)}}
+.csteps{margin:8px 0 0;padding-left:20px;line-height:1.5;color:var(--mut);font-size:14px}
+.csteps li{margin:4px 0}
+.csteps b{color:var(--ink)}
 .sslink{flex:none;width:44px;min-height:44px;display:grid;place-items:center;border-radius:10px;color:var(--dim);background:transparent}
 .sslink svg{width:18px;height:18px}
 .sslink.on{color:var(--brass);background:var(--brass-d)}
