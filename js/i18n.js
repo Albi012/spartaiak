@@ -51,7 +51,6 @@
       'Edzés lezárása':'Finish workout',
       'Edzés eldobása':'Discard workout',
       'Jegyzet':'Note',
-      'Bemelegítés':'Warm-up',
       'Tárcsák':'Plates',
       'Szünet':'Pause',
       'Pihenő – koppints a leállításhoz':'Rest – tap to stop',

@@ -1135,8 +1135,7 @@ Physio-módban a súlyállító, eszközsáv és szett-chipek helyett EGY nagy k
 (`physioCounterHtml`, `.phcard` zsálya tónus + „Gyógytorna" címke + a `cue`):
 ismétlésnél koppintásonként +1 (`phTap`, a célnál magától rögzít), tartásnál
 a kör indítja az órát. A számláló nézet-állapot (`_phCount`). A gyógytorna-lap
-tételkártyái `.phlist` (zsálya szegély). A lejátszóból a **Bemelegítés gomb
-kikerült** (felhasználói kérés); v145-ben a `warmupSets`/`openWarmup` kód is törölve. E2E: 55.
+tételkártyái `.phlist` (zsálya szegély). A **bemelegítés funkció teljesen kikerült** (felhasználói kérés: nem használta) – gomb, lap, `warmupSets`/`openWarmup`, CSS és fordítás is; ne vezesd vissza. E2E: 55.
 
 ## Szabad edzés (menet közben összerakva)
 
@@ -1491,7 +1490,7 @@ media-blokkban definiálva – a `:root`-on legyen az alapérték.
   számokkal jelenik meg. **A súly magyar alakban megy ki mindenhol**
   (`kgNum`: egész marad egész, a tizedes VESSZŐT kap – „62,5 kg"). A
   `wLabel` ezen keresztül formáz, és ugyanezt használja a tárcsa-kalkulátor,
-  a bemelegítő-lépcsők, a haladás-részletlap, a rekordok, a progresszió
+  a haladás-részletlap, a rekordok, a progresszió
   indoklása és az edzői export is. Enélkül a „62.5 kg" a testsúly-napló
   „78,4 kg"-ja mellett állna ugyanabban a szövegben. Új súly-kiírásnál is a
   `kgNum`-ot használd; az SVG-geometria `toFixed`-jei maradnak pontosak.
@@ -1535,8 +1534,6 @@ kihagyás-felismerés (>10 nap → visszaépítés), terv-kontra-valóság
 eltérés-ok egy koppintással, összterhelés/kiugró-terhelés a naplóban,
 sérülés-mód (érintett gyakorlatok kihagyása + súlycsökkentés), kétszintű
 jegyzet (állandó + aznapi) és gépbeállítás-fotó gyakorlatonként,
-bemelegítő-szett javaslat (`warmupSets`, a munkasúlyból származtatott
-lépcsők + oldalankénti tárcsakiosztás a `platesPerSide`-dal),
 idő-alapú gyakorlatnál (`time:1`, pl. plank) beépített visszaszámláló óra
 (`openTimerSet`: a célról számol, a végén beep+rezgés és automatikusan
 rögzíti a tartott mp-et; korai leállítás = a ténylegesen tartott idő; a
