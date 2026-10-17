@@ -54,10 +54,15 @@ function playerView(){
     const r=L.rpe&&L.rpe[i]!=null ? L.rpe[i] : null;
     chips+=`<button class="chip ${cls}" data-i="${i}" onclick="openSet('${e.id}',${i})">
       <span class="r">${v==null?'·':v}</span><span class="l">${r!=null?'@'+rpeNum(r):(i+1)+'. sz'}</span></button>`; });
+  // Menet közben plusz szett (pl. jól ment, belefér még egy) – a cél-szám
+  // nem változik, csak a lista nő. Gyógytornánál nincs.
+  if(!isPhysioActive()) chips+=`<button class="chip addset" onclick="addLiveSet('${e.id}')" aria-label="Szett hozzáadása"><span class="r">+</span><span class="l">szett</span></button>`;
 
   const physioMode=isPhysioActive();   // mobilitás: nincs súlyállító/eszköz
   let wt='';
-  if(!e.time && !physioMode){ const vc=!e.bw?` onclick="openPlateCalc(${L.w})" style="cursor:pointer" title="Tárcsák"`:'';
+  // A szám koppintásra KÉZI bevitelt nyit (a ± csak lépked); a tárcsa-
+  // kalkulátor az eszközsorban marad.
+  if(!e.time && !physioMode){ const vc=` onclick="openWManual('${e.id}')" style="cursor:pointer" title="Súly beírása"`;
     wt=`<div class="wt">
     <button onclick="bump('${e.id}',-1)" aria-label="kevesebb">−</button>
     <div class="val"${vc}>${wLabel(e,L.w)}${e.bw&&L.w<=0?'':'<span>kg</span>'}</div>
@@ -237,6 +242,27 @@ function openPlayerMenu(){
   openSheet(); }
 function setWhy(id,k){ const L=S.active.log[id]; L.why=(L.why===k?null:k); save(); render(); }
 
+// Plusz szett a futó edzéshez. Az RPE-tömb (ha van) párhuzamos marad.
+function addLiveSet(id){ const L=S.active&&S.active.log[id]; if(!L) return;
+  if(L.sets.length>=20) return;
+  L.sets.push(null); if(L.rpe) L.rpe.push(null);
+  S.activeT=Date.now(); save(); render(); }
+// Kézi súly: a ± lépkedés mellett beírható a pontos szám (vessző is jó).
+function openWManual(id){ const e=activeExDef(id), L=S.active.log[id];
+  document.getElementById('sheetIn').innerHTML=`<div class="grabber"></div>
+    <div class="row"><div class="grow"><span class="eyebrow">${e.bw?'Plusz súly':'Súly'}</span><h2 style="font-size:22px">${esc(exN(e))}</h2></div>
+    <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
+    <div class="row" style="gap:8px;margin-top:12px;align-items:center">
+      <input id="wMan" type="text" inputmode="decimal" autocomplete="off" value="${kgNum(L.w)}" style="flex:1;min-width:0;font-size:28px;font-weight:700;text-align:center" onkeydown="if(event.key==='Enter')setWManual('${id}')">
+      <span class="dim" style="font-size:18px">kg</span></div>
+    <div id="wManErr" class="small" style="color:var(--red);margin-top:6px;display:none">Adj meg egy számot 0 és 999 között.</div>
+    <button class="btn pri" style="margin-top:12px" onclick="setWManual('${id}')">Beállítás</button>`;
+  openSheet(); setTimeout(()=>{ const i=document.getElementById('wMan'); if(i){ i.focus(); i.select(); } },60); }
+function setWManual(id){ const L=S.active&&S.active.log[id]; if(!L) return;
+  const raw=(document.getElementById('wMan')||{}).value||'';
+  const v=parseFloat(String(raw).replace(',','.').replace(/[^0-9.]/g,''));
+  if(!isFinite(v)||v<0||v>999){ const er=document.getElementById('wManErr'); if(er) er.style.display='block'; return; }
+  L.w=Math.round(v*100)/100; S.weights[id]=L.w; save(); closeSheet(); render(); }
 function bump(id,dir){ const e=activeExDef(id),L=S.active.log[id];
   L.w=Math.max(0, Math.round((L.w+dir*e.inc)*10)/10); S.weights[id]=L.w; save(); render(); }
 

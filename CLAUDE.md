@@ -1127,6 +1127,11 @@ felhőbe NEM megy). A `del` a síremlék MELLÉ a kukába is beteszi az edzést;
 - A tartalom FELÜLRŐL indul (`.pmain` nem középre zárt); a készenlét-sáv halk,
   egysoros (`.rdystrip`: pötty + szám + tanács); a „Következőre" sor egysoros,
   az indoklás levágva (teljes szöveg a `title`-ben, koppintásra a választó).
+- **v147:** a szett-chipek végén „+ szett" (`addLiveSet`: a `sets` (és ha van, az
+  `rpe`) végére `null` – a cél nem változik, gyógytornánál nincs); a súly
+  SZÁMÁRA koppintva kézi bevitel (`openWManual`/`setWManual`: vessző is jó,
+  0..999, rosszat nem fogad), a ± továbbra is lépked. A tárcsa-kalkulátor az
+  eszközsorban maradt. E2E: 65.
 E2E: 56.
 
 ## Gyógytorna-lejátszó: egy nagy számláló

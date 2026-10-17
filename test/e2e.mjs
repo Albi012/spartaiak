@@ -2877,6 +2877,19 @@ ok('64 felső sáv: nincs téma és sérülés gomb; Napló ⋯ mentés nélkül
   const menu=/Heti összefoglaló/.test(t) && /Kuka/.test(t) && !/Visszaállítás mentésből/.test(t) && /Profil → Adataim/.test(t);
   return sav && menu && typeof openWarmup==='undefined' && typeof toggleTheme==='undefined'; }));
 
+// ---- 65. Edzés közben: plusz szett + kézi súly ----
+ok('65 lejátszó: + szett chip bővít, a súly kézzel beírható (vesszővel is), rossz értéket nem fogad', await page.evaluate(async ()=>{
+  const bak=S.active, bt=tab, bp=playing, bc=curEx;
+  S.active={day:'pa',t:Date.now(),log:{bench:{w:40,sets:[10,null,null]}}}; playing=true; curEx=0; render(); await new Promise(r=>setTimeout(r,80));
+  const plusz=!!document.querySelector('#app .chip.addset');
+  addLiveSet('bench'); const negy=S.active.log.bench.sets.length===4 && S.active.log.bench.sets[3]===null;
+  openWManual('bench'); document.getElementById('wMan').value='62,5'; setWManual('bench');
+  const kezi=S.active.log.bench.w===62.5 && S.weights.bench===62.5;
+  openWManual('bench'); document.getElementById('wMan').value='abc'; setWManual('bench');
+  const ved=S.active.log.bench.w===62.5 && document.getElementById('wManErr').style.display==='block';
+  closeSheet(); S.active=bak; tab=bt; playing=bp; curEx=bc; render();
+  return plusz && negy && kezi && ved; }));
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));
