@@ -2922,6 +2922,18 @@ ok('67 dropset: a fő szett után felvehető, chip jelzi, térfogatba és szöve
   closeSheet(); stopTimer&&stopTimer(); S.active=bak; playing=bp; curEx=bc; render();
   return elotte && adat && chip && vol && txt && del1 && torol && regi; }));
 
+// ---- 68. Dropset utólag, a napló javító-lapján ----
+ok('68 javító-lap: dropset felvehető és törölhető, ed-bélyeget tesz', await page.evaluate(async ()=>{
+  const bak=S.sessions; S.sessions=[{day:'pa',t:Date.now()-864e5,log:{bench:{w:60,sets:[8,8]}}}];
+  openEditSession(0); esOpenRep('bench',1);
+  const box=!!document.getElementById('dropR');
+  document.getElementById('dropW').value='50'; document.getElementById('dropR').value='6'; esAddDrop(1);
+  const L=S.sessions[0].log.bench, fel=L.drops&&L.drops[1]&&L.drops[1][0].w===50 && !!S.sessions[0].ed;
+  const lista=/50 kg/.test(document.getElementById('sheetIn').textContent);
+  esDelDrop(1,0); const le=!L.drops;
+  closeSheet(); editSess=null; editRep=null; S.sessions=bak; render();
+  return box && fel && lista && le; }));
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));

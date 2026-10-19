@@ -273,7 +273,7 @@ function editSessionHtml(){
     (L.sets||[]).forEach((v,i)=>{
       const cls = v==null ? '' : (v>=(parseInt(e.r)||0) ? ' done' : ' miss');
       h+=`<button class="chip${cls}" onclick="esOpenRep('${id}',${i})" aria-label="${i+1}. szett">
-        <span class="r">${v==null?'·':v}</span><span class="l">${i+1}. sz</span></button>`; });
+        <span class="r">${v==null?'·':v}</span><span class="l">${dropN(L,i)?'+'+dropN(L,i)+' drop':(i+1)+'. sz'}</span></button>`; });
     h+=`<button class="chip" onclick="esAddSet('${id}')" aria-label="Szett hozzáadása"><span class="r">+</span><span class="l">szett</span></button>`;
     h+=`</div></div></div>`; });
   return h+`<button class="btn pri" style="margin-top:14px" onclick="closeEditSession()">${tr('Kész')}</button>`;
@@ -315,8 +315,15 @@ function esRepHtml(){
     <input id="esRepMan" type="number" inputmode="numeric" min="0" max="999" placeholder="Egyéb szám…"
       style="width:100%;margin-top:12px" value="${cur==null?'':cur}">
     <button class="btn pri" style="margin-top:8px" onclick="esSetRepManual()">${tr('Rögzítés')}</button>
-    <button class="btn" style="margin-top:8px;color:var(--red)" onclick="esSetRep(null)">${tr('Szett törlése')}</button>`;
+    <button class="btn" style="margin-top:8px;color:var(--red)" onclick="esSetRep(null)">${tr('Szett törlése')}</button>
+    ${dropBoxHtml(e,L,editRep.i,'esAddDrop','esDelDrop')}`;
 }
+// Dropset utólag is: ugyanaz a felület, mint edzés közben, de a lap nyitva
+// marad, és a változás azonnal mentődik (esTouch → ed-bélyeg + felhő).
+function esAddDrop(i){ const s=esSess(); if(!s||!editRep) return;
+  if(!dropPush(s.log[editRep.id],i)) return; esTouch(); renderEditSheet(); render(); }
+function esDelDrop(i,k){ const s=esSess(); if(!s||!editRep) return;
+  if(!dropCut(s.log[editRep.id],i,k)) return; esTouch(); renderEditSheet(); render(); }
 function esOpenRep(id,i){ editRep={id,i}; renderEditSheet(); }
 function esBackToSession(){ editRep=null; renderEditSheet(); }
 function esSetRep(v){ const s=esSess(); if(!s||!editRep) return;

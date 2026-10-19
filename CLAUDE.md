@@ -117,6 +117,9 @@ alapértéket kapnak; a `save()`/`backup()`/`restore()` viszi őket).
   a progresszió és a becsült 1RM viszont a FŐ szettet nézi. A szett törlése a
   dropjait is viszi; a `+ szett` a tömböt is nyújtja. A `sessions` része,
   szinkron/mentés külön kezelés nélkül viszi. E2E: 67.
+  **Utólag is** (v150): a napló javító-lapjának szett-lapján ugyanaz a
+  szakasz (`dropBoxHtml` két gazdával: `addDrop`/`delDrop` ↔ `esAddDrop`/
+  `esDelDrop`, közös `dropPush`/`dropCut`), azonnal ment (`esTouch`). E2E: 68.
 - Session-szinten: `dayNotes` (**a nap jegyzetei – TÖBB bejegyzés**,
   `[{t, ex, txt}]`: időbélyeg + a gyakorlat ID-ja, AMELYIKNÉL írtad + a
   szöveg), `note`/`noteEx` (a régi, EGYbejegyzéses alak – lásd lentebb),

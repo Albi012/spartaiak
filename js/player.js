@@ -342,33 +342,41 @@ function repKbSheet(e,i,t){
  * térfogatba (exVolume) és a szövegbe (setsTxt) a dropok is beleszámítanak.
  */
 function dropN(L,i){ return (L&&L.drops&&L.drops[i]) ? L.drops[i].length : 0; }
-function dropSectionHtml(e,i){
+function dropSectionHtml(e,i){ return dropBoxHtml(e,S.active.log[cur.id],i,'addDrop','delDrop'); }
+// Közös drop-szakasz: a lejátszó (addDrop/delDrop) és a napló javító-lapja
+// (esAddDrop/esDelDrop) ugyanezt a felületet kapja, csak más gazdára köt.
+function dropBoxHtml(e,L,i,addFn,delFn){
   if(e.time) return '';
-  const L=S.active.log[cur.id], done=L.sets[i]!=null, list=(L.drops&&L.drops[i])||[];
+  const done=L.sets[i]!=null, list=(L.drops&&L.drops[i])||[];
   const last=list.length?list[list.length-1].w:L.w;
   const sug=Math.max(0, Math.round(last*0.8/(e.inc||2.5))*(e.inc||2.5));
   let h=`<div class="dropbox"><div class="row" style="align-items:baseline"><span class="eyebrow grow">Dropset</span>
     <span class="small dim">súlyt csökkentve, pihenő nélkül tovább</span></div>`;
   list.forEach((d,k)=>{ h+=`<div class="row trow" style="gap:8px;min-height:44px"><span class="grow">↓ <b class="num">${kgNum(d.w)} kg</b> × <b class="num">${d.r}</b></span>
-    <button class="iconbtn ghost" style="color:var(--mut)" onclick="delDrop(${i},${k})" aria-label="Drop törlése">×</button></div>`; });
+    <button class="iconbtn ghost" style="color:var(--mut)" onclick="${delFn}(${i},${k})" aria-label="Drop törlése">×</button></div>`; });
   if(!done) h+=`<div class="small dim" style="margin-top:6px">Előbb rögzítsd a fő szettet – utána a chipre koppintva felveheted a dropokat.</div>`;
   else h+=`<div class="row" style="gap:6px;margin-top:8px;align-items:center">
       <input id="dropW" type="text" inputmode="decimal" value="${kgNum(sug)}" aria-label="Drop súly" style="flex:1;min-width:0;font-size:18px;text-align:center"><span class="dim">kg ×</span>
-      <input id="dropR" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="ism." aria-label="Drop ismétlés" style="flex:1;min-width:0;font-size:18px;text-align:center" onkeydown="if(event.key==='Enter')addDrop(${i})">
-      <button class="btn" style="width:auto;margin:0;padding:12px 14px;color:var(--brass)" onclick="addDrop(${i})">+ Drop</button></div>`;
+      <input id="dropR" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="ism." aria-label="Drop ismétlés" style="flex:1;min-width:0;font-size:18px;text-align:center" onkeydown="if(event.key==='Enter')${addFn}(${i})">
+      <button class="btn" style="width:auto;margin:0;padding:12px 14px;color:var(--brass)" onclick="${addFn}(${i})">+ Drop</button></div>`;
   return h+`</div>`;
 }
-function addDrop(i){ const L=S.active.log[cur.id]; if(!L||L.sets[i]==null) return;
+// A mezőkből olvas és a logba ír; true, ha felvett egy dropot.
+function dropPush(L,i){ if(!L||L.sets[i]==null) return false;
   const w=parseFloat(String((document.getElementById('dropW')||{}).value||'').replace(',','.'));
   const r=parseInt((document.getElementById('dropR')||{}).value,10);
-  if(!isFinite(w)||w<0||w>999||!Number.isFinite(r)||r<1||r>999){ const el=document.getElementById(Number.isFinite(r)&&r>=1?'dropW':'dropR'); if(el) el.focus(); return; }
+  if(!isFinite(w)||w<0||w>999||!Number.isFinite(r)||r<1||r>999){ const el=document.getElementById(Number.isFinite(r)&&r>=1?'dropW':'dropR'); if(el) el.focus(); return false; }
   if(!L.drops) L.drops=[];
   while(L.drops.length<L.sets.length) L.drops.push(null);
   (L.drops[i]=L.drops[i]||[]).push({w:Math.round(w*100)/100, r});
-  S.activeT=Date.now(); save(); render(); openSet(cur.id,i); }
-function delDrop(i,k){ const L=S.active.log[cur.id]; if(!L||!L.drops||!L.drops[i]) return;
+  return true; }
+function dropCut(L,i,k){ if(!L||!L.drops||!L.drops[i]) return false;
   L.drops[i].splice(k,1); if(!L.drops[i].length) L.drops[i]=null;
   if(!L.drops.some(x=>x)) delete L.drops;
+  return true; }
+function addDrop(i){ const L=S.active.log[cur.id]; if(!dropPush(L,i)) return;
+  S.activeT=Date.now(); save(); render(); openSet(cur.id,i); }
+function delDrop(i,k){ if(!dropCut(S.active.log[cur.id],i,k)) return;
   save(); render(); openSet(cur.id,i); }
 // A kézi mező beolvasása. Csak egész, 0..999 megy át; hibás értéknél nem
 // rögzít (a mező marad, hogy javítható legyen).
