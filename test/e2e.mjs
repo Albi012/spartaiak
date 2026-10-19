@@ -2890,6 +2890,19 @@ ok('65 lejátszó: + szett chip bővít, a súly kézzel beírható (vesszővel 
   closeSheet(); S.active=bak; tab=bt; playing=bp; curEx=bc; render();
   return plusz && negy && kezi && ved; }));
 
+// ---- 66. Összeállító: a szuperszett-lánc magyarázata ----
+ok('66 összeállító: szuperszett-magyarázat, a kör minden tagja jelölve, toast kapcsoláskor', await page.evaluate(async ()=>{
+  const be=editing, bd=draft;
+  draft={id:'r_t66',name:'T',ex:['pull','row','cable'],ssLinks:['cable'],exOv:{},isNew:true}; editing='routine'; render(); await new Promise(r=>setTimeout(r,150));
+  const app=document.getElementById('app');
+  const help=/Szuperszett/.test((app.querySelector('.sshelp')||{}).textContent||'');
+  const grp=app.querySelectorAll('.bxrow.linked').length===2;
+  draftToggleLink('row'); await new Promise(r=>setTimeout(r,50));
+  const t=/Szuperszett:/.test((document.getElementById('toast')||document.body).textContent);
+  const grp3=document.querySelectorAll('#app .bxrow.linked').length===3;
+  draft=bd; editing=be; render();
+  return help && grp && t && grp3; }));
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));

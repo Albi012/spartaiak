@@ -39,6 +39,9 @@ function draftToggleLink(exId){
   if(!draft.ssLinks) draft.ssLinks=[];
   const i=draft.ssLinks.indexOf(exId);
   if(i>=0) draft.ssLinks.splice(i,1); else draft.ssLinks.push(exId);
+  // A lánc-ikon önmagában nem mondja meg, mit csinál – a visszajelzés igen.
+  const k=draft.ex.indexOf(exId), a=exN(exDef(draft.ex[k-1]||'')), b=exN(exDef(exId));
+  toast(i>=0 ? 'Szuperszett bontva: újra külön pihenő jár.' : `Szuperszett: ${a} + ${b} – egymás után, a pihenő a kör végén.`);
   render();
 }
 async function deleteRoutine(id){
@@ -59,20 +62,25 @@ function builderView(){
   draft.ex.forEach((exId,i)=>{ const e=exDef(exId);
     const linked = i>0 && (draft.ssLinks||[]).includes(exId);
     const dz=draftDose(exId), restOv=((draft.exOv||{})[exId]||{}).rest!=null, wOv=draftWLive(exId), w=draftW(exId);
-    items+=`<div class="bxrow${linked?' linked':''}">
+    // A kör MINDEN tagja kap csíkot – az első is, amihez a következő köt.
+    const inGrp = linked || (draft.ssLinks||[]).includes(draft.ex[i+1]);
+    items+=`<div class="bxrow${inGrp?' linked':''}">
       ${i>0?`<button class="sslink ${linked?'on':''}" onclick="draftToggleLink('${exId}')" aria-label="${linked?'Superset bontása':'Superset az előzővel'}" title="${linked?'Superset bontása':'Superset az előzővel'}">${ICON.link}</button>`:'<span class="sslink-sp"></span>'}
       <div class="grow" style="min-width:0">
-        <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(exN(e))}</div>
+        <div class="row" style="gap:6px;align-items:center;min-width:0"><span style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(exN(e))}</span></div>
         <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap;margin-top:2px">
           <button class="dose${draftOvHas(exId)?' on':''}" onclick="openDraftDose(${i})" aria-label="Szett, ismétlés és pihenő szerkesztése">
             <span class="num">${dz.s} × ${esc(dz.r)}</span>${ICON.edit}</button>
-          <span class="small dim">${doseIsTime(exId)?'':`<span${wOv?' style="color:var(--brass)"':''}>${wLabel(e,w)}${e.bw&&w<=0?'':' kg'}</span> · `}<span${restOv?' style="color:var(--brass)"':''}>pihenő ${restFmt(dz.rest)}</span></span></div></div>
+          ${inGrp?'<span class="sstag">szuperszett</span>':''}<span class="small dim">${doseIsTime(exId)?'':`<span${wOv?' style="color:var(--brass)"':''}>${wLabel(e,w)}${e.bw&&w<=0?'':' kg'}</span> · `}<span${restOv?' style="color:var(--brass)"':''}>pihenő ${restFmt(dz.rest)}</span></span></div></div>
       <button class="iconbtn ghost" onclick="draftMove(${i},-1)" ${i===0?'disabled':''} aria-label="fel">↑</button>
       <button class="iconbtn ghost" onclick="draftMove(${i},1)" ${i===draft.ex.length-1?'disabled':''} aria-label="le">↓</button>
       <button class="iconbtn ghost" style="color:var(--red)" onclick="draftRemove(${i})" aria-label="törlés">×</button>
     </div>`;
   });
   items+='</div></div>';
+  // Magyarázat a lánc-ikonhoz: enélkül nem derül ki, mire jó.
+  if(draft.ex.length>1) items=`<div class="sshelp"><span class="sslink on" aria-hidden="true">${ICON.link}</span>
+    <span class="small"><b>Szuperszett:</b> a láncra koppintva a gyakorlat összekapcsolódik a <b>fölötte lévővel</b>. Edzésen egymás után csinálod őket pihenő nélkül, a pihenő a kör végén jön.</span></div>`+items;
   if(!draft.ex.length) items=`<div class="empty" style="padding:24px">Még nincs gyakorlat.<br>Add hozzá lentebb.</div>`;
   return `<div class="player">
     <div class="ptop">

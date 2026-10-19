@@ -1169,6 +1169,8 @@ terv „AI" címkét és „a következő AI-terv ezt cseréli le" megjegyzést 
 (ugyanaz a felismerés, mint az `aiPrevImport`-é). Az összeállító
 gyakorlatonként EGY kompakt sor (`.bxrow`), a superset-kapcsoló lánc-ikon
 (`ICON.link`, `.sslink`) a sor bal szélén. E2E: 60.
+**v148:** a lánc-ikon magyarázatot kapott: a lista fölött `.sshelp` sáv (2+ gyakorlatnál), a kör MINDEN
+tagja (az első is) bal csíkot és „szuperszett" címkét (`.sstag`) kap, kapcsoláskor toast mondja ki, mi történt. E2E: 66.
 
 A lap alján öt egyforma, teljes szélességű gomb állt egymás alatt, pedig
 négy közülük **ugyanarra a kérdésre válaszol**: „hogyan csinálok újat?".
