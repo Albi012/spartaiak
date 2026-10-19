@@ -6,7 +6,9 @@
 function repSum(sets){ return (sets||[]).reduce((a,x)=>a+(x!=null?x:0),0); }
 // Egy edzés–gyakorlat "térfogata" kg-ban: súly × összes ismétlés. Testsúlyos
 // (w<=0) gyakorlatnál kg-ban 0 volna, ezért ott az ismétlésszám a mérőszám.
-function exVolume(L){ return L.w>0 ? L.w*repSum(L.sets) : 0; }
+function exVolume(L){ let v = L.w>0 ? L.w*repSum(L.sets) : 0;
+  if(L.drops) L.drops.forEach(a=>{ (a||[]).forEach(d=>{ if(d.w>0) v+=d.w*d.r; }); });   // dropset (opcionális)
+  return v; }
 // A hét (hétfő 00:00) időbélyege – a hetes sorozat számításához.
 function weekStart(t){ const d=new Date(t); d.setHours(0,0,0,0); const wd=(d.getDay()+6)%7; d.setDate(d.getDate()-wd); return d.getTime(); }
 

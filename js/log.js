@@ -282,7 +282,8 @@ function editSessionHtml(){
 // tartomány egy koppintással + kézi mező), csak a naplóra kötve.
 // „62,5 kg × 5, 5, 4" → „62,5 kg × 5, 5, 4 (RPE 8, 8, 9)" – csak ha van.
 function setsTxt(l){
-  const base=(l.sets||[]).map(x=>x==null?'–':x).join(', ');
+  const base=(l.sets||[]).map((x,i)=>{ const d=l.drops&&l.drops[i];
+    return (x==null?'–':x) + (d&&d.length ? ' (drop '+d.map(q=>kgNum(q.w)+'×'+q.r).join(', ')+')' : ''); }).join(', ');
   if(!l.rpe || !l.rpe.some(x=>x!=null)) return base;
   const r=(l.sets||[]).map((_,i)=> l.rpe[i]==null?'–':rpeNum(l.rpe[i])).join(', ');
   return base+' (RPE '+r+')';
@@ -320,7 +321,7 @@ function esOpenRep(id,i){ editRep={id,i}; renderEditSheet(); }
 function esBackToSession(){ editRep=null; renderEditSheet(); }
 function esSetRep(v){ const s=esSess(); if(!s||!editRep) return;
   const L=s.log[editRep.id]; if(!L) return;
-  L.sets[editRep.i]=v; esTouch(); editRep=null; renderEditSheet(); render(); }
+  L.sets[editRep.i]=v; if(v==null && L.drops && L.drops[editRep.i]) L.drops[editRep.i]=null; esTouch(); editRep=null; renderEditSheet(); render(); }
 function esSetRepManual(){
   const el=document.getElementById('esRepMan'); if(!el) return;
   const v=parseInt(el.value,10);
@@ -328,7 +329,7 @@ function esSetRepManual(){
   esSetRep(v);
 }
 function esAddSet(id){ const s=esSess(); if(!s) return;
-  const L=s.log[id]; if(!L) return; L.sets.push(null); esTouch(); renderEditSheet(); }
+  const L=s.log[id]; if(!L) return; L.sets.push(null); if(L.drops) L.drops.push(null); esTouch(); renderEditSheet(); }
 function esBumpW(id,dir){ const s=esSess(); if(!s) return;
   const e=exDef(id), L=s.log[id]; if(!L) return;
   L.w=Math.max(0, roundTo((L.w||0)+dir*(e.inc||2.5), e.inc||2.5));

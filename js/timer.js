@@ -11,6 +11,7 @@ function setRep(v){
     if(!L.rpe) L.rpe=[];
     L.rpe[cur.i] = (v==null) ? null : _rpePick;   // a szett törlése az RPE-t is viszi
   }
+  if(v==null && L.drops && L.drops[cur.i]) L.drops[cur.i]=null;   // a szett törlése a dropjait is viszi
   S.activeT=Date.now();
   closeSheet(); save();
   if(v==null){ render(); return; }

@@ -53,7 +53,7 @@ function playerView(){
     // amúgy is látszik a chipek helyzetéből.
     const r=L.rpe&&L.rpe[i]!=null ? L.rpe[i] : null;
     chips+=`<button class="chip ${cls}" data-i="${i}" onclick="openSet('${e.id}',${i})">
-      <span class="r">${v==null?'·':v}</span><span class="l">${r!=null?'@'+rpeNum(r):(i+1)+'. sz'}</span></button>`; });
+      <span class="r">${v==null?'·':v}</span><span class="l">${dropN(L,i)?'+'+dropN(L,i)+' drop':r!=null?'@'+rpeNum(r):(i+1)+'. sz'}</span></button>`; });
   // Menet közben plusz szett (pl. jól ment, belefér még egy) – a cél-szám
   // nem változik, csak a lista nő. Gyógytornánál nincs.
   if(!isPhysioActive()) chips+=`<button class="chip addset" onclick="addLiveSet('${e.id}')" aria-label="Szett hozzáadása"><span class="r">+</span><span class="l">szett</span></button>`;
@@ -245,7 +245,7 @@ function setWhy(id,k){ const L=S.active.log[id]; L.why=(L.why===k?null:k); save(
 // Plusz szett a futó edzéshez. Az RPE-tömb (ha van) párhuzamos marad.
 function addLiveSet(id){ const L=S.active&&S.active.log[id]; if(!L) return;
   if(L.sets.length>=20) return;
-  L.sets.push(null); if(L.rpe) L.rpe.push(null);
+  L.sets.push(null); if(L.rpe) L.rpe.push(null); if(L.drops) L.drops.push(null);
   S.activeT=Date.now(); save(); render(); }
 // Kézi súly: a ± lépkedés mellett beírható a pontos szám (vessző is jó).
 function openWManual(id){ const e=activeExDef(id), L=S.active.log[id];
@@ -331,8 +331,45 @@ function repKbSheet(e,i,t){
       <button class="btn pri" style="flex:0 0 42%;margin:0" onclick="setRepManual()">Rögzítés</button>
     </div>
     <button class="btn" style="margin-top:8px;color:var(--mut)" onclick="setRep(null)">Törlés</button>`;
+  h+=dropSectionHtml(e,i);
   return h;
 }
+/* ---- Dropset – OPCIONÁLIS ------------------------------------------
+ * `log[exId].drops` a `sets`-szel PÁRHUZAMOS tömb: `drops[i] = [{w, r}, …]`
+ * (a fő szett UTÁN, csökkentett súllyal, pihenő nélkül folytatott részek),
+ * `null` = nincs drop. Additív: hiánya = sosem volt dropset, a régi napló
+ * változatlan. A progresszió és a becsült 1RM a FŐ szettet nézi; a
+ * térfogatba (exVolume) és a szövegbe (setsTxt) a dropok is beleszámítanak.
+ */
+function dropN(L,i){ return (L&&L.drops&&L.drops[i]) ? L.drops[i].length : 0; }
+function dropSectionHtml(e,i){
+  if(e.time) return '';
+  const L=S.active.log[cur.id], done=L.sets[i]!=null, list=(L.drops&&L.drops[i])||[];
+  const last=list.length?list[list.length-1].w:L.w;
+  const sug=Math.max(0, Math.round(last*0.8/(e.inc||2.5))*(e.inc||2.5));
+  let h=`<div class="dropbox"><div class="row" style="align-items:baseline"><span class="eyebrow grow">Dropset</span>
+    <span class="small dim">súlyt csökkentve, pihenő nélkül tovább</span></div>`;
+  list.forEach((d,k)=>{ h+=`<div class="row trow" style="gap:8px;min-height:44px"><span class="grow">↓ <b class="num">${kgNum(d.w)} kg</b> × <b class="num">${d.r}</b></span>
+    <button class="iconbtn ghost" style="color:var(--mut)" onclick="delDrop(${i},${k})" aria-label="Drop törlése">×</button></div>`; });
+  if(!done) h+=`<div class="small dim" style="margin-top:6px">Előbb rögzítsd a fő szettet – utána a chipre koppintva felveheted a dropokat.</div>`;
+  else h+=`<div class="row" style="gap:6px;margin-top:8px;align-items:center">
+      <input id="dropW" type="text" inputmode="decimal" value="${kgNum(sug)}" aria-label="Drop súly" style="flex:1;min-width:0;font-size:18px;text-align:center"><span class="dim">kg ×</span>
+      <input id="dropR" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="ism." aria-label="Drop ismétlés" style="flex:1;min-width:0;font-size:18px;text-align:center" onkeydown="if(event.key==='Enter')addDrop(${i})">
+      <button class="btn" style="width:auto;margin:0;padding:12px 14px;color:var(--brass)" onclick="addDrop(${i})">+ Drop</button></div>`;
+  return h+`</div>`;
+}
+function addDrop(i){ const L=S.active.log[cur.id]; if(!L||L.sets[i]==null) return;
+  const w=parseFloat(String((document.getElementById('dropW')||{}).value||'').replace(',','.'));
+  const r=parseInt((document.getElementById('dropR')||{}).value,10);
+  if(!isFinite(w)||w<0||w>999||!Number.isFinite(r)||r<1||r>999){ const el=document.getElementById(Number.isFinite(r)&&r>=1?'dropW':'dropR'); if(el) el.focus(); return; }
+  if(!L.drops) L.drops=[];
+  while(L.drops.length<L.sets.length) L.drops.push(null);
+  (L.drops[i]=L.drops[i]||[]).push({w:Math.round(w*100)/100, r});
+  S.activeT=Date.now(); save(); render(); openSet(cur.id,i); }
+function delDrop(i,k){ const L=S.active.log[cur.id]; if(!L||!L.drops||!L.drops[i]) return;
+  L.drops[i].splice(k,1); if(!L.drops[i].length) L.drops[i]=null;
+  if(!L.drops.some(x=>x)) delete L.drops;
+  save(); render(); openSet(cur.id,i); }
 // A kézi mező beolvasása. Csak egész, 0..999 megy át; hibás értéknél nem
 // rögzít (a mező marad, hogy javítható legyen).
 function setRepManual(){

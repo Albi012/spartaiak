@@ -108,6 +108,15 @@ alapértéket kapnak; a `save()`/`backup()`/`restore()` viszi őket).
   a `sets` tömbbel PÁRHUZAMOS. Hiánya = sosem rögzítetted; `null` egy elemben
   = azt a szettet nem minősítetted. A `sessions` részeként megy a mentésbe és
   a felhőbe, nincs külön kezelés – lásd „RPE".
+- Log-szinten `drops` – **dropset, OPCIONÁLIS** (v149): `[[{w,r},…], null, …]`,
+  a `sets`-szel PÁRHUZAMOS; `drops[i]` a fő szett UTÁN csökkentett súllyal,
+  pihenő nélkül folytatott részek. Hiánya = sosem volt dropset (régi napló
+  változatlan). A szett-lapon (`dropSectionHtml`/`addDrop`/`delDrop`) CSAK
+  rögzített fő szett után vehető fel; a chip „+N drop"-ot ír. A térfogatba
+  (`exVolume`) és a szövegbe (`setsTxt`: „10 (drop 40×8, 30×6)") beleszámít,
+  a progresszió és a becsült 1RM viszont a FŐ szettet nézi. A szett törlése a
+  dropjait is viszi; a `+ szett` a tömböt is nyújtja. A `sessions` része,
+  szinkron/mentés külön kezelés nélkül viszi. E2E: 67.
 - Session-szinten: `dayNotes` (**a nap jegyzetei – TÖBB bejegyzés**,
   `[{t, ex, txt}]`: időbélyeg + a gyakorlat ID-ja, AMELYIKNÉL írtad + a
   szöveg), `note`/`noteEx` (a régi, EGYbejegyzéses alak – lásd lentebb),

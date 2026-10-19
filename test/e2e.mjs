@@ -2903,6 +2903,25 @@ ok('66 összeállító: szuperszett-magyarázat, a kör minden tagja jelölve, t
   draft=bd; editing=be; render();
   return help && grp && t && grp3; }));
 
+// ---- 67. Dropset: rögzítés, chip, térfogat, szöveg, törlés ----
+ok('67 dropset: a fő szett után felvehető, chip jelzi, térfogatba és szövegbe kerül, a szett törlése viszi', await page.evaluate(async ()=>{
+  const bak=S.active, bp=playing, bc=curEx;
+  S.active={day:'pa',t:Date.now(),log:{bench:{w:50,sets:[10,null,null]}}}; playing=true; curEx=0; render();
+  openSet('bench',1); const elotte=!document.getElementById('dropR');            // fő szett nélkül nincs drop-mező
+  closeSheet(); openSet('bench',0);
+  document.getElementById('dropW').value='40'; document.getElementById('dropR').value='8'; addDrop(0);
+  document.getElementById('dropW').value='30,5'; document.getElementById('dropR').value='6'; addDrop(0);
+  const L=S.active.log.bench, adat=L.drops[0].length===2 && L.drops[0][1].w===30.5;
+  await new Promise(r=>setTimeout(r,60));
+  const chip=/\+2 drop/.test(document.querySelector('#app .chip[data-i="0"]').textContent);
+  const vol=exVolume(L)===50*10+40*8+30.5*6;
+  const txt=/10 \(drop 40×8, 30,5×6\)/.test(setsTxt(L));
+  delDrop(0,0); const del1=L.drops[0].length===1;
+  cur={id:'bench',i:0}; setRep(null); const torol=!L.drops || !L.drops[0];
+  const regi=exVolume({w:50,sets:[10,10]})===1000 && setsTxt({sets:[5,5]})==='5, 5';
+  closeSheet(); stopTimer&&stopTimer(); S.active=bak; playing=bp; curEx=bc; render();
+  return elotte && adat && chip && vol && txt && del1 && torol && regi; }));
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));
