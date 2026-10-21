@@ -1290,7 +1290,7 @@ kijelentkezés megerősítéssel (`confirmSignOut`); belépésnél Google (`doOA
 **Onboarding-jelző:** külön `gymlog_onboarded` kulcs (`'1'` = látta a
 bemutatót). Szintén FÜGGETLEN a `gymlog_v1`-től. Az `openWelcome` első
 indításkor jön (üres napló + nincs jelző); a fiók-lapról bármikor
-újranyitható.
+újranyitható. A bemutató (v154) a mai felületet írja le: Kezdőlap (készenlét + EGY ajánlás), edzés közben (nagy szett-gomb, opcionális/utólagos RPE, dropset), Tervek, Edző, Napló és haladás (Kuka), opcionális fiók. Ha egy fő képernyő megváltozik, ezt is frissítsd.
 
 **Beállítás-kulcsok** (mind FÜGGETLEN a `gymlog_v1`-től): `gymlog_lang`
 (`hu` | `en`, lásd „Nyelv"), `gymlog_mute`

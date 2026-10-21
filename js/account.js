@@ -482,11 +482,12 @@ function openWelcome(){
     <div class="top" style="padding:6px 0 0"><span class="eyebrow" style="color:var(--brass)">Üdv</span>
       <h2 style="font-size:26px;margin-top:2px">Edzésnapló</h2>
       <p class="small mut" style="margin:6px 0 0">Egykezes edzésnapló teremhez. A számok a főszereplők – a szett-rögzítés két koppintás.</p></div>`;
-  h+=row(ICON.dumbbell,'Edzés','Koppints egy napra (Push/Pull) a főoldalon – indul a vezetett edzés pihenőórával, súlyállítóval. A végén összegzőt kapsz időtartammal és izomtérképpel.');
-  h+=row(ICON.plans,'Tervek','Állíts össze saját edzést vagy tervet, vagy válassz kész sablont. Két gyakorlatot superset-körré is köthetsz.');
-  h+=row(ICON.chart,'Haladás','Statok, grafikonok, becsült 1RM, és heti izomtérkép, ami jelzi a héten kimaradt izomcsoportokat.');
-  h+=row(ICON.list,'Napló','Minden edzés visszanézhető; heti összefoglaló küldhető egy AI-edzőnek.');
-  h+=row(ICON.account,'Fiók / szinkron','Opcionális felhő-fiók: több eszköz közt biztonságosan összefésül. Nélküle minden a böngésződben marad.');
+  h+=row(ICON.check,'Kezdőlap','Felül a készenléted, alatta EGY ajánlás: „Mit edzek ma?" – egy koppintás a Kezdés. A napi testsúly és alvás is itt rögzíthető.');
+  h+=row(ICON.dumbbell,'Edzés közben','A soron következő szett egy nagy gomb: rá, majd az ismétlésszámra – kész. Az RPE nem kötelező, utólag is megadható. Dropset, „+ szett" és kézi súly is van.');
+  h+=row(ICON.plans,'Tervek','Kész sablon, saját edzés vagy több napos terv. Gyakorlatonként szett, ismétlés, pihenő; láncikonnal szuperszett.');
+  h+=row(ICON.coach,'Edző','Kérdezd az AI-edzőt, kérj tőle tervet, vagy küldd el a heti összefoglalót.');
+  h+=row(ICON.list,'Napló és haladás','Minden edzés visszanézhető és javítható, a törölt 3 napig a Kukában van. A haladás a becsült 1RM-et és a trendeket mutatja.');
+  h+=row(ICON.account,'Fiók (nem kötelező)','Több eszköz közt összefésül, barátokkal megoszthatsz. Nélküle minden a telefonodon marad.');
   h+=`<button class="btn pri" style="margin-top:18px" onclick="dismissWelcome()">Kezdjük</button>`;
   document.getElementById('sheetIn').innerHTML=h;
   openSheet();

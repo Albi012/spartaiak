@@ -5,9 +5,9 @@ izzadt ujjal is kényelmesen használható. A hangsúly a gyorsaságon van: a
 szett-rögzítés két koppintás, minden gomb nagy, a súly és az ismétlés
 nagy, jól olvasható számokkal jelenik meg.
 
-A teljes alkalmazás **egyetlen HTML-fájl**, build és futásidejű függőség
-nélkül. Telepíthető PWA, offline is működik, és opcionálisan felhő-fiókkal
-több eszköz közt szinkronizál.
+Build és futásidejű függőség nélküli statikus webapp (`index.html` + `js/`).
+Telepíthető PWA, offline is működik, és opcionálisan felhő-fiókkal több
+eszköz közt szinkronizál.
 
 **Élő verzió:** https://albi012.github.io/spartaiak/
 
@@ -15,9 +15,9 @@ több eszköz közt szinkronizál.
 
 <table>
   <tr>
-    <td align="center" width="33%"><img src="docs/screenshots/home.png" width="240" alt="Főképernyő"><br><sub>Főképernyő – „Mit edzek ma?"</sub></td>
-    <td align="center" width="33%"><img src="docs/screenshots/player.png" width="240" alt="Vezetett edzés"><br><sub>Vezetett edzés</sub></td>
-    <td align="center" width="33%"><img src="docs/screenshots/muscle-map.png" width="240" alt="Izomtérkép"><br><sub>Izomtérkép az összegzőben</sub></td>
+    <td align="center" width="33%"><img src="docs/screenshots/home.png" width="240" alt="Főképernyő"><br><sub>Kezdőlap – készenlét és „Mit edzek ma?"</sub></td>
+    <td align="center" width="33%"><img src="docs/screenshots/player.png" width="240" alt="Vezetett edzés"><br><sub>Edzés közben – RPE-vel rögzített szett</sub></td>
+    <td align="center" width="33%"><img src="docs/screenshots/muscle-map.png" width="240" alt="Izomtérkép"><br><sub>Összegző izomtérképpel</sub></td>
   </tr>
 </table>
 
@@ -25,74 +25,59 @@ több eszköz közt szinkronizál.
 
 ## Mit tud
 
-**Edzés és naplózás**
-- Vezetett lejátszó: a kezdőképernyő a mai edzést kínálja, pihenőórával és
-  súlyállítóval; a szettek két koppintással rögzülnek.
-- Egy megkezdett edzés minden rögzített szettje azonnal mentődik – ha
-  véletlen bezárul az app, újranyitva a „Folytatás" kártyáról ott lehet
-  folytatni, ahol abbamaradt.
-- Superset / kör: saját edzésben gyakorlatok összeköthetők – a tagok közt
-  rövid váltás, a teljes pihenő a kör végén.
-- Idő-alapú gyakorlatnál (plank stb.) beépített visszaszámláló óra, ami a
-  végén rögzíti a tartott másodperceket.
-- A pihenő a képernyőt ébren tartja; opcionálisan a hátralévő idő rendszer-
-  értesítésben is látszik, ha közben kiváltasz az appból.
-- Befejezés-összegző: időtartam, gyakorlat- és szettszám, összterhelés,
-  új csúcsok (PR), és egy elöl+hátul izomtérkép a terhelt izmokkal.
-- Napló: minden edzés visszanézhető (dátum, időtartam, szettek,
-  összterhelés), hónapokra bontva, lenyitható izomtérképpel.
+**Kezdőlap**
+- **Készenlét-pontszám** (0–100): az alvásból, a heti terhelésből és a
+  testsúly-trendből számolva – csak a ténylegesen rögzített adatból, nem tippel.
+- **„Mit edzek ma?"** – egy ajánlás egy „Kezdés" gombbal, a heti beosztás
+  vagy a héten kimaradt izomcsoportok alapján; mellette szabad edzés.
+- Heti nézet (hétfőtől), opcionális nap → hétköznap beosztással.
+- Napi testsúly és alvás egy kártyán, trend-grafikonnal.
 
-**Saját tervek**
-- Beépített 4 napos terv (Push A / Pull A / Push B / Pull B).
-- Saját gyakorlatok, saját edzések és több napból álló edzéstervek
-  összeállíthatók az appon belül; kész sablonok is választhatók.
-- Beépített gyakorlat-könyvtár (~160 gyakorlat), izomcsoportra szűrhető
-  választóval.
-- Bemelegítő-szett javaslat: a munkasúlyból automatikus lépcsők +
-  oldalankénti tárcsakiosztás.
-- Gyakorlatonkénti „Technika videó" link (külső fülön nyílik).
+**Edzés közben**
+- Vezetett lejátszó: a soron következő szett egy nagy gomb, a rögzítés két
+  koppintás. A fejlécben az edzés eltelt ideje, az „Előző" sor mellett a
+  súly-különbség a múltkorihoz képest.
+- **RPE** (érzékelt nehézség) opcionálisan – a szám előtt vagy utólag, egy
+  koppintással. **Dropset** a fő szett után, menet közbeni „+ szett",
+  kézi súlybevitel, „+ Gyakorlat" bármely edzésbe.
+- Pihenő-gyűrű a gyakorlat neve mellett (nem takar el semmit), ébren tartott
+  képernyő, opcionális rendszer-értesítés.
+- Superset / kör, idő-alapú gyakorlatnál visszaszámláló óra, tárcsa-kalkulátor.
+- Minden rögzített szett azonnal mentődik – bezárás után „Folytatás".
+- Befejezés-összegző: időtartam, összterhelés, új csúcsok, izomtérkép, és a
+  holnapi készenlét előrejelzése.
 
-**Haladás**
-- Összegző számok: összes edzés, e havi, hetes sorozat, össztömeg; szint /
-  XP (streak-fókuszú).
-- Edzésnaptár-heatmap az utolsó 16 hétről; havi aktivitás; a legtöbbet
-  fejlődő gyakorlatok.
-- Heti **izomtérkép**: elöl+hátul figura, a terhelt izmok folytonos
-  hőskálával színezve, és a héten kimaradt izomcsoportok kiemelése.
-- Gyakorlatonkénti trend nagy grafikonnal, teljes előzménnyel és a
-  csúccsal (PR); váltható munkasúly / térfogat / becsült 1RM között.
+**Tervek**
+- Beépített 4 napos terv (Push A / Pull A / Push B / Pull B), kész sablonok,
+  saját gyakorlatok, edzések és több napból álló tervek.
+- Gyakorlatonként szett × ismétlés × pihenő × kezdősúly edzésenként.
+- Beépített gyakorlat-könyvtár (~160 gyakorlat) technika-animációval és
+  videó-linkkel.
+- Választható progressziós szabály gyakorlatonként (okos / lineáris /
+  greyskull / dupla / fix).
 
-**Edző-funkciók**
-- Okos súlyjavaslat: a túlteljesítés arányában nagyobbat lép; hosszabb
-  kihagyás után visszaépítést ajánl. Választható progressziós szabályok.
-- „Mit edzek ma?": a heti izomtérkép hiányait lefedő edzésnapot ajánlja.
-- Sérülés-mód: az érintett testtájak gyakorlatai kimaradnak, a többi súlya
-  csökken.
-- Kétszintű jegyzet (állandó gyakorlat-jegyzet + aznapi) és
-  gépbeállítás-fotó gyakorlatonként.
-- Tárcsa-kalkulátor: edzés közben a súlyra koppintva megmutatja, mennyi
-  tárcsát kell felrakni oldalanként.
-- Heti összefoglaló: az elmúlt hét edzéseit olvasható szöveggé alakítja,
-  amit el lehet küldeni egy (AI-)edzőnek.
+**Edző AI**
+- Beépített csevegés és heti értékelés (szerveroldali Claude-hívás, heti
+  kérdéslimittel), vagy saját/külső AI-hoz másolható anyag.
+- **AI-terv importálása**: a személyre szabott promptra kapott tervet három
+  lépésben, szerkeszthető előnézettel alakítja saját tervvé.
+- Heti összefoglaló edzőnek: szettek, RPE, jegyzetek, alvás és testsúly,
+  választható időszakra.
 
-**Gyógytorna / mobilitás**
-- Külön oldal (a felső sáv állandó ikonjáról): testtájankénti
-  mobilitás-, nyújtó- és stabilizáló gyakorlatok technikai emlékeztetővel
-  és videó-linkkel – *referencia, nem orvosi tanács*.
-- Testtájankénti **5 perces vezetett rutin** egy koppintással (a tartásokat
-  óra méri); ez nem naplózódik, nem befolyásolja a statokat.
+**Napló és Haladás**
+- Hetekre bontott, lenyitható edzés-kártyák; pihenőnapok összevonva.
+  Utólagos javítás (súly, szett, RPE, dropset), és **Kuka**: a törölt edzés
+  3 napig visszahozható.
+- Haladás: becsült 1RM-fejlődés (RPE-tudatosan), munkasúly-trendek, heti
+  izomtérkép, stagnálás-felismerés, készenlét- és testsúly-trend, edzésnaptár.
 
-**Fiók, szinkron és barátok** *(opcionális)*
-- E-mail + jelszavas **regisztráció és belépés** – pár másodperc, a fiók
-  ott helyben, az appban létrehozható. Fiók nélkül is minden működik, csak
-  lokálisan.
-- Belépve a felhő nem felülír, hanem **összefésül** a helyi naplóval, így
-  két eszköz közt egyetlen rögzített edzés sem vész el.
-- Barát-kóddal barátjelölés, megosztott statok és edzéstervek.
-
-**Megjelenés**
-- Világos/sötét téma (rendszerkövetéssel és kézi váltóval); a sötét az
-  alapértelmezett, teremben kényelmesebb.
+**Egyéb**
+- Gyógytorna / mobilitás: testtájankénti 5 perces vezetett rutin
+  (*referencia, nem orvosi tanács*). Sérülés-mód.
+- Jegyzetek (állandó + aznapi, gyakorlathoz kötve) és gépbeállítás-fotó.
+- Opcionális fiók (e-mail vagy Google): veszteségmentes szinkron, barátok
+  barát-kóddal, terv-küldés, appon belüli fióktörlés.
+- Világos / sötét téma, magyar / angol felület.
 
 ---
 
@@ -122,8 +107,8 @@ oldal.
 - Az edzésadat a **böngésződben** marad (`localStorage`); az app
   alapból semmit nem küld el sehová.
 - Nincs benne követés, reklám vagy analitika.
-- A Napló fülről egy koppintással exportálható és visszaállítható az egész
-  napló JSON-ként.
+- A Profil → „Adataim" kártyáról egy koppintással exportálható és
+  visszaállítható az egész napló JSON-ként.
 - A felhő-szinkron opcionális: csak akkor lép működésbe, ha beállítasz egy
   saját [Supabase](https://supabase.com) projektet és bejelentkezel. Az
   adatot ekkor is veszteségmentesen fésüli össze, és a törlés egy másik
@@ -133,13 +118,15 @@ oldal.
 
 ## Hogyan épül fel
 
-- Vanilla JavaScript, keretrendszer nélkül; az egész UI és logika az
-  `index.html`-ben.
+- Vanilla JavaScript, keretrendszer nélkül: az `index.html` a váz és a CSS,
+  a kód a `js/` alatti klasszikus scriptekben (nincs bundler).
 - PWA: `manifest.webmanifest` + `sw.js` service worker az offline
   működéshez; ikonok a kezdőképernyőhöz.
 - Opcionális felhő-réteg: `js/auth.js` + Supabase (Auth + Postgres az
   `supabase/` alatti sémákkal). Konfiguráció nélkül az app tisztán
   lokálisan fut.
+- Edző AI: Supabase Edge Function (`supabase/functions/coach`), a Claude
+  API-kulcs csak szerveroldalon van. Telepítés: `docs/coach-ai.md`.
 - Deploy: GitHub Pages (a `main` minden pushnál automatikusan publikál a
   `.github/workflows/pages.yml` révén). A repóban lévő `netlify.toml`
   alternatív Netlify-deployt is lehetővé tesz.
