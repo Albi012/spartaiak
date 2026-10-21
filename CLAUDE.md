@@ -1501,6 +1501,15 @@ sáv téma-gombja v145-ben kikerült (redundáns volt). A tokenek CSS-változók
   világos, ha nincs kézi választás.
 - `:root[data-theme="light"|"dark"]` = a kézi váltó felülírja.
 
+**Színpaletták (v155):** a téma-választó alatt négy extra opció (`PALETTES` a
+`boot.js`-ben, `.palbtn` színmintával): `maritime` (Tengeri, világos – kék/borostyán),
+`ultra` (Ultramarin, világos – kék/vermilion/krém), `marina` (Mélytengeri, sötét –
+bordó/kék/terrakotta), `neon` (Neon, sötét – fekete/pink/sárga). Ugyanabba a
+`gymlog_theme` kulcsba mennek, `:root[data-theme="…"]` blokkok írják felül a
+tokeneket (`--brass` = kiemelő, `--red` = második szín). Az `effectiveDark()` és a
+státuszsáv színe a palettából jön. Új palettánál a `<head>` script `_P` listáját is
+bővítsd, különben első festéskor villan. E2E: 72.
+
 A villódzás elleni inline script a `<head>`-ben állítja be a
 `data-theme`-et még festés előtt. Új szín SOHA ne legyen csak
 media-blokkban definiálva – a `:root`-on legyen az alapérték.

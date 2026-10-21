@@ -1742,7 +1742,7 @@ ok('38 a magasságok a látható területet követik (dvh, nem vh)',
 // a média-query-s meta önmagában nem elég.
 ok('38 a státuszsáv színét a villódzás elleni script is beállítja',
   /theme-color/.test(html38.slice(0, html38.indexOf('<style>')))
-  && /_m\.content=_d\?/.test(html38));
+  && /_m\.content=(_P\[_t\]\|\|\()?_d\?/.test(html38));
 ok('38 a témaváltó is frissíti a státuszsáv színét',
   /meta\[name="theme-color"\]/.test(html38.slice(html38.indexOf('<style>'))));
 
@@ -2993,6 +2993,17 @@ ok('71 tervek: ⋯ menü, halk aktiválás, nap-chip lapot nyit, számláló csa
   closeBuilder(); await new Promise(r=>setTimeout(r,100));
   S.routines=bak.r; S.programs=bak.p; S.activeProgram=bak.a; tab='home'; render();
   return menu && akt && szam && nincsFree && lap && m && free && teljes && help; }));
+
+// ---- 72. Színpaletták (v155): 4 extra téma a Profil téma-választóján, a naplót nem érinti ----
+ok('72 színpaletták: 4 extra opció, alkalmazódik, a napló érintetlen, a Rendszer visszaállít', await page.evaluate(async ()=>{
+  const before=localStorage.getItem('gymlog_v1');
+  openAuthSheet(); const btns=[...document.querySelectorAll('#sheetIn .palbtn')]; const negy=btns.length===4;
+  setThemeMode('neon'); const neon=document.documentElement.dataset.theme==='neon' && getComputedStyle(document.documentElement).getPropertyValue('--brass').trim().toUpperCase()==='#FCFF1A' && effectiveDark()===true;
+  setThemeMode('maritime'); const mar=document.documentElement.dataset.theme==='maritime' && effectiveDark()===false && document.querySelector('meta[name="theme-color"]').content==='#EEEEEE';
+  const on=!!document.querySelector('#sheetIn .palbtn.on');
+  const erintetlen=localStorage.getItem('gymlog_v1')===before;
+  setThemeMode('auto'); const vissza=!document.documentElement.dataset.theme && localStorage.getItem('gymlog_theme')===null;
+  closeSheet(); return negy && neon && mar && on && erintetlen && vissza; }));
 
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);

@@ -55,7 +55,9 @@ function agoTxt(t){ if(!t) return ''; const m=Math.round((Date.now()-t)/6e4);
   return m<1?'épp most':m<60?m+' perce':m<1440?Math.round(m/60)+' órája':Math.round(m/1440)+' napja'; }
 function themeSeg(){ const t=currentTheme();
   return `<div class="seg" style="margin:8px 0">${[['auto','Rendszer'],['light','Világos'],['dark','Sötét']].map(([k,l])=>
-    `<button class="${t===k?'on':''}" onclick="setThemeMode('${k}')">${tr(l)}</button>`).join('')}</div>`; }
+    `<button class="${t===k?'on':''}" onclick="setThemeMode('${k}')">${tr(l)}</button>`).join('')}</div>
+    <div class="palrow">${Object.entries(PALETTES).map(([k,p])=>`<button class="palbtn${t===k?' on':''}" onclick="setThemeMode('${k}')" aria-label="${esc(p.n)} színpaletta">
+      <span class="palsw">${p.sw.map(c=>`<i style="background:${c}"></i>`).join('')}</span>${esc(p.n)}</button>`).join('')}</div>`; }
 function setThemeMode(m){ try{ if(m==='auto') localStorage.removeItem('gymlog_theme'); else localStorage.setItem('gymlog_theme',m); }catch(e){} applyTheme(); openAuthSheet(); }
 function openAuthSheet(){
   const configured = window.Auth && Auth.configured();

@@ -12,13 +12,13 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Edzésnapló">
-<script>try{var _t=localStorage.getItem('gymlog_theme');if(_t==='light'||_t==='dark')document.documentElement.dataset.theme=_t;
+<script>try{var _t=localStorage.getItem('gymlog_theme');var _P={maritime:'#EEEEEE',ultra:'#FFF4E2',marina:'#2A1116',neon:'#0C0E09'};if(_t==='light'||_t==='dark'||_P[_t])document.documentElement.dataset.theme=_t;
 /* A státuszsáv színe már az ELSŐ festésnél stimmeljen: enélkül egy világos
    témás telefon sötét sávval villan fel, amíg a fő script le nem fut.
    A kézi váltó miatt média-query-s meta nem elég – itt is a tényleges
    állapotból számolunk. */
-var _d=_t?_t==='dark':!matchMedia('(prefers-color-scheme: light)').matches;
-var _m=document.querySelector('meta[name="theme-color"]');if(_m)_m.content=_d?'#0F1317':'#F4F2EC';}catch(e){}</script>
+var _d=(_t==='light'||_t==='dark')?_t==='dark':!matchMedia('(prefers-color-scheme: light)').matches;
+var _m=document.querySelector('meta[name="theme-color"]');if(_m)_m.content=_P[_t]||(_d?'#0F1317':'#F4F2EC');}catch(e){}</script>
 <!-- A betűk a repóból jönnek (vendor/fonts), nem a Google Fonts CDN-ről:
      így az app első indításkor is offline-kész, nem függ idegen hoszttól, és
      nem kér le semmit a felhasználóról egy harmadik félnél. -->
@@ -89,6 +89,53 @@ var _m=document.querySelector('meta[name="theme-color"]');if(_m)_m.content=_d?'#
   --toast-bg:#E3EAF1; --toast-ink:#141A21;
   --gif-filter:brightness(.8) contrast(1.04);
 }
+
+/* Színpaletták (v155) – a Profil téma-választójának extra opciói. Ugyanazokat
+   a tokeneket írják felül, mint a világos/sötét: a `--brass` a kiemelő szín
+   (elsődleges gomb, aktív elem), a `--red` a második szín, a `--sage` a
+   „kész / jó" jelzés. Kettő világos, kettő sötét alapú. */
+:root[data-theme="maritime"]{
+  --bg:#EEEEEE; --card:#FFFFFF; --card2:#E6E8EF; --line:#D6DAE4;
+  --ink:#0B1A3F; --mut:#4A5677; --dim:#8C95AD;
+  --brass:#0038BD; --brass-d:#DCE5FA; --on-brass:#FFFFFF;
+  --sage:#2C9A64; --sage-d:#DDF0E6;
+  --red:#EF8E01; --miss-bg:#FCEBD2;
+  --bar:rgba(238,238,238,.82); --shadow:rgba(0,30,90,.14);
+  --toast-bg:#0B1A3F; --toast-ink:#EEEEEE; --gif-filter:none;
+}
+:root[data-theme="ultra"]{
+  --bg:#FFF4E2; --card:#FFFBF4; --card2:#F8EBD4; --line:#EADBC0;
+  --ink:#1D2A4A; --mut:#55607A; --dim:#9AA0AE;
+  --brass:#2E4C8C; --brass-d:#E1E7F3; --on-brass:#FFFFFF;
+  --sage:#2C9A64; --sage-d:#DDF0E6;
+  --red:#FA2D1A; --miss-bg:#FDE1D9;
+  --bar:rgba(255,244,226,.82); --shadow:rgba(46,76,140,.14);
+  --toast-bg:#1D2A4A; --toast-ink:#FFF4E2; --gif-filter:none;
+}
+:root[data-theme="marina"]{
+  --bg:#2A1116; --card:#34151B; --card2:#3F1E25; --line:#522A32;
+  --ink:#F8EAE7; --mut:#C3A3A3; --dim:#8E6E72;
+  --brass:#DA5E5E; --brass-d:#4A1E22; --on-brass:#1E0A0D;
+  --sage:#6FB3D9; --sage-d:#1D3245;
+  --red:#F2995E; --miss-bg:#4A2620;
+  --bar:rgba(42,17,22,.78); --shadow:rgba(0,0,0,.5);
+  --toast-bg:#F8EAE7; --toast-ink:#2A1116; --gif-filter:brightness(.8) contrast(1.04);
+}
+:root[data-theme="neon"]{
+  --bg:#0C0E09; --card:#15180F; --card2:#1F2316; --line:#2E3322;
+  --ink:#F4F6E8; --mut:#A3A890; --dim:#6E735E;
+  --brass:#FCFF1A; --brass-d:#33340A; --on-brass:#0C0E09;
+  --sage:#63C295; --sage-d:#14291E;
+  --red:#FF2070; --miss-bg:#3A1222;
+  --bar:rgba(12,14,9,.78); --shadow:rgba(0,0,0,.55);
+  --toast-bg:#FCFF1A; --toast-ink:#0C0E09; --gif-filter:brightness(.8) contrast(1.04);
+}
+.palrow{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:4px 0 8px}
+.palbtn{display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 4px;min-height:44px;border-radius:14px;border:1px solid var(--line);background:var(--card2);color:var(--mut);font-size:12px;font-weight:600}
+.palbtn.on{border-color:var(--brass);color:var(--ink)}
+.palbtn:active{transform:scale(var(--press-sm))}
+.palsw{display:flex;width:100%;height:26px;border-radius:8px;overflow:hidden}
+.palsw i{flex:1}
 
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 html,body{margin:0;padding:0}

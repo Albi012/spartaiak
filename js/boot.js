@@ -4,14 +4,21 @@
    ================================================================== */
 /* ---- Téma (világos / sötét) ---------------------------------------- */
 function currentTheme(){ try{ return localStorage.getItem('gymlog_theme')||'auto'; }catch(e){ return 'auto'; } }
+// Extra színpaletták: név, színminta (a forrás-paletta), sötét-e, státuszsáv.
+const PALETTES={
+  maritime:{n:'Tengeri',sw:['#0038BD','#EF8E01','#EEEEEE'],dark:false,bar:'#EEEEEE'},
+  ultra:{n:'Ultramarin',sw:['#2E4C8C','#FA2D1A','#FFF4E2'],dark:false,bar:'#FFF4E2'},
+  marina:{n:'Mélytengeri',sw:['#34151B','#265275','#DA5E5E'],dark:true,bar:'#2A1116'},
+  neon:{n:'Neon',sw:['#0C0E09','#FF2070','#FCFF1A'],dark:true,bar:'#0C0E09'}
+};
 function effectiveDark(){ const t=currentTheme();
-  if(t==='dark') return true; if(t==='light') return false;
+  if(t==='dark') return true; if(t==='light') return false; if(PALETTES[t]) return PALETTES[t].dark;
   return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches; }
 function applyTheme(){
   const t=currentTheme(), root=document.documentElement;
   if(t==='auto') delete root.dataset.theme; else root.dataset.theme=t;
   const dark=effectiveDark();
-  const m=document.querySelector('meta[name="theme-color"]'); if(m) m.content=dark?'#0F1317':'#F4F2EC';
+  const m=document.querySelector('meta[name="theme-color"]'); if(m) m.content=PALETTES[t]?PALETTES[t].bar:(dark?'#0F1317':'#F4F2EC');
 }
 function paintIcons(){
   const set=(sel,svg)=>{ const el=document.querySelector(sel); if(el) el.innerHTML=svg; };
