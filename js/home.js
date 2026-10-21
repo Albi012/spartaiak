@@ -4,6 +4,14 @@
    ================================================================== */
 // „Mit edzek ma?" – az aktív terv azon napját ajánlja, amelyik a legtöbb,
 // ezen a héten elhanyagolt (kevés szettet kapott) izomcsoportot fedi le.
+// Tartalék ajánlás, ha az izomtérkép nem mond semmit: az aktív terv
+// SORRENDJÉBEN következő nap (a régi „KÖVETKEZŐ" címke logikája).
+function nextPlanDay(){
+  const act=activeProg(); if(!act||!act.days||!act.days.length) return null;
+  const last=[...S.sessions].reverse().find(s=>act.days.indexOf(s.day)>=0);
+  const id=act.days[last ? (act.days.indexOf(last.day)+1)%act.days.length : 0], d=dayDef(id);
+  return d ? {dayId:id, name:d.name, covers:[], needy:[], seq:true} : null;
+}
 function suggestDay(){
   const act=activeProg(); if(!act||!act.days||!act.days.length) return null;
   // HA van heti beosztás, az a mérvadó: a mai napra betett, még meg nem
@@ -153,31 +161,12 @@ function homeView(){
   if(storeMode==='none') h+=`<div class="wrap"><div class="card" style="border-color:var(--red);margin-top:16px"><div class="pad">
     <span class="cond" style="font-size:18px;font-weight:600;color:var(--red)">A mentés nem működik</span>
     <div class="small mut" style="margin-top:4px">Ez a böngésző letiltotta a helyi tárolást. Kapcsold ki a privát böngészést, vagy engedélyezd a sütiket ehhez az oldalhoz – különben minden bezáráskor elvesznek az adatok.</div></div></div></div>`;
-  // A főoldal hőse a készenlét-kártya; a „Melyik nap jön?" fejléc-blokk
-  // kikerült (a nap kiválasztását a kártyák és a „Mit edzek ma?" viszik).
-  // A rövid összegző sor marad – az valódi információ.
-  h += `<div class="wrap">${done?`<div class="top" style="padding-bottom:0">
-    <p class="mut small" style="margin:0">${done} edzés összesen · ${wk} az elmúlt 7 napban · utoljára ${ago}</p></div>`:''}`;
-  // Finom emlékeztető, ha csúszol (a rendszeresség a lényeg). Magától eltűnik,
-  // amint legközelebb edzel.
-  // Figyelmeztetések: visszafogott SÁV, nem aranyszegélyes kártya nagy sárga
-  // gombbal – a főoldalon egyetlen elsődleges gomb legyen (a „Kezdés"), ne
-  // versenyezzen vele egy emlékeztető.
-  if(done && daysSince>=5 && !S.active) h+=`<div class="notice"><span class="ntdot"></span>
-    <div class="grow"><b>Már ${daysSince} napja nem edzettél</b>
-    <div class="small mut">A rendszeresség többet ér a tökéletes edzésnél – csak kezdd el.</div></div></div>`;
-  if(needsBackup()) h+=`<div class="notice"><span class="ntdot"></span>
-    <div class="grow"><b>${tr('Rég mentettél biztonsági másolatot')}</b>
-    <div class="small mut">${tr('Kézi mentésre senki nem emlékszik, amíg el nem veszti az adatait.')}</div>
-    <div class="row" style="gap:6px;margin-top:8px"><button class="nbtn" onclick="backup()">${tr('Mentés most')}</button>
-    <button onclick="dismissNag()" class="nbtn ghost">${tr('Később')}</button></div></div></div>`;
-  if(injuryOn()) h+=`<div class="card" style="border-color:var(--red)"><div class="pad">
-    <span class="cond" style="font-size:17px;font-weight:600;color:var(--red)">Sérülés-mód aktív – ${S.injury.parts.join(', ')}</span>
-    <div class="small mut" style="margin-top:2px">Új edzésnél az érintett gyakorlatok kimaradnak, a többi súlya csökken.</div>
-    <div class="row" style="gap:8px;margin-top:10px">
-      <button class="btn" style="flex:1;margin:0" onclick="openInjury()">Módosítás / kikapcsolás</button>
-      <button class="btn" style="flex:1;margin:0" onclick="openPhysio('${REG_FOR_MG[S.injury.parts[0]]||''}')">Gyógytorna ›</button>
-    </div></div></div>`;
+  // v151: a „Kezdés" az ELSŐ képernyőn. Sorrend: folyamatban lévő edzés →
+  // figyelmeztetés → kompakt készenlét → EGY ajánlás → hét → napi mérés.
+  // A terv napjainak listája (a „KÖVETKEZŐ" címkével) kikerült: ugyanazt
+  // mutatta, mint a heti kártya hátralévő gombjai, és MÁSIK napot ajánlott,
+  // mint a „Mit edzek ma?". A mentés-emlékeztető a lap aljára került.
+  h += `<div class="wrap">`;
   if(S.active){
     const d=dayDef(S.active.day) || {name:S.active.dayName||'Edzés', ex:[]};
     const _al=activeExList(), exN=_al.length;
@@ -195,64 +184,53 @@ function homeView(){
       <span class="small dim">${doneN}/${exN} gyakorlat kész</span></span>
       <span style="color:var(--brass);font-size:22px">›</span></button></div>`;
   }
-  // Mai készenlét – a nap fő száma. Csak akkor jelenik meg, ha van hozzá
-  // valódi adat (lásd `readiness()`); üres naplónál nincs kitalált szám.
+  if(done && daysSince>=5 && !S.active) h+=`<div class="notice"><span class="ntdot"></span>
+    <div class="grow"><b>Már ${daysSince} napja nem edzettél</b>
+    <div class="small mut">A rendszeresség többet ér a tökéletes edzésnél – csak kezdd el.</div></div></div>`;
+  if(injuryOn()) h+=`<div class="card" style="border-color:var(--red)"><div class="pad">
+    <span class="cond" style="font-size:17px;font-weight:600;color:var(--red)">Sérülés-mód aktív – ${S.injury.parts.map(trmg).join(', ')}</span>
+    <div class="small mut" style="margin-top:2px">Új edzésnél az érintett gyakorlatok kimaradnak, a többi súlya csökken.</div>
+    <div class="row" style="gap:8px;margin-top:10px">
+      <button class="btn" style="flex:1;margin:0" onclick="openInjury()">Módosítás / kikapcsolás</button>
+      <button class="btn" style="flex:1;margin:0" onclick="openPhysio('${REG_FOR_MG[S.injury.parts[0]]||''}')">Gyógytorna ›</button>
+    </div></div></div>`;
+  // Mai készenlét – kompakt sor; a részletek egy koppintásra (openRdySheet).
+  const rd=readiness();
   h+=rdyHomeCard();
-  // „Mit edzek ma?" – a heti hiányokat lefedő nap ajánlása (ha nem edzett ma
-  // és nincs folyamatban lévő edzés).
   if(!S.active && daysSince!==0){
-    const sug=suggestDay();
+    const sug=suggestDay() || nextPlanDay();
     if(sug){
-      const freshWeek = sug.needy.length===MGS.length;   // ezen a héten még nincs edzés
-      const covers = `<b>${sug.covers.map(esc).join(', ')}</b>`;
-      const reason = sug.sched
-        ? tr('A heti beosztásod szerint ez van mára.')
-        : freshWeek
-        ? `Kiegyensúlyozott kezdés a héthez – terheli: ${covers}.`
+      const freshWeek = sug.needy && sug.needy.length===MGS.length;
+      const covers = `<b>${(sug.covers||[]).map(c=>esc(trmg(c))).join(', ')}</b>`;
+      const reason = sug.seq ? tr('A terved sorrendjében ez jön.')
+        : sug.sched ? tr('A heti beosztásod szerint ez van mára.')
+        : freshWeek ? `Kiegyensúlyozott kezdés a héthez – terheli: ${covers}.`
         : `A héten kimaradt: ${covers} – ez a nap pótolja.`;
+      // A készenlét és az ajánlás egy kártyán beszél: alacsony számnál nem
+      // hallgatjuk el, hogy ma könnyíteni érdemes (a súlyt NEM állítjuk el).
+      const low = rd && rd.band!=='jo' ? `<div class="sughint" style="--c:${rd.color}"><span class="rdydot" style="background:${rd.color}"></span>
+        ${rd.band==='alacsony' ? 'Alacsony készenlét – ma menj kisebb súllyal vagy kevesebb szettel.' : 'Közepes készenlét – ne erőltesd a csúcsot.'}</div>` : '';
       h+=`<div class="card" style="border-color:var(--brass)"><div class="pad">
         <span class="eyebrow" style="color:var(--brass)">${tr('Mit edzek ma?')}</span>
-        <div class="cond" style="font-size:19px;font-weight:600;margin-top:4px">${esc(sug.name)}</div>
-        <div class="small mut" style="margin:2px 0 10px">${reason}</div>
-        <button class="btn pri" onclick="startDay('${sug.dayId}')">${tr('Kezdés ›')}</button></div></div>`;
+        <div class="cond" style="font-size:19px;font-weight:600;margin-top:4px">${esc(trn(sug.name))}</div>
+        <div class="small mut" style="margin:2px 0 10px">${reason}</div>${low}
+        <button class="btn pri" onclick="startDay('${sug.dayId}')">${tr('Kezdés ›')}</button>
+        <button class="btn ghost" style="margin-top:6px;color:var(--mut)" onclick="startFree()">${tr('vagy szabad edzés')}</button></div></div>`;
     }
   }
-  // Heti nézet: mi van meg és mi van hátra. Üres naplónál nem kerül ki –
-  // első indításkor még nincs mit összegezni.
   if(done) h+=weekPlanCard();
-  // Napi testsúly + alvás – edzés nélküli napon is (mindig látható)
-  h+=bwHomeCard();
-  h+=sleepHomeCard();
-  // Edzéstervek: aktív választó + a kiválasztott terv napjai
+  h+=dailyHomeCard();
+  // Az aktív terv EGY sorban (a napjai a heti kártyán és a Tervek fülön).
   const plist=programsList(), act=activeProg();
-  if(plist.length>1){
-    h+=`<div class="top" style="padding:16px 0 6px"><span class="eyebrow">Aktív edzésterv</span></div>
-      <div class="whyrow" style="margin-bottom:6px">`+
-      plist.map(p=>`<button class="whyc ${act&&p.id===act.id?'on':''}" onclick="setActiveProgram('${p.id}')">${esc(p.builtin?'Alapterv':p.name)}</button>`).join('')
-      +`</div>`;
-  }
-  if(act){
-    h+=`<div class="top" style="padding:12px 0 8px"><div class="row"><span class="eyebrow grow">${esc(act.name)}</span>
-      <button class="iconbtn" onclick="openSharePlan('${act.id}')" aria-label="Megosztás baráttal" title="Megosztás baráttal">${ICON.share}</button>
-      ${act.builtin
-        ? `<button class="iconbtn" onclick="deletePlan()" aria-label="Alapterv törlése" title="Alapterv törlése" style="color:var(--red)">×</button>`
-        : `<button class="iconbtn" onclick="openProgram('${act.id}')" aria-label="Szerkesztés" title="Szerkesztés">${ICON.edit}</button>`}
-      </div></div>`;
-    const dayIds=act.days;
-    const lastInProg=[...S.sessions].reverse().find(s=>dayIds.indexOf(s.day)>=0);
-    const nextIdx = lastInProg ? (dayIds.indexOf(lastInProg.day)+1)%dayIds.length : 0;
-    dayIds.forEach((dId,i)=>{ const d=dayDef(dId); if(!d) return;
-      const last=[...S.sessions].reverse().find(s=>s.day===dId);
-      const pIdx=PLAN.findIndex(x=>x.id===dId);
-      const tag = pIdx>=0 ? (pIdx+1) : ICON.dumbbell;
-      const isNext = i===nextIdx && !S.active;
-      h+=`<div class="card"><button class="daybtn" onclick="startDay('${dId}')">
-        <span class="daytag">${tag}</span>
-        <span class="grow"><span class="cond" style="font-size:21px;font-weight:600;display:block">${esc(trn(d.name))}${isNext?'<span class="pill">'+tr('KÖVETKEZŐ')+'</span>':''}</span>
-        <span class="small dim">${esc(trn(d.sub)||(d.ex.length+' '+tr('gyakorlat')))}${last?' · utoljára '+fmtDate(last.t):' · még nem volt'}</span></span>
-        <span style="color:var(--dim);font-size:22px">›</span></button></div>`;
-    });
-  }
+  // Több terv esetén a választó MARAD: egy AI-import után ezzel tér vissza
+  // egy koppintással a régi tervre (a CLAUDE.md „AI-terv importálása" része).
+  if(plist.length>1) h+=`<div class="whyrow hscroll" style="margin:4px 0 6px">`+
+      plist.map(p=>`<button class="whyc ${act&&p.id===act.id?'on':''}" onclick="setActiveProgram('${p.id}')">${esc(p.builtin?'Alapterv':p.name)}</button>`).join('')+`</div>`;
+  if(act) h+=`<div class="card"><button class="daybtn" onclick="tab='plans';render();window.scrollTo(0,0)">
+      <span class="daytag">${ICON.plans}</span>
+      <span class="grow"><span class="small dim" style="display:block">${tr('Aktív terv')}</span>
+      <span class="cond" style="font-size:19px;font-weight:600">${esc(act.builtin?'Alapterv · Push / Pull':act.name)}</span></span>
+      <span style="color:var(--dim);font-size:22px">›</span></button></div>`;
   // Saját edzések (amik nincsenek egyik tervben sem)
   const inProg=new Set(); (S.programs||[]).forEach(p=>p.days.forEach(x=>inProg.add(x)));
   const loose=(S.routines||[]).filter(r=>!inProg.has(r.id));
@@ -261,8 +239,8 @@ function homeView(){
     loose.forEach(r=>{ const last=[...S.sessions].reverse().find(s=>s.day===r.id);
       h+=dayCard(r.id, r.name, trn(r.sub)||(r.ex.length+' '+tr('gyakorlat')), last, true); });
   }
-  // Szabad edzés: üresen indul, menet közben állítod össze.
-  if(!S.active) h+=`<div class="card"><button class="daybtn" onclick="startFree()">
+  // Szabad edzés: csak ha nincs ajánló kártya (ott másodlagos gomb).
+  if(!S.active && (daysSince===0 || !(suggestDay()||nextPlanDay()))) h+=`<div class="card"><button class="daybtn" onclick="startFree()">
       <span class="daytag">+</span>
       <span class="grow"><span class="cond" style="font-size:19px;font-weight:600;display:block">${tr('Szabad edzés')}</span>
       <span class="small dim">${tr('Menet közben rakod össze, gyakorlatról gyakorlatra')}</span></span>
@@ -280,6 +258,12 @@ function homeView(){
   // kikerült a főoldalról: az előbbi az alsó nav „Tervek" füle, az utóbbi a
   // felső sáv állandó gyógytorna-ikonja (`physioBtn`) – mindkettő egy
   // koppintás, a főoldalon csak zaj volt.
+  // Mentés-emlékeztető a LAP ALJÁN: ráér, ne az első dolog legyen.
+  if(needsBackup()) h+=`<div class="notice"><span class="ntdot"></span>
+    <div class="grow"><b>${tr('Rég mentettél biztonsági másolatot')}</b>
+    <div class="small mut">${tr('Kézi mentésre senki nem emlékszik, amíg el nem veszti az adatait.')}</div>
+    <div class="row" style="gap:6px;margin-top:8px"><button class="nbtn" onclick="backup()">${tr('Mentés most')}</button>
+    <button onclick="dismissNag()" class="nbtn ghost">${tr('Később')}</button></div></div></div>`;
   return h+'</div>';
 }
 
@@ -403,7 +387,7 @@ function dayCard(id,name,sub,last,editable){
     <button class="daybtn grow" onclick="startDay('${id}')">
       <span class="daytag">${ICON.dumbbell}</span>
       <span class="grow"><span class="cond" style="font-size:21px;font-weight:600;display:block">${esc(name)}</span>
-      <span class="small dim">${esc(sub)}${last?' · utoljára '+fmtDate(last.t):''}</span></span></button>
+      <span class="small dim">${esc(sub)}${last?' · utoljára '+friendlyDate(last.t).toLowerCase():''}</span></span></button>
     ${editable?`<button class="iconbtn" style="margin:0 12px 0 0" onclick="openBuilder('${id}')" aria-label="Szerkesztés" title="Szerkesztés">${ICON.edit}</button>`:''}
   </div></div>`;
 }

@@ -179,7 +179,18 @@ const RDY_TONE={sage:'var(--sage)',brass:'var(--brass)',red:'var(--red)',mut:'va
 function rdySign(d){ return (d>0?'+':d<0?'−':'±')+Math.abs(d); }
 
 // Főoldali kártya: a gyűrű, az ítélet és a bekapcsolt tényezők egy sorral.
+// v151: kompakt sor – a „Kezdés" férjen az első képernyőre. A tényezők és
+// a magyarázat egy koppintásra, a részletek-lapon.
 function rdyHomeCard(){
+  const r=readiness(); if(!r) return '';
+  return `<div class="card rdycard rdycompact"><button class="daybtn" onclick="openRdySheet()" aria-label="Mai készenlét – részletek">
+    <span class="rdyhero sm">${rdyRing(r.score, r.color, 64)}
+      <span class="rdyval"><span class="num" data-cu="${r.score}" style="color:${r.color}">${r.score}</span></span></span>
+    <span class="grow" style="min-width:0"><span class="eyebrow" style="display:block">Mai készenlét · <span style="color:${r.color}">${r.label}</span></span>
+      <span class="rdyverdict" style="margin:2px 0 0;text-align:left;font-size:16px">${r.verdict}</span>
+      <span class="small dim" style="display:block">Miből jön ez a szám? ›</span></span></button></div>`;
+}
+function rdyHomeCardFull(){
   const r=readiness(); if(!r) return '';
   return `<div class="card rdycard"><div class="pad">
     <div style="text-align:center">

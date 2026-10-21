@@ -1110,6 +1110,22 @@ sor (`.whyrow.hscroll`). A készenlét a naplóban halk (`.rdyin`: színes pött
 szürke szám) – múltbeli adat, nem riasztás. Az edzéskártya bal szélén a nap
 NEVÉBŐL származó, téma-tokenből kevert színcsík (`dayTone`). E2E: 58.
 
+## Kezdőlap (v151)
+
+A „Kezdés" az ELSŐ képernyőn van (2100 → ~1230 px). Sorrend: folyamatban lévő
+edzés („Folytatás", legfelül) → kihagyás-sáv → sérülés-kártya → **kompakt
+készenlét** (`rdyHomeCard`: 64 px-es gyűrű + ítélet, koppintásra
+`openRdySheet`; a régi nagy kártya `rdyHomeCardFull` néven megmaradt) →
+**EGY ajánlás** („Mit edzek ma?": `suggestDay()`, ennek híján `nextPlanDay()` =
+a terv sorrendjében következő; nem-„jó" készenlétnél `.sughint` tanács – a
+súlyt nem állítja; másodlagos „vagy szabad edzés") → heti kártya → **napi
+mérés egy kártyán** (`dailyHomeCard`: testsúly | alvás, a mai értékkel) →
+terv-választó chipek (ha több terv van – az AI-import visszaválasztása ezen
+megy) + „Aktív terv" sor (→ Tervek fül) → mentés-emlékeztető a LAP ALJÁN.
+**A terv napjainak kártyalistája és a „KÖVETKEZŐ" címke kikerült**: a heti
+kártya hátralévő gombjait duplázta, és MÁSIK napot ajánlott, mint a „Mit edzek
+ma?". A felső összegző sor is kikerült (Profil/Haladás mutatja). E2E: 69.
+
 ## Redundancia-takarítás (v145)
 
 A felső sávban csak a fiók és a gyógytorna ikon maradt: a téma-gomb (→ Profil

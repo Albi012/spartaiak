@@ -21,6 +21,17 @@ function bwMiniSpark(){ const e=bwEntries(); if(e.length<2) return '';
   return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="flex:none;color:var(--brass)" aria-hidden="true"><path d="${sparkPath(pts,W,H,5)}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`; }
 
 // Főoldali kártya – MINDEN nap látszik (edzés nélkül is).
+// Főoldal (v151): testsúly + alvás EGY kártya két felén, rajta a mai érték.
+function dailyHomeCard(){
+  const bt=bwToday(), st=slpToday();
+  const half=(fn,ic,lbl,val,sub)=>`<button class="dhalf" onclick="${fn}()"><span class="dhic">${ic}</span>
+    <span class="grow" style="min-width:0"><span class="small dim" style="display:block">${lbl}</span>
+    <span class="cond dhval${val?'':' dim'}">${val||'Rögzítés'}</span>${sub?`<span class="small dim" style="display:block">${sub}</span>`:''}</span></button>`;
+  return `<div class="card dhcard">`
+    + half('openBwSheet', ICON.scale||ICON.chart, 'Testsúly ma', bt!=null?bwNum(bt)+' kg':'', '')
+    + half('openSleepSheet', ICON.moon, 'Alvás ma éjjel', st?slpFmt(st.min):'', st&&st.q?slpQLabel(st.q):'')
+    + `</div>`;
+}
 function bwHomeCard(){
   const today=bwToday(), e=bwEntries(), last=bwLast();
   let mid;

@@ -64,10 +64,10 @@ ok('1 lang=hu', await page.evaluate(()=>document.documentElement.lang==='hu'));
 ok('1 nincs dekoratív főoldal-fejléc', await page.evaluate(()=>{
   const t=document.getElementById('app').textContent;
   return !/Melyik nap jön/.test(t) && !/Tervek és edzések kezelése/.test(t) && !/Gyógytorna \/ mobilitás ›/.test(t); }));
-ok('1 az összegző sor megmaradt', await page.evaluate(()=>/edzés összesen/.test(document.getElementById('app').textContent)));
+ok('1 a fő gomb az első képernyőn (v151)', await page.evaluate(()=>{ const b=[...document.querySelectorAll('#app .btn.pri')].find(x=>/Kezdés/.test(x.textContent)); return !!b && b.getBoundingClientRect().bottom < innerHeight; }));
 ok('1 a Tervek és a gyógytorna továbbra is elérhető', await page.evaluate(()=>
   !!document.querySelector('#physioBtn') && !!document.querySelector('nav button[data-tab="plans"], [data-tab="plans"]')));
-ok('1 nap-kártyák láthatók', (await page.$$('.daybtn')).length>=4);
+ok('1 egyetlen ajánlás: nincs külön „KÖVETKEZŐ" napkártya (v151)', await page.evaluate(()=>!/KÖVETKEZŐ/.test(document.getElementById('app').textContent) && !!document.querySelector('#app .dhcard')));
 ok('1 suggestDay napot ajánl', await page.evaluate(()=>{ const s=suggestDay(); return !!(s&&s.dayId)&&Array.isArray(s.covers)&&s.covers.length>0; }));
 ok('1 „Mit edzek ma?" kártya', await page.$$eval('#app .eyebrow',es=>es.some(e=>/Mit edzek ma/.test(e.textContent))));
 
@@ -2880,7 +2880,7 @@ ok('64 felső sáv: nincs téma és sérülés gomb; Napló ⋯ mentés nélkül
 // ---- 65. Edzés közben: plusz szett + kézi súly ----
 ok('65 lejátszó: + szett chip bővít, a súly kézzel beírható (vesszővel is), rossz értéket nem fogad', await page.evaluate(async ()=>{
   const bak=S.active, bt=tab, bp=playing, bc=curEx;
-  S.active={day:'pa',t:Date.now(),log:{bench:{w:40,sets:[10,null,null]}}}; playing=true; curEx=0; render(); await new Promise(r=>setTimeout(r,80));
+  S.active={day:'pa',t:Date.now(),log:{bench:{w:40,sets:[10,null,null]}}}; playing=true; curEx=0; render(); await new Promise(r=>setTimeout(r,300));
   const plusz=!!document.querySelector('#app .chip.addset');
   addLiveSet('bench'); const negy=S.active.log.bench.sets.length===4 && S.active.log.bench.sets[3]===null;
   openWManual('bench'); document.getElementById('wMan').value='62,5'; setWManual('bench');
@@ -2933,6 +2933,19 @@ ok('68 javító-lap: dropset felvehető és törölhető, ed-bélyeget tesz', aw
   esDelDrop(1,0); const le=!L.drops;
   closeSheet(); editSess=null; editRep=null; S.sessions=bak; render();
   return box && fel && lista && le; }));
+
+// ---- 69. Kezdőlap (v151): kompakt készenlét, ajánlás + készenlét-tipp, napi mérés egy kártyán, mentés alul ----
+ok('69 kezdőlap: kompakt készenlét, ajánló kártyán készenlét-tipp és szabad edzés, mentés-emlékeztető alul', await page.evaluate(async ()=>{
+  const bak={lb:S.lastBackup}; S.lastBackup=0; nagOff=false; tab='home'; render(); await new Promise(r=>setTimeout(r,200));
+  const w=document.querySelector('#app .wrap'), kids=[...w.children];
+  const rc=document.querySelector('#app .rdycompact'), komp=!rc || rc.getBoundingClientRect().height<130;
+  const sug=kids.find(k=>/Mit edzek ma/.test(k.textContent));
+  const szabad=!sug || /szabad edzés/.test(sug.textContent);
+  const r=readiness(), tipp=!sug || !r || r.band==='jo' || !!sug.querySelector('.sughint');
+  const not=kids.findIndex(k=>/Rég mentettél/.test(k.textContent)), alul=not<0 || not===kids.length-1;
+  const napi=!!w.querySelector('.dhcard .dhalf');
+  S.lastBackup=bak.lb; render();
+  return komp && szabad && tipp && alul && napi; }));
 
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
