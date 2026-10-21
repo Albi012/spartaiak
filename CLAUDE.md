@@ -1193,7 +1193,7 @@ old fel. Gyakorlatot a választó `pickerMode==='free'` ága vesz fel
 kerül be, csak odaugrik). Az üres állapotot a `freeEmptyView` festi (enélkül
 a lejátszó `exs[curEx]`-en elszállna). Az utolsó gyakorlaton az elsődleges
 gomb „+ Következő gyakorlat", a lezárás mellette / a fejléc pipáján.
-Belépő: főoldali kártya + a Tervek fül. A naplózott szabad edzés célja az
+Belépő: főoldali kártya + a Tervek „+ Új" lapja. A naplózott szabad edzés célja az
 `exDef` alapja. E2E: 53. szekció.
 
 ## Tervek: egyetlen „+ Új" gomb
@@ -1213,6 +1213,12 @@ gyakorlatonként EGY kompakt sor (`.bxrow`), a superset-kapcsoló lánc-ikon
 (`ICON.link`, `.sslink`) a sor bal szélén. E2E: 60.
 **v148:** a lánc-ikon magyarázatot kapott: a lista fölött `.sshelp` sáv (2+ gyakorlatnál), a kör MINDEN
 tagja (az első is) bal csíkot és „szuperszett" címkét (`.sstag`) kap, kapcsoláskor toast mondja ki, mi történt. E2E: 66.
+**v153:** a terv-kártya fejlécében csak a név + ⋯ (`openPlanMenu`: szerkesztés, megosztás, törlés/elrejtés) – a
+név nem törik, a piros × nem félrenyomható. Az aktiválás halk sor a kártya alján (`.tact`). MINDEN nap-chip
+koppintható (`openPlanDay`: Indítás / saját edzésnél Szerkesztés) és kiírja, mikor volt utoljára (`agoShort`).
+A fejléc-számláló csak a tervhez NEM tartozó edzéseket számolja. A „Szabad edzés" gomb a „+ Új" lapra került
+(a Kezdőlapon is ott van). Az összeállítóban a név saját sort kap (`.bxname`, nem vágódik), a szuperszett-
+magyarázat lenyitható (`details.sshelp`). E2E: 71.
 
 A lap alján öt egyforma, teljes szélességű gomb állt egymás alatt, pedig
 négy közülük **ugyanarra a kérdésre válaszol**: „hogyan csinálok újat?".

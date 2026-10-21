@@ -2973,6 +2973,27 @@ ok('70 lejátszó: semleges hint félúton, nem-elsődleges Következő, eltelt 
   S.active=bak; playing=bp; curEx=bc; render();
   return semleges && nemSarga && ido && nincsProg && egySor && csend && sarga && valodi && fmt && kerd && utolag; }));
 
+// ---- 71. Tervek (v153): ⋯ menü, halk aktiválás, nap-chip → indítás/szerkesztés lap, nincs szabad-edzés gomb, teljes név az összeállítóban ----
+ok('71 tervek: ⋯ menü, halk aktiválás, nap-chip lapot nyit, számláló csak a külön edzés, összeállító-név nem vágódik', await page.evaluate(async ()=>{
+  const bak={r:S.routines,p:S.programs,a:S.activeProgram};
+  S.routines=[{id:'r_71a',name:'Nap A',ex:['bench','row']},{id:'r_71b',name:'Laza',ex:['curl']}];
+  S.programs=[{id:'p_71',name:'Egy nagyon hosszú nevű edzésterv',days:['r_71a']}]; S.activeProgram=null;
+  tab='plans'; render(); await new Promise(r=>setTimeout(r,250));
+  const app=document.getElementById('app');
+  const menu=app.querySelectorAll('[onclick^="openPlanMenu"]').length===2 && !app.querySelector('[onclick^="deleteProgram"]') && !app.querySelector('.nbtn');
+  const akt=!!app.querySelector('.tact');
+  const szam=/1 külön edzés/.test(app.textContent);
+  const nincsFree=!app.querySelector('[onclick="startFree()"]');
+  openPlanDay('r_71a'); const lap=/Indítás/.test(document.getElementById('sheetIn').textContent) && /Szerkesztés/.test(document.getElementById('sheetIn').textContent);
+  closeSheet(); openPlanMenu('p_71'); const m=/Terv törlése/.test(document.getElementById('sheetIn').textContent); closeSheet();
+  openNewPlan(); const free=!!document.querySelector('#sheetIn [onclick*="startFree"]'); closeSheet();
+  openBuilder(); draft.name='X'; draft.ex=['x_vallnyomas_kezi_allva'].filter(id=>exDef(id)).concat(['ohpdb','bench']); render(); await new Promise(r=>setTimeout(r,250));
+  const nm=document.querySelector('#app .bxname'), teljes=nm && nm.scrollWidth<=nm.clientWidth+1 && getComputedStyle(nm).textOverflow!=='ellipsis';
+  const help=document.querySelector('#app details.sshelp') && !document.querySelector('#app details.sshelp').open;
+  closeBuilder(); await new Promise(r=>setTimeout(r,100));
+  S.routines=bak.r; S.programs=bak.p; S.activeProgram=bak.a; tab='home'; render();
+  return menu && akt && szam && nincsFree && lap && m && free && teljes && help; }));
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));

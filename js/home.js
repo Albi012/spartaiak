@@ -311,12 +311,13 @@ function plansView(){
   // Ugyanaz a nyelv, mint a Naplón/Haladáson: nincs nagy cím, egy elsődleges
   // gomb FELÜL, a karbantartó műveletek ikonként, a saját edzések egyetlen
   // kártyán soronként (korábban edzésenként egy kártya két teljes gombbal).
-  const plist=programsList(), act=activeProg(), nR=(S.routines||[]).length;
+  const plist=programsList(), act=activeProg();
+  const inProg=new Set(); (S.programs||[]).forEach(p=>p.days.forEach(x=>inProg.add(x)));
+  const loose=(S.routines||[]).filter(r=>!inProg.has(r.id)), nR=loose.length;
   const lastOf=id=>{ for(let i=S.sessions.length-1;i>=0;i--) if(S.sessions[i].day===id) return S.sessions[i]; return null; };
   let h=`<div class="wrap"><div class="row" style="align-items:center;margin:4px 0 10px">
-    <span class="eyebrow grow">${plist.length} terv · ${nR} saját edzés</span></div>
-    <button class="btn pri" style="margin:0 0 6px" onclick="openNewPlan()">+ Új edzés vagy terv</button>
-    <button class="btn" style="margin:0 0 4px" onclick="startFree()">Szabad edzés – menet közben összerakva</button>`;
+    <span class="eyebrow grow">${plist.length} terv${nR?' · '+nR+' külön edzés':''}</span></div>
+    <button class="btn pri" style="margin:0 0 6px" onclick="openNewPlan()">+ Új edzés vagy terv</button>`;
   // Az AKTÍV terv áll elöl; a terv napjai a terv kártyáján élnek (chipre
   // koppintva szerkeszthetők), a „Saját edzések" alatt csak a tervhez NEM
   // tartozók – korábban ugyanaz a nap kétszer szerepelt.
@@ -327,26 +328,24 @@ function plansView(){
     const ordered=[...plist].sort((x,y)=>((act&&y.id===act.id)?1:0)-((act&&x.id===act.id)?1:0));
     ordered.forEach(p=>{
       const isAct=act&&p.id===act.id, ai=isAiProg(p);
-      const days=p.days.map(d=>{const dd=dayDef(d); if(!dd) return '';
-        const isR=(S.routines||[]).some(x=>x.id===d);
-        return isR ? `<button class="tday" onclick="openBuilder('${d}')">${esc(trn(dd.name))} ${ICON.edit}</button>` : `<span class="tday">${esc(trn(dd.name))}</span>`;}).join('');
+      // A nap-chip MINDEN napon koppintható: indítás vagy szerkesztés (lap),
+      // és kiírja, mikor volt utoljára.
+      const days=p.days.map(d=>{const dd=dayDef(d); if(!dd) return ''; const l=lastOf(d);
+        return `<button class="tday" onclick="openPlanDay('${d}')">${esc(trn(dd.name))}${l?`<span class="tdl">${esc(agoShort(l.t))}</span>`:''}</button>`;}).join('');
+      // A ritka (és a romboló) műveletek a ⋯ menüben: a név kapja a sort.
       h+=`<div class="card"${isAct?' style="border-color:color-mix(in srgb,var(--sage) 45%,var(--line))"':''}><div class="pad">
         <div class="row" style="align-items:center;gap:6px">
           <span class="grow" style="min-width:0"><span class="cond" style="font-size:20px;font-weight:600">${esc(p.builtin?'Alapterv':p.name)}</span>
             ${isAct?'<span class="dchip up" style="margin-left:6px">aktív</span>':''}${ai?'<span class="dchip" style="margin-left:6px;color:var(--brass)">AI</span>':''}
             <span class="small dim" style="display:block">${p.days.length} nap</span></span>
-          ${isAct?'':`<button class="nbtn" onclick="setActiveProgram('${p.id}')">Aktiválás</button>`}
-          ${p.builtin?'':`<button class="iconbtn ghost" onclick="openProgram('${p.id}')" aria-label="Szerkesztés" title="Szerkesztés">${ICON.edit}</button>`}
-          <button class="iconbtn ghost" onclick="openSharePlan('${p.id}')" aria-label="Megosztás" title="Megosztás">${ICON.share}</button>
-          <button class="iconbtn ghost" style="color:var(--red)" onclick="${p.builtin?'deletePlan()':`deleteProgram('${p.id}')`}" aria-label="${p.builtin?'Elrejtés':'Terv törlése'}" title="${p.builtin?'Elrejtés':'Terv törlése'}">×</button>
+          <button class="iconbtn ghost" onclick="openPlanMenu('${p.id}')" aria-label="Terv műveletei" title="Műveletek">${ICON.more}</button>
         </div>
         <div class="tdays">${days}</div>
         ${ai?'<div class="small dim" style="margin-top:8px">AI-import – a következő AI-terv ezt cseréli le.</div>':''}
+        ${isAct?'':`<button class="tact" onclick="setActiveProgram('${p.id}')">Legyen ez az aktív terv ›</button>`}
         </div></div>`;
     });
   }
-  const inProg=new Set(); (S.programs||[]).forEach(p=>p.days.forEach(x=>inProg.add(x)));
-  const loose=(S.routines||[]).filter(r=>!inProg.has(r.id));
   if(loose.length){
     h+=`<span class="eyebrow" style="display:block;margin:18px 0 8px">Saját edzések</span><div class="card"><div class="pad" style="padding-top:4px;padding-bottom:4px">`;
     loose.forEach(r=>{ const l=lastOf(r.id);
@@ -375,9 +374,34 @@ function openNewPlan(){
     <p class="mut small" style="margin:0 0 14px">Indulj kész sablonból, vagy állítsd össze magad. AI-tervet az Edző fülön kérhetsz.</p>
     <button class="btn pri" style="margin-bottom:8px" onclick="closeSheet();openStarters()">Kész edzések és tervek ›</button>
     <button class="btn" style="margin-bottom:8px" onclick="closeSheet();openBuilder()">+ Új edzés</button>
-    <button class="btn" style="margin-bottom:6px" onclick="closeSheet();openProgram()">+ Új edzésterv</button>`;
+    <button class="btn" style="margin-bottom:8px" onclick="closeSheet();openProgram()">+ Új edzésterv</button>
+    <button class="btn ghost" style="margin-bottom:6px;color:var(--mut)" onclick="closeSheet();startFree()">Szabad edzés – menet közben összerakva</button>`;
   openSheet();
 }
+// Rövid „mikor volt" címke a nap-chipre.
+function agoShort(t){ const d=Math.floor((startOfDay(Date.now())-startOfDay(t))/864e5);
+  return d<=0?'ma':d===1?'tegnap':d+' napja'; }
+function startOfDay(t){ const x=new Date(t); x.setHours(0,0,0,0); return x.getTime(); }
+// Terv napja: indítás vagy (saját edzésnél) szerkesztés.
+function openPlanDay(d){ const dd=dayDef(d); if(!dd) return; const isR=(S.routines||[]).some(x=>x.id===d);
+  document.getElementById('sheetIn').innerHTML=`
+    <div class="row" style="align-items:baseline"><span class="eyebrow grow">${dd.ex.length} gyakorlat</span>
+      <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
+    <h2 style="font-size:24px;margin:2px 0 6px">${esc(trn(dd.name))}</h2>
+    <p class="small mut" style="margin:0 0 14px">${esc(dd.ex.map(e=>exN(e)).join(', '))}</p>
+    <button class="btn pri" style="margin-bottom:8px" onclick="closeSheet();startDay('${d}')">Indítás ›</button>
+    ${isR?`<button class="btn" style="margin-bottom:6px" onclick="closeSheet();openBuilder('${d}')">Szerkesztés</button>`:''}`;
+  openSheet(); }
+// Terv ⋯ menüje: szerkesztés, megosztás, törlés/elrejtés.
+function openPlanMenu(pid){ const p=programsList().find(x=>x.id===pid); if(!p) return;
+  document.getElementById('sheetIn').innerHTML=`
+    <div class="row" style="align-items:baseline"><span class="eyebrow grow">Edzésterv</span>
+      <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
+    <h2 style="font-size:24px;margin:2px 0 14px">${esc(p.builtin?'Alapterv':p.name)}</h2>
+    ${p.builtin?'':`<button class="btn" style="margin-bottom:8px" onclick="closeSheet();openProgram('${p.id}')">Szerkesztés</button>`}
+    <button class="btn" style="margin-bottom:8px" onclick="closeSheet();openSharePlan('${p.id}')">Megosztás</button>
+    <button class="btn ghost" style="margin-bottom:6px;color:var(--red)" onclick="closeSheet();${p.builtin?'deletePlan()':`deleteProgram('${p.id}')`}">${p.builtin?'Alapterv elrejtése':'Terv törlése'}</button>`;
+  openSheet(); }
 async function deletePlan(){ if(!await uiConfirm('Elrejted a beépített alaptervet (Push/Pull)?\nA naplózott edzéseid megmaradnak, és bármikor visszaállíthatod.', {ok:'Elrejtés', danger:true})) return;
   S.hidePlan=true; save(); render(); window.scrollTo(0,0); }
 function restorePlan(){ S.hidePlan=false; save(); render(); window.scrollTo(0,0);
