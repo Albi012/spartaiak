@@ -53,7 +53,7 @@ function playerView(){
     // amúgy is látszik a chipek helyzetéből.
     const r=L.rpe&&L.rpe[i]!=null ? L.rpe[i] : null;
     chips+=`<button class="chip ${cls}" data-i="${i}" onclick="openSet('${e.id}',${i})">
-      <span class="r">${v==null?'·':v}</span><span class="l">${dropN(L,i)?'+'+dropN(L,i)+' drop':r!=null?'@'+rpeNum(r):(i+1)+'. sz'}</span></button>`; });
+      <span class="r">${v==null?'·':v}</span>${dropN(L,i)?`<span class="l em">+${dropN(L,i)} drop</span>`:r!=null?`<span class="l em">@${rpeNum(r)}</span>`:`<span class="l">${i+1}</span>`}</button>`; });
   // Menet közben plusz szett (pl. jól ment, belefér még egy) – a cél-szám
   // nem változik, csak a lista nő. Gyógytornánál nincs.
   if(!isPhysioActive()) chips+=`<button class="chip addset" onclick="addLiveSet('${e.id}')" aria-label="Szett hozzáadása"><span class="r">+</span><span class="l">szett</span></button>`;
@@ -73,11 +73,12 @@ function playerView(){
   if(!e.time && !physioMode){
     const t=[];
     if(!e.bw) t.push(`<button class="tool" onclick="openPlateCalc(${L.w})">${ICON.dumbbell} Tárcsák</button>`);
-    t.push(`<button class="tool" onclick="openProgPolicy('${e.id}')">Progresszió: ${esc(POLICY_NAME[progPolicy(e.id)].split(' ')[0])}</button>`);
-    tools=`<div class="toolrow">${t.join('')}</div>`;
+    if(t.length) tools=`<div class="toolrow">${t.join('')}</div>`;
   }
   let note='';
-  if(last) note=`<div class="prev">Előző: ${wLabel(e,last.w)}${e.bw&&last.w<=0?'':' kg'} × ${last.sets.map(x=>x==null?'–':x).join(', ')}</div>`;
+  if(last){ const dw=Math.round(((L.w||0)-(last.w||0))*100)/100;
+    const dchip=dw&&!e.time?` <span class="wdelta ${dw>0?'up':'down'}">${dw>0?'+':'−'}${kgNum(Math.abs(dw))} kg</span>`:'';
+    note=`<div class="prev">Előző: ${wLabel(e,last.w)}${e.bw&&last.w<=0?'':' kg'} × ${last.sets.map(x=>x==null?'–':x).join(', ')}${dchip}</div>`; }
   else note=`<div class="prev dim">${tr('Első alkalom – a technika a cél, ne a súly.')}</div>`;
   // Ha a súly az edzőterv ELŐÍRÁSÁBÓL jön (és nem a saját haladásodból),
   // mondjuk is meg – különben megmagyarázatlanul ugrana a szám.
@@ -86,11 +87,14 @@ function playerView(){
   // Következő edzés súlyjavaslata a választott progressziós szabály szerint,
   // indoklással (auditálható). Csak akkor, ha van már rögzített szett.
   let hint='';
-  if(!e.bw && L.sets.some(x=>x!=null)){
+  // Csak a TELJES gyakorlat után ítélünk: két szettből a progNext
+  // „nem lett meg minden ismétlés"-t mondana, pedig még hátra van.
+  if(!e.bw && complete){
     const nx=progNext(e.id,{w:L.w,sets:L.sets},e);
     const arrow = nx.delta>0?`↑ ${wLabel(e,nx.w)} kg`:nx.delta<0?`↓ ${wLabel(e,nx.w)} kg`:`= ${wLabel(e,nx.w)} kg`;
     hint=`<button class="hint" onclick="openProgPolicy('${e.id}')" title="${esc(nx.reason)}">Következőre: <b>${arrow}</b> <span class="hr">${esc(nx.reason)}</span> <span class="dim">›</span></button>`;
-  }
+  } else if(!e.bw && !physioMode && !e.time)
+    hint=`<button class="hint" onclick="openProgPolicy('${e.id}')">Következőre: <span class="hr">a szettek után számolom · ${esc(POLICY_NAME[progPolicy(e.id)].split(' ')[0])}</span> <span class="dim">›</span></button>`;
 
   // Állandó gyakorlat-jegyzet + fotó
   const pn=S.notes[e.id], ph=S.photos[e.id];
@@ -124,7 +128,8 @@ function playerView(){
   // Superset-kör: címke + a kör tagjainak felsorolása, jelezve, hogy a
   // pihenő a kör VÉGÉN jön (a tagok közt csak rövid váltás).
   const ssMembers=ssActiveMembers(e.id);
-  const ssBadge = ssMembers.length ? `<span class="ssbadge">Superset ${ssLabel(e.id)}</span>` : '';
+  const ssPos=ssMembers.indexOf(e.id), ssNext=ssMembers[ssPos+1];
+  const ssBadge = ssMembers.length ? `<span class="ssbadge">Superset ${ssLabel(e.id)} · ${ssPos+1}/${ssMembers.length}${ssNext?' · utána: '+esc(exN(exDef(ssNext))):''}</span>` : '';
   const ssHint = ssMembers.length
     ? `<div class="ssrow">${ssMembers.map(id=>`<span class="${id===e.id?'cur':''}">${esc(ssLabel(id))} ${esc(exDef(id).n)}</span>`).join('<span class="arr">→</span>')}
         <div class="small dim" style="width:100%;margin-top:4px">Egymás után, pihenő a kör végén</div></div>`
@@ -133,7 +138,7 @@ function playerView(){
   return `<div class="player">
     <div class="ptop">
       <button class="iconbtn" onclick="pausePlayer()" aria-label="Szünet" title="Szünet">${ICON.back}</button>
-      <div class="pmid"><div class="d">${d.name}${S.active.deload?' · visszaépítés':''}</div><div class="c">gyakorlat ${curEx+1} / ${exs.length}</div></div>
+      <div class="pmid"><div class="d">${d.name}${S.active.deload?' · visszaépítés':''}</div><div class="c" id="pElapsed">${fmtElapsed(Date.now()-S.active.t)}</div></div>
       <button class="iconbtn" onclick="finish()" aria-label="Edzés lezárása" title="Edzés lezárása" style="color:var(--sage)">${ICON.check}</button>
     </div>
     ${rdyBar}
@@ -153,6 +158,7 @@ function playerView(){
       ${wt}
       ${tools}
       <div class="pchips">${chips}</div>
+      ${rpeAskHtml(e,L)}
       ${nextSet}
       ${note}${hint}`}
       ${why}
@@ -164,7 +170,7 @@ function playerView(){
         ? `<button class="btn pri" onclick="openExPicker('free')" style="flex:1">${tr('+ Következő gyakorlat')}</button>`
         : isLast
         ? `<button class="btn pri" onclick="finish()" style="flex:1">${tr('Edzés lezárása')}</button>`
-        : `<button class="btn pri" onclick="exNav(${curEx+1})" style="flex:1">${tr('Következő ›')}</button>`}
+        : `<button class="btn${complete?' pri':''}" onclick="exNav(${curEx+1})" style="flex:1">${tr('Következő ›')}</button>`}
     </div>
     <div class="row" style="gap:10px;max-width:560px;margin:0 auto;padding:0 16px 16px;width:100%">
       ${isFreeActive()&&isLast?`<button class="btn" style="flex:1;margin:0" onclick="finish()">${tr('Lezárás')}</button>`:`<button class="btn" style="flex:1;margin:0" onclick="openExPicker('free')">+ Gyakorlat</button>`}
@@ -299,7 +305,15 @@ function rpeRow(sel, fn){
   </div>`;
 }
 
-let cur=null, justSet=null;
+let cur=null, justSet=null, rpeAsk=null;
+// Utólagos RPE a frissen rögzített szetthez (nézet-állapot). Az ismétlés
+// marad két koppintás; aki az RPE-t a SZÁM UTÁN adná meg, itt teheti.
+function setRpeAfter(v){ if(!rpeAsk||!S.active) return; const L=S.active.log[rpeAsk.id];
+  if(L && L.sets[rpeAsk.i]!=null && v!=null){ if(!L.rpe) L.rpe=[]; L.rpe[rpeAsk.i]=v; S.activeT=Date.now(); save(); }
+  rpeAsk=null; render(); }
+function rpeAskHtml(e,L){ if(!rpeAsk||rpeAsk.id!==e.id||L.sets[rpeAsk.i]==null||(L.rpe&&L.rpe[rpeAsk.i]!=null)) return '';
+  return `<div class="rpeask"><span class="small dim">${rpeAsk.i+1}. szett – mennyire volt nehéz? <span class="dim">(RPE, nem kötelező)</span></span>
+    <div class="rpeaskrow">${RPE_VALS.map(v=>`<button class="whyc" onclick="setRpeAfter(${v})">${rpeNum(v)}</button>`).join('')}<button class="whyc" onclick="setRpeAfter(null)" aria-label="Kihagyás">×</button></div></div>`; }
 function openSet(id,i){
   cur={id,i}; const e=activeExDef(id), t=parseInt(e.r);
   const _L=S.active.log[id];
@@ -346,7 +360,8 @@ function dropSectionHtml(e,i){ return dropBoxHtml(e,S.active.log[cur.id],i,'addD
 // Közös drop-szakasz: a lejátszó (addDrop/delDrop) és a napló javító-lapja
 // (esAddDrop/esDelDrop) ugyanezt a felületet kapja, csak más gazdára köt.
 function dropBoxHtml(e,L,i,addFn,delFn){
-  if(e.time) return '';
+  // Új (még nem rögzített) szettnél a szakasz nem foglal helyet a rács elől.
+  if(e.time || L.sets[i]==null) return '';
   const done=L.sets[i]!=null, list=(L.drops&&L.drops[i])||[];
   const last=list.length?list[list.length-1].w:L.w;
   const sug=Math.max(0, Math.round(last*0.8/(e.inc||2.5))*(e.inc||2.5));
@@ -386,3 +401,10 @@ function setRepManual(){
   if(!Number.isFinite(v) || v<0 || v>999){ el.value=''; el.focus(); return; }
   setRep(v);
 }
+
+// Az edzés eltelt ideje a lejátszó fejlécében (a pöttysor mutatja, hányadik
+// gyakorlatnál tartasz). Másodpercenként csak a szöveget írjuk.
+function fmtElapsed(ms){ const s=Math.max(0,Math.floor(ms/1000)), h=Math.floor(s/3600), m=Math.floor(s%3600/60), x=s%60;
+  return (h?h+':'+String(m).padStart(2,'0'):m)+':'+String(x).padStart(2,'0'); }
+function tickElapsed(){ const el=document.getElementById('pElapsed');
+  if(el&&S.active&&S.active.t){ const v=fmtElapsed(Date.now()-S.active.t); if(el.textContent!==v) el.textContent=v; } }

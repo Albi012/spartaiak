@@ -16,7 +16,10 @@ function setRep(v){
   closeSheet(); save();
   if(v==null){ render(); return; }
   if(navigator.vibrate) navigator.vibrate(12);   // rövid haptikus visszajelzés a rögzítésre
-  justSet={id:cur.id,i:cur.i};                    // a chip pipa-pulzusa a következő festésnél
+  justSet={id:cur.id,i:cur.i};
+  // RPE nélkül rögzített szett után a lejátszó UTÓLAG is megkérdezi (egy
+  // koppintás, lap nélkül) – a sorrend így nem számít.
+  rpeAsk = (_rpePick==null && !isPhysioActive()) ? {id:cur.id,i:cur.i} : null;                    // a chip pipa-pulzusa a következő festésnél
   // Superset: a kör tagjai közt csak rövid váltás + ugrás a következő tagra;
   // a teljes pihenő a kör VÉGÉN indul, és visszalépünk az első befejezetlen
   // tagra a következő körhöz.

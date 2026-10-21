@@ -1902,7 +1902,7 @@ ok('40 a szám-koppintás rögzíti az ismétlést ÉS az RPE-t', await page.eva
   return L.sets[1]===5 && L.rpe[1]===8.5 && L.rpe[0]==null; }));
 ok('40 a chip kiírja az RPE-t, ahol van', await page.evaluate(()=>{
   const c=[...document.querySelectorAll('.chip')].slice(0,2).map(x=>x.textContent);
-  return /1\. sz/.test(c[0]) && /@8,5/.test(c[1]); }));
+  return /^\D*\d+\s*1$/.test(c[0].trim()) && /@8,5/.test(c[1]); }));
 ok('40 visszanyitva a RÖGZÍTETT érték van kiválasztva, új szettnél semmi', await page.evaluate(async ()=>{
   openSet('bench',1); await new Promise(r=>setTimeout(r,250));
   const megvan=_rpePick===8.5;
@@ -2946,6 +2946,32 @@ ok('69 kezdőlap: kompakt készenlét, ajánló kártyán készenlét-tipp és s
   const napi=!!w.querySelector('.dhcard .dhalf');
   S.lastBackup=bak.lb; render();
   return komp && szabad && tipp && alul && napi; }));
+
+// ---- 70. Lejátszó (v152): hint csak teljes gyakorlat után, Következő csak akkor sárga, eltelt idő, súly-különbség, csendes chip-címke ----
+ok('70 lejátszó: semleges hint félúton, nem-elsődleges Következő, eltelt idő a fejlécben, nincs Progresszió-gomb, 5 chip egy sorban', await page.evaluate(async ()=>{
+  const bak=S.active, bp=playing, bc=curEx;
+  S.active={day:'pa',t:Date.now()-754e3,log:{bench:{w:200,sets:[5,null,null,null]}}}; playing=true; curEx=0; render();
+  await new Promise(r=>setTimeout(r,300));
+  const a=document.getElementById('app');
+  const semleges=/a szettek után számolom/.test(a.textContent) && !/nem lett meg minden/.test(a.textContent);
+  const kov=[...a.querySelectorAll('.pfoot .btn')].find(b=>/Következő/.test(b.textContent));
+  const nemSarga=!kov || !kov.classList.contains('pri');
+  const ido=/^12:3\d$/.test((document.getElementById('pElapsed')||{}).textContent||'');
+  const nincsProg=!/Progresszió:/.test(a.textContent);
+  const ch=[...document.querySelectorAll('#app .pchips .chip')], egySor=ch.length===5 && new Set(ch.map(c=>Math.round(c.getBoundingClientRect().top))).size===1;
+  const csend=!/sz$/i.test(ch[1].querySelector('.l').textContent.trim());
+  S.active.log.bench.sets=[5,5,5,5,5]; render(); await new Promise(r=>setTimeout(r,100));
+  const kov2=[...document.querySelectorAll('#app .pfoot .btn')].find(b=>/Következő/.test(b.textContent));
+  const sarga=!kov2 || kov2.classList.contains('pri');
+  const valodi=/Következőre: <b>|Következőre: [↑↓=]/.test(document.getElementById('app').innerHTML) || /Következőre:\s*[↑↓=]/.test(document.getElementById('app').textContent);
+  const fmt=fmtElapsed(3723e3)==='1:02:03' && fmtElapsed(65e3)==='1:05';
+  // RPE a szám UTÁN: a lejátszó utólag kérdez, egy koppintás ment, lap nélkül
+  S.active.log.bench.sets=[5,null,null,null]; delete S.active.log.bench.rpe; render();
+  _rpePick=null; cur={id:'bench',i:1}; setRep(6); stopTimer&&stopTimer(); await new Promise(r=>setTimeout(r,300));
+  const kerd=!!document.querySelector('#app .rpeask'); setRpeAfter(9); await new Promise(r=>setTimeout(r,100));
+  const utolag=S.active.log.bench.rpe&&S.active.log.bench.rpe[1]===9 && !document.querySelector('#app .rpeask');
+  S.active=bak; playing=bp; curEx=bc; render();
+  return semleges && nemSarga && ido && nincsProg && egySor && csend && sarga && valodi && fmt && kerd && utolag; }));
 
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);

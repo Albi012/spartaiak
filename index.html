@@ -225,8 +225,15 @@ a.btn{text-decoration:none;color:var(--ink)}
   padding:12px 18px;max-width:560px;margin:0 auto;width:100%;overflow-y:auto}
 .pname{font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:700;line-height:1.08}
 .pmeta{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-top:4px}
-.pchips{display:flex;gap:10px;flex-wrap:wrap}
-.pchips .chip{width:64px;height:64px}
+.pchips{display:flex;gap:8px;flex-wrap:wrap}
+.pchips .chip{width:60px;height:60px}
+.pchips .chip .l{opacity:.6;letter-spacing:0}
+.pchips .chip .l.em{opacity:1;color:var(--brass)}
+.rpeask{display:flex;flex-direction:column;gap:6px}
+.rpeaskrow{display:flex;gap:6px;flex-wrap:wrap}
+.rpeaskrow .whyc{min-width:44px;min-height:44px}
+.wdelta{font-variant-numeric:tabular-nums;margin-left:6px;font-weight:600}
+.wdelta.up{color:var(--sage)}.wdelta.down{color:var(--red)}
 .pchips .chip .r{font-size:27px}
 .pfoot{display:flex;gap:10px;padding:10px 16px calc(10px + env(safe-area-inset-bottom));
   max-width:560px;margin:0 auto;width:100%;position:sticky;bottom:0;background:linear-gradient(to top,var(--bg) 55%,transparent)}

@@ -1161,6 +1161,20 @@ felhőbe NEM megy). A `del` a síremlék MELLÉ a kukába is beteszi az edzést;
   0..999, rosszat nem fogad), a ± továbbra is lépked. A tárcsa-kalkulátor az
   eszközsorban maradt. E2E: 65.
 E2E: 56.
+- **v152:** a „Következőre" javaslat CSAK a teljes gyakorlat után jelenik meg
+  (félúton semleges „a szettek után számolom" – korábban két szett után
+  „nem lett meg minden ismétlés"-t mondott); a „Következő ›" csak kész
+  gyakorlatnál sárga; a fejlécben az edzés eltelt ideje (`fmtElapsed`,
+  `#pElapsed`, a `boot.js` `setInterval(tickElapsed)` frissíti) a duplikált
+  „gyakorlat N / M" helyett; az „Előző" sor mellett súly-különbség (`.wdelta`);
+  a „Progresszió" eszközgomb kikerült (a hint-sor nyitja); superset-címke
+  „1/2 · utána: X"; a chip-címke csak sorszám, az RPE/drop kiemelt;
+  4 szett + „+ szett" egy sorban (60 px, 8 px rés).
+  **Utólagos RPE** (`rpeAsk`/`setRpeAfter`): RPE nélkül rögzített szett után
+  a chipek alatt egy sor kérdezi meg, egy koppintás ment, lap nélkül – így a
+  szám-először sorrend sem zárja ki az RPE-t (a 2 koppintás megmarad). A
+  szett-lapon MÁR rögzített szettnél a `pickRpe` azonnal ment. A dropset-
+  szakasz új szettnél nem jelenik meg (helyet hagy a rácsnak). E2E: 70.
 
 ## Gyógytorna-lejátszó: egy nagy számláló
 

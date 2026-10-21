@@ -163,5 +163,9 @@ function hideToast(){
 }
 // Az RPE kiválasztása NEM rögzít: a lap nyitva marad, hogy utána a
 // szám-koppintás zárja le a dolgot. Így a nem-RPE-s út 2 koppintás marad.
-function pickRpe(v){ _rpePick=v; const el=document.getElementById('sheetIn');
+function pickRpe(v){ _rpePick=v;
+  // MÁR rögzített szettnél azonnal ment – nem kell a számot újra megnyomni.
+  const L=S.active&&cur&&S.active.log[cur.id];
+  if(L && L.sets[cur.i]!=null){ if(v!=null||(L.rpe&&L.rpe[cur.i]!=null)){ if(!L.rpe) L.rpe=[]; L.rpe[cur.i]=v; if(L.rpe.every(x=>x==null)) delete L.rpe; S.activeT=Date.now(); save(); render(); } }
+  const el=document.getElementById('sheetIn');
   if(el) el.innerHTML=repKbSheet(activeExDef(cur.id), cur.i, parseInt(activeExDef(cur.id).r)||8); }

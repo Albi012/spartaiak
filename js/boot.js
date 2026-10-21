@@ -140,3 +140,4 @@ if('serviceWorker' in navigator){
     navigator.serviceWorker.register('sw.js').catch(()=>{});
   });
 }
+setInterval(tickElapsed,1000);  // a lejátszó fejlécének eltelt ideje
