@@ -3005,6 +3005,15 @@ ok('72 színpaletták: 4 extra opció, alkalmazódik, a napló érintetlen, a Re
   setThemeMode('auto'); const vissza=!document.documentElement.dataset.theme && localStorage.getItem('gymlog_theme')===null;
   closeSheet(); return negy && neon && mar && on && erintetlen && vissza; }));
 
+// ---- 73. Heti összefoglaló: a dropset és az RPE is bekerül ----
+ok('73 edzői összefoglaló: dropset és RPE a szövegben, régi napló változatlan', await page.evaluate(()=>{
+  const bak=S.sessions;
+  S.sessions=[{day:'pa',t:Date.now()-3600e3,log:{bench:{w:60,sets:[8,8],rpe:[8,null],drops:[[{w:50,r:6}],null]}}}];
+  const r=weeklyReport(), drop=/8 \(drop 50×6\), 8 \(RPE 8, –\)/.test(r);
+  S.sessions=[{day:'pa',t:Date.now()-3600e3,log:{bench:{w:60,sets:[8,null]}}}];
+  const regi=/60 kg × 8, –\n/.test(weeklyReport());
+  S.sessions=bak; return drop && regi; }));
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));

@@ -60,7 +60,9 @@ function weeklyReport(range){
 function reportSessions(sess, WHY){
   let t='';
   const line=(e,l,extraName)=>{
-    const sets=l.sets.map(x=>x==null?'–':x).join(', ');
+    // Ugyanaz a szöveg, mint a naplóban: dropset és RPE is (ha van) – nélküle
+    // az edző nem látná, hogy a szett után még ment tovább, vagy milyen nehéz volt.
+    const sets=setsTxt(l);
     const w=wLabel(e,l.w)+(e.bw&&l.w<=0?'':' kg');
     let ex=''; if(l.why) ex+=' ['+(WHY[l.why]||l.why)+']';
     const pn=S.notes&&S.notes[e.id]; if(pn) ex+=' (jegyzet: '+pn+')';

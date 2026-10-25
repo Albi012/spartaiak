@@ -116,7 +116,9 @@ alapértéket kapnak; a `save()`/`backup()`/`restore()` viszi őket).
   (`exVolume`) és a szövegbe (`setsTxt`: „10 (drop 40×8, 30×6)") beleszámít,
   a progresszió és a becsült 1RM viszont a FŐ szettet nézi. A szett törlése a
   dropjait is viszi; a `+ szett` a tömböt is nyújtja. A `sessions` része,
-  szinkron/mentés külön kezelés nélkül viszi. E2E: 67.
+  szinkron/mentés külön kezelés nélkül viszi. Az edzői heti összefoglaló
+  (`reportSessions`) is a `setsTxt`-et használja, így a drop és az RPE oda is
+  bekerül (v156 előtt kimaradt). E2E: 67, 73.
   **Utólag is** (v150): a napló javító-lapjának szett-lapján ugyanaz a
   szakasz (`dropBoxHtml` két gazdával: `addDrop`/`delDrop` ↔ `esAddDrop`/
   `esDelDrop`, közös `dropPush`/`dropCut`), azonnal ment (`esTouch`). E2E: 68.
