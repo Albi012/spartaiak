@@ -430,6 +430,15 @@ Az import működése:
   terhet, hogy az edző ne gondolja munkasúlynak. A kontextus csak
   származtatott összefoglaló (nincs nyers napló-export). Az
   `AI_FORMAT_BLOCK` alakját ne változtasd az `aiParsePlan` igazítása nélkül.
+- **Extra (5.) mező – OPCIONÁLIS (v157):** `| RPE 8; drop 1; szuperszett; <emlékeztető>`
+  (`aiParseExtra`, pontosvesszővel vagy vesszővel). A cél-RPE (`rpe`), a dropset-
+  szám (`drop`, 1–3) és a rövid technikai emlékeztető (`cue`) a routine `exOv`-jába
+  kerül – új `cx_` gyakorlatnál is a ROUTINE-ra, nem a gyakorlatra. A
+  `szuperszett` a sort a FÖLÖTTE lévőhöz köti (`ssLinks`, ugyanaz, amit a kézi
+  lánc-ikon ír). A lejátszó egy „Edző: cél RPE 8 · utolsó szett után 1 drop · …"
+  sorral kiírja (`.prev.exx`) – CSAK tájékoztat: az RPE-t továbbra sem választja
+  elő, dropot sem rögzít magától. Extra mező nélkül minden a régi; a kézi
+  „Vissza az alapra" sem viszi el. E2E: 74.
 - `aiParsePlan(text)` toleráns parser (pipe-formátum ÉS szabad szöveg is);
   soha nem dob. `aiParseExLine` a sor-értelmező.
 - `aiMatchEx(name)` a beírt nevet az `exLibrary()`-hez párosítja (token-

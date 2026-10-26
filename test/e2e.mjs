@@ -3014,6 +3014,23 @@ ok('73 edzői összefoglaló: dropset és RPE a szövegben, régi napló változ
   const regi=/60 kg × 8, –\n/.test(weeklyReport());
   S.sessions=bak; return drop && regi; }));
 
+// ---- 74. AI-terv extra mező: cél-RPE, dropset, szuperszett, emlékeztető ----
+ok('74 AI-import extra: RPE/drop/szuperszett/cue átjön, a lejátszó kiírja, extra nélkül a régi', await page.evaluate(async ()=>{
+  const ex=aiParsePlan(AI_FORMAT_BLOCK.split('Példa:')[1].split('Szabályok:')[0]).flatMap(d=>d.ex);
+  const fek=ex.find(x=>/Fekvenyomás/.test(x.name)), old=ex.find(x=>/Oldalemelés/.test(x.name)), ev=ex.find(x=>/evezés/.test(x.name));
+  const parse=fek.rpe===8 && old.drop===1 && ev.ss===1 && ev.cue==='mellkas a padon';
+  const regi=aiParseExLine('Fekvenyomás | 4x5 | 70 | 180'), nincs=regi.rpe==null && regi.drop==null && regi.cue==null && regi.ss==null;
+  const bak={r:S.routines,p:S.programs,a:S.activeProgram,c:S.customEx,act:S.active};
+  aiText='NAP: Teszt74\n- Fekvenyomás | 4x5 | 70 | 180 | RPE 8.5; drop 2\n- Hasalva kézisúlyzós evezés | 4x10 | 30 | 120 | szuperszett; lassú negatív';
+  const ua=window.uiAlert, uc=window.uiConfirm; window.uiAlert=async()=>{}; window.uiConfirm=async()=>true; S.active=null; aiParseNow(); await aiImportApply();
+  const r=S.routines.find(x=>x.name==='Teszt74');
+  const ov=r && r.exOv && r.exOv.bench, tarol=ov && ov.rpe===8.5 && ov.drop===2 && r.ssLinks && r.ssLinks.length===1;
+  await startDay(r.id); await new Promise(z=>setTimeout(z,300));
+  const lj=/Edző: cél RPE 8,5 · utolsó szett után 2 drop/.test(document.getElementById('app').textContent);
+  stopTimer&&stopTimer(); S.active=null; playing=false;
+  window.uiAlert=ua; window.uiConfirm=uc; S.active=bak.act; S.routines=bak.r; S.programs=bak.p; S.activeProgram=bak.a; S.customEx=bak.c; tab='home'; render();
+  return parse && nincs && tarol && lj; }));
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));

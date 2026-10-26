@@ -88,19 +88,19 @@ const AI_FORMAT_BLOCK =
 `A választ PONTOSAN ebben a formátumban add, és semmi mást ne írj köré:
 
 NAP: <nap neve>
-- <gyakorlat magyar neve> | <szettek>x<ismétlés> | <súly kg vagy: testsúly> | <pihenő mp>
+- <gyakorlat magyar neve> | <szettek>x<ismétlés> | <súly kg vagy: testsúly> | <pihenő mp> | <extra, ha kell>
 - ...
 NAP: <következő nap neve>
 - ...
 
 Példa:
 NAP: Push A
-- Fekvenyomás | 4x5 | 70 | 180
+- Fekvenyomás | 4x5 | 70 | 180 | RPE 8
 - Tolódzkodás | 4x8 | testsúly | 150
-- Oldalemelés | 3x15 | 8 | 60
+- Oldalemelés | 3x15 | 8 | 60 | drop 1
 NAP: Pull A
 - Húzódzkodás | 4x6 | +10 | 180
-- Hasalva kézisúlyzós evezés | 4x10 | 30 | 120
+- Hasalva kézisúlyzós evezés | 4x10 | 30 | 120 | szuperszett; mellkas a padon
 
 Szabályok:
 - Magyar gyakorlatneveket használj, lehetőleg elterjedt alakban – így az app
@@ -117,7 +117,13 @@ Szabályok:
   Soha ne írd a súly-mezőbe a saját testsúlyomat.
 - PIHENŐ: másodpercben, csak szám (pl. 180).
 - Idő-alapú gyakorlatnál (pl. plank) az ismétlés helyére a másodpercet írd:
-  3x45.`;
+  3x45.
+- EXTRA (5. mező, NEM kötelező – hagyd el, ha nincs mit írni). Pontosvesszővel
+  elválasztva, bármelyik kombinációban:
+  - RPE 8 – a cél-nehézség (7–10, félpont is lehet: RPE 8.5)
+  - drop 1 – az utolsó szett után ennyi dropset (csökkentett súllyal, pihenő nélkül)
+  - szuperszett – a FÖLÖTTE lévő gyakorlattal egy körben, pihenő nélkül
+  - rövid technikai emlékeztető (max. pár szó), pl. "mellkas a padon"`;
 
 // Izomcsoport-terhelés az elmúlt 28 napban (szett/izomcsoport).
 function aiMgBalance(){ const now=Date.now(), acc={};
@@ -182,7 +188,7 @@ function aiNorm(s){ return (s||'').toLowerCase().normalize('NFD').replace(/[̀-�
 
 // Egy gyakorlat-sor értelmezése (pipe-formátum VAGY szabad szöveg).
 function aiParseExLine(body){
-  let name='', s=3, r='10', w=0, bw=0, rest=90, hasW=false;
+  let name='', s=3, r='10', w=0, bw=0, rest=90, hasW=false, x={};
   const sr=(str)=>{ const m=str.match(/(\d+)\s*[x×]\s*([0-9]+(?:\s*[-–]\s*[0-9]+)?|amrap|failure|max)/i);
     if(m){ s=parseInt(m[1])||3; r=m[2].replace(/\s+/g,''); return true; } return false; };
   if(body.indexOf('|')>=0){
@@ -196,6 +202,7 @@ function aiParseExLine(body){
       // Percben megadott pihenő („2 perc") → másodperc. E nélkül a 2 a
       // minimumra (10 mp) csúszna, vagyis 2 perc helyett 10 másodperc lenne.
       if(rs) rest=parseInt(rs[0]) * (/perc|min\b|'/i.test(p[3]) ? 60 : 1); }
+    if(p.length>4) x=aiParseExtra(p.slice(4).join('|'));
   } else {
     sr(body);
     const wm=body.match(/(\d+(?:[.,]\d+)?)\s*kg/i); if(wm){ w=parseFloat(wm[1].replace(',','.')); hasW=true; }
@@ -205,8 +212,27 @@ function aiParseExLine(body){
   }
   name=(name||'').replace(/\s{2,}/g,' ').trim().slice(0,60);
   if(!name) return null;
-  return { name, s:Math.max(1,Math.min(12,s)), r:(r||'10').toString().slice(0,12), w:Math.max(0,w), bw, rest:Math.max(10,Math.min(600,rest)), hasW };
+  return Object.assign({ name, s:Math.max(1,Math.min(12,s)), r:(r||'10').toString().slice(0,12), w:Math.max(0,w), bw, rest:Math.max(10,Math.min(600,rest)), hasW }, x);
 }
+// Az extra előírás a routine `exOv`-jába (cél-RPE, dropset-szám, emlékeztető).
+function aiOvExtra(o,p){ if(p.rpe) o.rpe=p.rpe; if(p.drop) o.drop=p.drop; if(p.cue) o.cue=p.cue; return o; }
+// Az extrák rövid kiírása (előnézet, lejátszó).
+function aiExtraTxt(p){ const a=[]; if(p.rpe) a.push('RPE '+rpeNum(p.rpe)); if(p.drop) a.push(p.drop+' drop');
+  if(p.ss) a.push('szuperszett'); if(p.cue) a.push(p.cue); return a.join(' · '); }
+// Az 5. (extra) mező: cél-RPE, dropset-szám, szuperszett-kapcsolás, rövid
+// technikai emlékeztető. Csak az kerül be, amit felismerünk; a maradék szöveg
+// a `cue`. Soha nem dob.
+function aiParseExtra(str){
+  const o={}; (str||'').split(/[;,]/).map(t=>t.trim()).filter(Boolean).forEach(t=>{
+    const n=aiNorm(t);
+    let m=t.match(/^rpe\s*[:@]?\s*(\d+(?:[.,]5)?)/i);
+    if(m){ const v=parseFloat(m[1].replace(',','.')); if(v>=6&&v<=10) o.rpe=v; return; }
+    m=n.match(/^drop\s*(?:set|szett)?\s*[x×]?\s*(\d+)?/);
+    if(m){ o.drop=Math.max(1,Math.min(3,parseInt(m[1])||1)); return; }
+    if(/^(szuperszett|superset|szupersorozat|kor\b)/.test(n)){ o.ss=1; return; }
+    o.cue=((o.cue?o.cue+'; ':'')+t).slice(0,80);
+  });
+  return o; }
 
 // Teljes terv értelmezése napokra + gyakorlatokra. Soha nem dob.
 function aiParsePlan(text){
@@ -413,7 +439,7 @@ function aiStep3Html(){
         <span class="grow cond" style="font-size:17px;font-weight:600">${esc(d.name)}</span>
         <button class="iconbtn" style="color:var(--red)" onclick="aiRemoveDay(${di})" aria-label="Nap elhagyása">×</button></div>`;
     d.ex.forEach((item,ii)=>{ const p=item.parsed;
-      const meta=`${p.s}×${esc(p.r)}${p.bw?' · testsúly':(p.hasW?' · '+kgNum(p.w)+' kg':'')} · ${p.rest} mp pihenő`;
+      const meta=`${p.s}×${esc(p.r)}${p.bw?' · testsúly':(p.hasW?' · '+kgNum(p.w)+' kg':'')} · ${p.rest} mp pihenő${aiExtraTxt(p)?' · '+esc(aiExtraTxt(p)):''}`;
       if(item.match) matched++; else neu++;
       const utk = !!(item.match && dup[item.match.id]);
       h+=`<div class="row" style="align-items:flex-start;gap:8px;margin-top:8px">
@@ -475,17 +501,25 @@ async function aiImportApply(){
         // saját, korábbi plusz súlyod jönne fel, pedig az edző nem azt kérte.
         if(p.hasW) o.w=p.w;
         else if(p.bw && base.bw) o.w=0;
-        ov[item.match.id]=o;
+        aiOvExtra(o,p); ov[item.match.id]=o;
         return item.match.id;
       }
       const id=uid('cx_');
       const def={ id, n:p.name, mg:aiGuessMg(p.name), s:p.s, r:p.r, w:p.w, inc:2.5, rest:p.rest };
       if(p.bw) def.bw=1;
-      S.customEx[id]=def; newEx++; return id;
+      S.customEx[id]=def; newEx++;
+      // Új gyakorlatnál is a ROUTINE-ra kerül az extra (a gyakorlat maga nem
+      // „RPE 8-as" – csak ebben a tervben az).
+      const o2=aiOvExtra({},p); if(Object.keys(o2).length) ov[id]=o2;
+      return id;
     });
+    // Szuperszett: a sor a FÖLÖTTE lévőhöz köt (ugyanaz az `ssLinks`, amit a
+    // kézi összeállító lánc-ikonja ír).
+    const ssLinks=exIds.filter((id,i)=>i>0 && d.ex[i].parsed.ss);
     const rid=uid('r_');
     const rt={ id:rid, name:d.name||'AI edzés', sub:exIds.length+' gyakorlat', ex:exIds, at:Date.now(), ai:1 };
     if(Object.keys(ov).length) rt.exOv=ov;
+    if(ssLinks.length) rt.ssLinks=ssLinks;
     S.routines.push(rt);
     dayIds.push(rid);
   });

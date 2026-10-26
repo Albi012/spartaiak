@@ -84,6 +84,10 @@ function playerView(){
   // mondjuk is meg – különben megmagyarázatlanul ugrana a szám.
   if(ovWLive(e, (dayDef(S.active.day)||{}).at))
     note+=`<div class="prev" style="color:var(--brass)">Az edzésterv előírása: ${wLabel(e,e.w)}${e.bw?'':' kg'} × ${e.s}×${esc(e.r)}</div>`;
+  // Az edző extra előírása (cél-RPE, dropset, emlékeztető) – tájékoztat, nem
+  // rögzít magától semmit (az RPE-t továbbra sem választjuk elő).
+  const xt=[e.rpe?'cél RPE '+rpeNum(e.rpe):'', e.drop?'utolsó szett után '+e.drop+' drop':'', e.cue||''].filter(Boolean);
+  if(xt.length && !physioMode) note+=`<div class="prev exx">Edző: ${esc(xt.join(' · '))}</div>`;
   // Következő edzés súlyjavaslata a választott progressziós szabály szerint,
   // indoklással (auditálható). Csak akkor, ha van már rögzített szett.
   let hint='';
