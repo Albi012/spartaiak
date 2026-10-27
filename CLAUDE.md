@@ -1422,13 +1422,23 @@ kijelentkezve bejelentkezést kér, nem hibázik.
   „Így működik" kártya; mindkét módban az „Edzésterv kérése" sor az AI-terv
   állapotát mutatja (`aiPlanStatus` – ugyanaz a felismerés, mint az
   `aiPrevImport`). E2E: 61.
+- **v158:** a beépített edző tervformátumú válasza (`coachIsPlan`: NAP-fejléc + `|`
+  sor + az `aiParsePlan` talál benne napot) alatt „Terv importálása" gomb
+  (`coachImportPlan` → az AI-import 3. lépése, szerkeszthető előnézettel); a
+  `coachContext` ehhez az `AI_FORMAT_BLOCK`-ot is elküldi. Minden válaszon
+  „Másolás" (`coachCopy`). **A beszélgetés megmarad** a `gymlog_coachchat` kulcson
+  (max. 20 üzenet, hibák nélkül, FÜGGETLEN a `gymlog_v1`-től; lusta betöltés
+  `coachLoad`, írás `coachSave`, „Új beszélgetés" törli). „Mit lát rólam az
+  edző?" lenyitható a pontos kontextussal. A mező 4 sorig nő (`coachGrow`). A
+  „Mód váltása" és az „Új beszélgetés" halk szöveges link (`.clink`). Saját AI
+  módban az „Így működik" az első import után csukva indul (`aiPlanDone`). E2E: 75.
 - **A Claude API-kulcs SOHA nem kerülhet a kliensbe** – a hívás az Edge
   Functionön megy (`Auth.askCoach` → `functions.invoke('coach')`), ami a
   JWT-ből azonosít, és csak a `COACH_ALLOWED_EMAILS` listán lévő fióknak
   válaszol (költségvédelem, amíg nincs előfizetés).
 - A kontextus SZÁRMAZTATOTT összefoglaló (`aiUserContext` + `weeklyReport`),
-  nyers napló nem megy ki. A beszélgetés nézet-állapot (`_coachMsgs`), nem
-  tárolódik.
+  nyers napló nem megy ki. A beszélgetés a `gymlog_coachchat` kulcson
+  tárolódik (v158), a `gymlog_v1`-től függetlenül.
 - **Heti kérdéslimit – a SZERVER tartja be** (`COACH_WEEKLY_LIMIT`, alapból 20,
   gördülő 7 nap): a `coach_usage` táblában minden MEGVÁLASZOLT kérdés egy sor
   (`supabase/schema-coach.sql`). A függvény a felhasználó saját JWT-jével

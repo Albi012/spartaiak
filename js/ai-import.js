@@ -409,6 +409,8 @@ function aiHasDup(){ return (aiResolved||[]).some(d=>Object.keys(aiDupIds(d)).le
 // `ai` jelölő nélküli importok is felismerhetők róla. Egy terv akkor
 // AI-terv, ha jelölt, VAGY minden napja AI-importált edzés – így nem
 // nyúlunk a kézzel összerakott vagy sablonból másolt terveidhez.
+// Volt-e már AI-import (az Így működik kártya ettől csukva indul).
+function aiPlanDone(){ const p=aiPrevImport(); return !!(p.rIds.length||p.pIds.length); }
 function aiPrevImport(){
   const rIds=new Set((S.routines||[]).filter(r=>r && (r.ai===1 || r.at>0)).map(r=>r.id));
   const pIds=new Set((S.programs||[]).filter(p=>p && (p.ai===1 ||

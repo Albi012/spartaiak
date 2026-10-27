@@ -12,7 +12,15 @@
    NÉZET-állapot, nem tárolódik; a választott mód külön kulcsban
    (`gymlog_coach`: 'in' | 'ext'), FÜGGETLEN a `gymlog_v1`-től.
    ================================================================== */
-let _coachMsgs=[], _coachBusy=false;
+let _coachMsgs=[], _coachBusy=false, _coachLoaded=false;
+// Az utolsó beszélgetés megmarad újraindítás után is – külön kulcson
+// (`gymlog_coachchat`), FÜGGETLENÜL a `gymlog_v1`-től, max. 20 üzenet.
+// Lustán töltjük (első festéskor), mert top-level végrehajtás csak a boot.js-ben van.
+const COACH_KEEP=20;
+function coachLoad(){ if(_coachLoaded) return; _coachLoaded=true;
+  try{ const a=JSON.parse(localStorage.getItem('gymlog_coachchat')||'[]'); if(Array.isArray(a)) _coachMsgs=a.filter(m=>m&&m.content).slice(-COACH_KEEP); }catch(e){} }
+function coachSave(){ try{ const a=_coachMsgs.filter(m=>!m.err).slice(-COACH_KEEP);
+  if(a.length) localStorage.setItem('gymlog_coachchat',JSON.stringify(a)); else localStorage.removeItem('gymlog_coachchat'); }catch(e){} }
 // A heti kérdéslimit állása, ahogy a SZERVER legutóbb mondta ({limit,
 // remaining, resetAt}). A limitet a szerver tartja be – ez csak kijelzés,
 // és az első válaszig null (addig nem tudjuk, nem tippelünk).
@@ -31,7 +39,10 @@ function coachQuotaHtml(){
 function coachMode(){ try{ const m=localStorage.getItem('gymlog_coach'); return m==='in'||m==='ext'?m:null; }catch(e){ return null; } }
 function setCoachMode(m){ try{ if(m) localStorage.setItem('gymlog_coach',m); else localStorage.removeItem('gymlog_coach'); }catch(e){} render(); window.scrollTo(0,0); }
 function coachAvailable(){ return !!(window.Auth && Auth.configured && Auth.configured() && Auth.isLoggedIn()); }
-function coachContext(){ return aiUserContext() + '\n\n--- Ezen a héten ---\n' + weeklyReport(); }
+// Ha tervet kérnek, ugyanabban a formátumban jöjjön, amit az import beolvas –
+// így a válasz alatt megjelenik a „Terv importálása" gomb.
+function coachContext(){ return aiUserContext() + '\n\n--- Ezen a héten ---\n' + weeklyReport()
+  + '\n\n--- Ha edzéstervet kérek ---\n' + AI_FORMAT_BLOCK; }
 
 // Ugyanaz a nyelv, mint a Tervek/Napló fülön: nincs nagy cím, egy keskeny
 // fejsor, a választható utak EGY kártyán soronként (.trow), egy elsődleges gomb.
@@ -55,7 +66,7 @@ function coachView(){
   const m=coachMode();
   let h=`<div class="wrap"><div class="row" style="align-items:center;margin:4px 0 10px">
     <span class="eyebrow grow">AI edző${m?' · '+(m==='in'?'beépített':'saját AI'):''}</span>
-    ${m?`<button class="btn ghost" style="width:auto;margin:0;padding:6px 10px;min-height:44px;color:var(--mut)" onclick="setCoachMode(null)">Mód váltása</button>`:''}</div>`;
+    ${m?`<button class="clink" onclick="setCoachMode(null)">Mód váltása</button>`:''}</div>`;
   if(!m){
     h+=`<div class="card"><div class="pad">
         <div class="cond" style="font-size:24px;font-weight:600">Melyik edzővel dolgozol?</div>
@@ -72,14 +83,15 @@ function coachView(){
         <span class="small dim" style="display:block">A beépített edző a fiókodon keresztül fut. Addig a saját AI-oddal is dolgozhatsz.</span></span></div>
         <button class="btn pri" style="margin:10px 0 0" onclick="openAuthSheet()">Bejelentkezés</button>
         <button class="btn ghost" style="margin:6px 0 0" onclick="setCoachMode('ext')">Inkább külső AI</button>`;
-    else h+=`<div class="card"><div class="pad" id="coachBox">${coachChatHtml()}</div></div>`;
+    else { coachLoad(); h+=`<div class="card"><div class="pad" id="coachBox">${coachChatHtml()}</div></div>`; }
   }
-  if(m==='ext') h+=`<div class="card"><div class="pad">
-      <span class="eyebrow">Így működik</span>
+  // Az első import után összecsukva indul – akkor már ismered.
+  if(m==='ext') h+=`<div class="card"><details class="pad cfold"${aiPlanDone()?'':' open'}>
+      <summary><span class="eyebrow">Így működik</span></summary>
       <ol class="csteps">
         <li><b>Prompt másolása</b> – az app a naplódból megírja, mit tudjon rólad az AI.</li>
         <li><b>Elküldöd</b> a saját AI-odnak (ChatGPT, Claude, …), és kéred a tervet.</li>
-        <li><b>A válasz beillesztése</b> – az app saját edzésekké alakítja.</li></ol></div></div>`;
+        <li><b>A válasz beillesztése</b> – az app saját edzésekké alakítja.</li></ol></details></div>`;
   // Mindkét módban: terv és heti anyag a külső / valódi edzőnek.
   h+=`<span class="eyebrow" style="display:block;margin:18px 0 8px">${m==='ext'?'A saját AI-oddal':'Edzésterv és heti anyag'}</span>
     <div class="card"><div class="pad" style="padding-top:4px;padding-bottom:4px">
@@ -110,20 +122,37 @@ const COACH_QUICK=[
   ['Hol akadtam meg?','Melyik gyakorlatban akadtam meg vagy nem jön össze a cél, és mit csináljak vele?'],
   ['Mennyit emeljek?','A legutóbbi edzésem alapján mennyit emeljek a következő edzésen gyakorlatonként?']];
 function coachChatHtml(){
-  const bubbles=_coachMsgs.map(m=>`<div class="cmsg ${m.role==='user'?'me':'ai'}${m.err?' err':''}">${coachFmt(m.content)}</div>`).join('');
+  const bubbles=_coachMsgs.map((m,i)=>{
+    if(m.role==='user'||m.err) return `<div class="cmsg ${m.role==='user'?'me':'ai'}${m.err?' err':''}">${coachFmt(m.content)}</div>`;
+    // Az edző válasza: másolás, és ha tervformátumú, egy koppintással importálható.
+    const plan=coachIsPlan(m.content);
+    return `<div class="cmsg ai">${coachFmt(m.content)}
+      <div class="cacts">${plan?`<button class="cact pri" onclick="coachImportPlan(${i})">Terv importálása ›</button>`:''}
+        <button class="cact" onclick="coachCopy(${i})" aria-label="Válasz másolása">Másolás</button></div></div>`; }).join('');
   const off=_coachBusy||coachOut();
   return `<div class="row" style="align-items:center;margin-bottom:8px">
       <span class="eyebrow grow">Beszélgetés</span>
-      ${_coachMsgs.length?`<button class="iconbtn ghost" onclick="coachReset()" aria-label="Új beszélgetés" title="Új beszélgetés">${ICON.plus||'+'}</button>`:''}</div>
+      ${_coachMsgs.length?`<button class="clink" onclick="coachReset()">Új beszélgetés</button>`:''}</div>
     <div class="whyrow hscroll cquick">${COACH_QUICK.map((q,i)=>`<button class="whyc" onclick="coachQuick(${i})" ${off?'disabled':''}>${q[0]}</button>`).join('')}</div>
     <div id="coachLog" class="clog">${bubbles || `<p class="small dim" style="margin:0">Látja a terved, a munkasúlyaidat, a heti edzéseidet, az alvásod és a testsúlyod összefoglalóját. Nem orvos – fájdalomnál fordulj szakemberhez.</p>`}
       ${_coachBusy?'<div class="cmsg ai ctyping" aria-label="Gondolkodik"><i></i><i></i><i></i></div>':''}</div>
     ${coachQuotaHtml()}
+    <details class="cctx"><summary class="small dim">Mit lát rólam az edző? ›</summary><pre>${esc(coachContext())}</pre></details>
     <div class="cinput">
-      <textarea id="coachIn" rows="1" placeholder="Kérdezz az edzőtől…" style="font-size:16px" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();coachSend();}"></textarea>
+      <textarea id="coachIn" rows="1" placeholder="Kérdezz az edzőtől…" style="font-size:16px" oninput="coachGrow(this)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();coachSend();}"></textarea>
       <button class="csend" onclick="coachSend()" ${off?'disabled':''} aria-label="Küldés">${ICON.send}</button>
     </div>`;
 }
+// A mező a szöveggel nő, legfeljebb 4 sorig (utána görget).
+function coachGrow(el){ el.style.height='auto'; el.style.height=Math.min(el.scrollHeight, 4*22+26)+'px'; }
+// Tervformátum: legalább egy NAP-fejléc és egy |-os gyakorlatsor, és a parser
+// tényleg talál benne napot – így egy sima tanács nem kap import-gombot.
+function coachIsPlan(t){ return /^\s*(nap|day)\s*\d*\s*[:\-–]/im.test(t||'') && /\|/.test(t||'') && aiParsePlan(t).length>0; }
+function coachImportPlan(i){ const m=_coachMsgs[i]; if(!m) return;
+  openAiImport(); aiText=m.content; aiParseNow(); if(aiParsed()) aiStep=3; aiRender(); }
+async function coachCopy(i){ const m=_coachMsgs[i]; if(!m) return;
+  try{ await navigator.clipboard.writeText(m.content); toast('Vágólapra másolva.'); }
+  catch(e){ uiAlert('Nem sikerült a másolás – jelöld ki a szöveget kézzel.'); } }
 function coachQuick(i){ coachAsk(COACH_QUICK[i][1]); }
 // Csak a csevegő dobozát festjük újra, nem az egész fület.
 function coachRender(){
@@ -133,15 +162,15 @@ function coachRender(){
 }
 async function coachAsk(text){
   if(_coachBusy || coachOut() || !text.trim()) return;
-  _coachMsgs.push({role:'user', content:text.trim()});
+  _coachMsgs.push({role:'user', content:text.trim()}); coachSave();
   _coachBusy=true; coachRender();
   const r=await Auth.askCoach(_coachMsgs.filter(m=>!m.err).map(m=>({role:m.role, content:m.content})), coachContext());
   _coachBusy=false;
   if(r && r.limit!=null) _coachQuota={limit:r.limit, remaining:r.remaining, resetAt:r.resetAt||null};
   if(r && r.reply) _coachMsgs.push({role:'assistant', content:r.reply});
   else _coachMsgs.push({role:'assistant', content:(r&&r.error)||'Az edző most nem érhető el.', err:1});
-  coachRender();
+  coachSave(); coachRender();
 }
 function coachSend(){ const i=document.getElementById('coachIn'); const t=i?i.value:''; if(i) i.value=''; coachAsk(t); }
 function coachWeekly(){ coachAsk(COACH_QUICK[0][1]); }
-function coachReset(){ if(_coachBusy) return; _coachMsgs=[]; coachRender(); }
+function coachReset(){ if(_coachBusy) return; _coachMsgs=[]; coachSave(); coachRender(); }

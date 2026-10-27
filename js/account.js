@@ -224,6 +224,8 @@ async function confirmDeleteAccount(){
        deleted:[], activeT:0, prog:{}, bw:{}, sleep:{}, rdy:null, sched:{}};
     playing=false; curEx=0; rdyInvalidate(); await save();
   }
+  // A beépített edzővel folytatott beszélgetés a FIÓKHOZ tartozik, nem a naplóhoz – megy vele.
+  _coachMsgs=[]; try{ localStorage.removeItem('gymlog_coachchat'); }catch(e){}
   myProfile=null; friendsData=null; sharedPlansData=null;
   closeSheet(); updateAuthBtn(); updateFriendsBadge(); tab='home'; render(); window.scrollTo(0,0);
   await uiAlert(delWipeLocal

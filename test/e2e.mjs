@@ -3031,6 +3031,22 @@ ok('74 AI-import extra: RPE/drop/szuperszett/cue átjön, a lejátszó kiírja, 
   window.uiAlert=ua; window.uiConfirm=uc; S.active=bak.act; S.routines=bak.r; S.programs=bak.p; S.activeProgram=bak.a; S.customEx=bak.c; tab='home'; render();
   return parse && nincs && tarol && lj; }));
 
+// ---- 75. Edző fül (v158): terv-import a válaszból, másolás, megmaradó beszélgetés, kontextus, halk mód-váltás ----
+ok('75 edző: tervformátumú válasz import-gombot kap, a beszélgetés megmarad, látszik a kontextus', await page.evaluate(async ()=>{
+  const bak=window.coachAvailable; window.coachAvailable=()=>true; localStorage.setItem('gymlog_coach','in');
+  _coachMsgs=[{role:'user',content:'Kérek tervet'},{role:'assistant',content:'NAP: Teszt\n- Fekvenyomás | 4x5 | 70 | 180 | RPE 8'},{role:'assistant',content:'Csak egy sima tanács.'}];
+  coachSave(); tab='coach'; render(); await new Promise(r=>setTimeout(r,250));
+  const a=document.getElementById('app');
+  const egyGomb=a.querySelectorAll('.cact.pri').length===1 && a.querySelectorAll('.cact').length===3;
+  const ctx=/Mit lát rólam/.test(a.textContent) && /Ha edzéstervet kérek/.test(coachContext());
+  const halk=!!a.querySelector('.clink') && !/btn ghost[^>]*>Mód váltása/.test(a.innerHTML) && /Új beszélgetés/.test(a.textContent);
+  const tarolt=JSON.parse(localStorage.getItem('gymlog_coachchat')).length===3 && !localStorage.getItem('gymlog_v1').includes('Kérek tervet');
+  coachImportPlan(1); await new Promise(r=>setTimeout(r,100));
+  const imp=aiStep===3 && aiParsed() && /Fekvenyomás/.test(document.getElementById('sheetIn').textContent);
+  closeSheet(); coachReset(); const urit=localStorage.getItem('gymlog_coachchat')===null;
+  window.coachAvailable=bak; localStorage.removeItem('gymlog_coach'); tab='home'; render();
+  return egyGomb && ctx && halk && tarolt && imp && urit; }));
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));
