@@ -1391,6 +1391,14 @@ felhő-konfig ÉS be vagy lépve** – enélkül egy mondattal kimondja, miért
   aktivitás-pöttyel (`.frdot`); a kimenő kérés visszavonható
   (`doCancelRequest`); „Mit látnak rólam?" lenyitható a `shareSummary()`-ből;
   a barát-lapon csempék + „Terv küldése neki" (`openSharePlanTo`). E2E: 62.
+- **v159:** a barát-lap AZONNAL a meglévő összesítővel nyílik, és a frissítés
+  CSAK siker esetén írja felül (`openFriendStats` → `paint`) – korábban egy
+  sikertelen kérés „nem osztott meg adatot"-ra cserélte a listában látott
+  számokat. A barát törlése a lapra került (`Barát törlése`, halk piros link),
+  a sorról a × kikerült; a kimenő kérés „Visszavonás"-a halk link (`.clink`); a
+  bejelölés „Bejelölés" gomb + Enter. A barátok a legutóbb edzett szerint
+  rendezve, relatív idővel (`friendAgoTxt`: ma / tegnap / N napja). A „Mit
+  látnak rólam?" soron nincs dupla nyíl. E2E: 76.
 
 **Ha ÚJ táblát vagy RPC-t veszel fel az `auth.js`-be, három dolgot csinálj:**
 sémafájl hozzá, `on delete cascade` az `auth.users`-re, és vedd fel a

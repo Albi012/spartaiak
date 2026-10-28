@@ -2843,7 +2843,7 @@ ok('62 barátok: Rád vár felül, megosztás, utolsó edzés a soron, visszavon
   const first=app.querySelector('.wrap > .eyebrow + .card, .wrap .frwait');
   const felul=!!app.querySelector('.frwait') && app.textContent.indexOf('Rád vár')<app.textContent.indexOf('barát-kódod');
   const oszt=!!app.querySelector('[onclick="shareFriendCode()"]');
-  const sor=/Tegnap · 7 napban 2 edzés/.test(app.textContent) && !!app.querySelector('.frdot.on');
+  const sor=/tegnap · 7 napban 2 edzés/i.test(app.textContent) && !!app.querySelector('.frdot.on');
   const lat=/Mit látnak rólam/.test(app.textContent);
   await doCancelRequest('d1'); const vissza=removed==='d1';
   await openFriendStats('b1','Béla'); const sh=document.getElementById('sheetIn');
@@ -3046,6 +3046,23 @@ ok('75 edző: tervformátumú válasz import-gombot kap, a beszélgetés megmara
   closeSheet(); coachReset(); const urit=localStorage.getItem('gymlog_coachchat')===null;
   window.coachAvailable=bak; localStorage.removeItem('gymlog_coach'); tab='home'; render();
   return egyGomb && ctx && halk && tarolt && imp && urit; }));
+
+// ---- 76. Barátok (v159): meglévő adat a lapon hiba esetén is, törlés a lapon, sorrend, relatív idő ----
+ok('76 barátok: sikertelen frissítés nem dobja el az adatot, × nincs a soron, legutóbb edzett elöl', await page.evaluate(async ()=>{
+  const bA=window.Auth, bd={f:friendsData,p:myProfile,s:sharedPlansData,m:friendStatsMap,l:window.loadFriendStats,r:window.refreshFriends};
+  window.Auth=Object.assign({},bA,{configured:()=>true,isLoggedIn:()=>true,currentUser:()=>({id:'me'}),friendStats:async()=>{throw new Error('net');}});
+  myProfile={friend_code:'ABC123'}; sharedPlansData=[];
+  friendsData=[{requester:'me',addressee:'old',addressee_name:'Régi',status:'accepted'},{requester:'me',addressee:'new',addressee_name:'Friss',status:'accepted'},{requester:'me',addressee:'out',addressee_name:'Kint',status:'pending'}];
+  friendStatsMap={old:{data:{last:Date.now()-12*864e5,week:0,sessions:5}},new:{data:{last:Date.now()-864e5,week:3,sessions:24}}};
+  window.loadFriendStats=()=>{}; window.refreshFriends=()=>{}; tab='friends'; render(); await new Promise(r=>setTimeout(r,250));
+  const a=document.getElementById('app');
+  const sor=[...a.querySelectorAll('.frmeta')].map(x=>x.textContent);
+  const elol=/tegnap/.test(sor[0]) && /12 napja/.test(sor[1]);
+  const nincsX=!a.querySelector('[onclick^="doRemoveFriend"]') && !!a.querySelector('.clink[onclick^="doCancelRequest"]') && /Bejelölés/.test(a.textContent);
+  await openFriendStats('new','Friss'); const sh=document.getElementById('sheetIn').textContent;
+  const marad=/24/.test(sh) && !/nem osztott meg/.test(sh) && /Barát törlése/.test(sh) && friendStatsMap.new.data.sessions===24;
+  closeSheet(); window.Auth=bA; friendsData=bd.f; myProfile=bd.p; sharedPlansData=bd.s; friendStatsMap=bd.m; window.loadFriendStats=bd.l; window.refreshFriends=bd.r; tab='home'; render();
+  return elol && nincsX && marad; }));
 
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
