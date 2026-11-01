@@ -776,6 +776,8 @@ button.tday:active{transform:scale(var(--press-sm))}
 #splash .spn{font-family:'Barlow Condensed',sans-serif;font-size:30px;font-weight:700;color:var(--ink);letter-spacing:.02em}
 #splash .spbar{width:120px;height:3px;border-radius:2px;background:var(--line);overflow:hidden}
 #splash .spbar i{display:block;width:40%;height:100%;background:var(--brass);border-radius:2px}
+#splash{animation:spAuto 0s linear 5s forwards}
+@keyframes spAuto{to{opacity:0;visibility:hidden;pointer-events:none}}
 #splash.gone{opacity:0;transition:opacity 220ms var(--ease-out);pointer-events:none}
 @media (prefers-reduced-motion: no-preference){
   /* A súlyzó összeáll: előbb a rúd nő ki, aztán a belső, majd a külső tárcsák
@@ -876,3 +878,14 @@ button.tday:active{transform:scale(var(--press-sm))}
 <script src="js/account.js"></script>
 <script src="js/coach.js"></script>
 <script src="js/boot.js"></script>
+<script>
+/* A töltőkép levétele NEM függhet a js/ fájloktól: frissítés után az első
+   indításkor a HTML már új (network-first), a js/ viszont még a régi
+   gyorsítótárból jöhet (cache-first) – egy régi boot.js nem tudna a
+   töltőképről, és az örökre rajta maradna az appon. Ez a sor a HTML-lel
+   együtt érkezik, tehát mindig van, aki levegye. */
+(function(){ function off(){ var el=document.getElementById('splash'); if(!el) return;
+  el.classList.add('gone'); setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); },260); }
+  if(document.readyState==='complete') setTimeout(off,300); else window.addEventListener('load',function(){ setTimeout(off,300); });
+  setTimeout(off,4000); })();
+</script>

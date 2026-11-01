@@ -1675,7 +1675,12 @@ futó csík, téma-tokenekkel), így már az első festésnél látszik, mielőt
 script lefut. A `boot.js` `hideSplash()` veszi le a `load()` után (220 ms-os
 halványulás, majd ki a DOM-ból); védőháló: 4 mp után akkor is eltűnik, ha a
 betöltés hibára fut. A logó animált: a rúd kinő, a tárcsák két oldalról felcsúsznak, majd a súlyzó ütemesen
-„emelkedik" (`spBar`/`spInL`/`spInR`/`spLift`). Csökkentett mozgásnál statikus. E2E: 77.
+„emelkedik" (`spBar`/`spInL`/`spInR`/`spLift`). **A levétel NEM függhet a js/
+fájloktól** (v162): frissítés utáni első indításkor a HTML új (network-first), a js/
+még a régi cache-ből jöhet – a v160-ban egy régi boot.js nem ismerte a töltőképet,
+és rajta ragadt az appon. Ezért az `index.html` VÉGÉN egy inline script is leveszi
+(`load` + 300 ms, illetve 4 mp), és végső hálóként CSS (`spAuto`) 5 mp után
+JS nélkül is eltünteti. Csökkentett mozgásnál statikus. E2E: 77.
 
 Stratégia: a HTML network-first (offline a cache-elt `index.html`), a
 statikus fájlok cache-first, a fontok stale-while-revalidate.

@@ -2069,13 +2069,16 @@ ok('41 kevés adatnál a kártya el sem készül', await page.evaluate(()=>{
     // Tényleg letölthető-e mind? (elgépelt fájlnév ONLINE is 404-et ad)
     const status = await Promise.all(mods.map(u=>fetch(u).then(r=>r.status).catch(()=>0)));
     return {mods, cached, status,
-            inline: [...shell.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)].map(m=>m[1].length)};
+            inline: [...shell.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)].map(m=>m[1].length),
+            splashInline: /getElementById\('splash'\)/.test(([...shell.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)][1]||[])[1]||'')};
   });
 
-  // Egyetlen beágyazott script maradhat: a <head>-beli, villódzás elleni
-  // téma-őr (~550 karakter). Bármi ennél nagyobb visszacsempészett app-kód.
-  ok('42 az index.html-ben csak a rövid téma-őr script maradt beágyazva',
-     mod42.inline.length===1 && mod42.inline[0]<1200
+  // Két beágyazott script maradhat: a <head>-beli, villódzás elleni téma-őr,
+  // és a lap végi töltőkép-levevő (ez nem függhet a cache-elt js/-től, v162).
+  // Bármi ennél nagyobb visszacsempészett app-kód.
+  ok('42 az index.html-ben csak a téma-őr és a töltőkép-levevő script maradt beágyazva',
+     mod42.inline.length===2 && mod42.inline.every(n=>n<1200)
+     && mod42.splashInline
      || (console.log('   beágyazott scriptek hossza:', mod42.inline), false));
   ok('42 minden hivatkozott modul letölthető (nincs elgépelt fájlnév)',
      mod42.status.every(x=>x===200) || (console.log('   nem 200:', mod42.mods.filter((_,i)=>mod42.status[i]!==200)), false));
@@ -3070,6 +3073,12 @@ ok('77 töltőkép: statikus HTML-ben van, a betöltés után kikerül a DOM-bó
   const statikus=/<div id="splash"/.test(html) && html.indexOf('id="splash"')<html.indexOf('<script src="js/');
   await new Promise(r=>setTimeout(r,400));
   return statikus && !document.getElementById('splash') && typeof hideSplash==='function'; }));
+
+// ---- 78. Töltőkép: a régi (cache-ből jövő) boot.js mellett sem ragadhat be ----
+ok('78 töltőkép: inline levevő a HTML-ben és CSS-háló, boot.js nélkül is', await page.evaluate(async ()=>{
+  const html=await (await fetch('index.html')).text();
+  const inl=html.lastIndexOf("getElementById('splash')")>html.indexOf('<script src="js/boot.js">');
+  return inl && /#splash\{animation:spAuto/.test(html); }));
 
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
