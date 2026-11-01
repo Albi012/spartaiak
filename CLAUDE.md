@@ -1670,6 +1670,12 @@ Az app telepíthető és offline is fut. Fájlok:
 - Ikonok: `icon-192.png`, `icon-512.png`, `icon-maskable-512.png`,
   `apple-touch-icon.png`.
 
+**Töltőkép (v160):** a `#splash` STATIKUS HTML az `index.html`-ben (logó + név +
+futó csík, téma-tokenekkel), így már az első festésnél látszik, mielőtt bármelyik
+script lefut. A `boot.js` `hideSplash()` veszi le a `load()` után (220 ms-os
+halványulás, majd ki a DOM-ból); védőháló: 4 mp után akkor is eltűnik, ha a
+betöltés hibára fut. Csökkentett mozgásnál nincs pulzálás/futás. E2E: 77.
+
 Stratégia: a HTML network-first (offline a cache-elt `index.html`), a
 statikus fájlok cache-first, a fontok stale-while-revalidate.
 

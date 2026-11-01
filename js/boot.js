@@ -121,7 +121,12 @@ document.getElementById('modal').onclick=e=>{ if(e.target.id==='modal') _closeMo
   });
 })();
 paintIcons();
-load().then(()=>{ maybeOnboard(); });
+// A töltőkép levétele: halványulva, majd ki a DOM-ból. Védőháló: ha a
+// betöltés hibára fut, 4 mp után akkor is eltűnik – ne ragadjon be.
+function hideSplash(){ const el=document.getElementById('splash'); if(!el||el.classList.contains('gone')) return;
+  el.classList.add('gone'); setTimeout(()=>el.remove(), 260); }
+setTimeout(hideSplash, 4000);
+load().then(()=>{ hideSplash(); maybeOnboard(); }, hideSplash);
 
 // Felhő-szinkron indítása (inert, ha nincs supabase-config.js).
 if(window.Auth){

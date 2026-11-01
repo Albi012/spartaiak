@@ -3064,6 +3064,13 @@ ok('76 barátok: sikertelen frissítés nem dobja el az adatot, × nincs a soron
   closeSheet(); window.Auth=bA; friendsData=bd.f; myProfile=bd.p; sharedPlansData=bd.s; friendStatsMap=bd.m; window.loadFriendStats=bd.l; window.refreshFriends=bd.r; tab='home'; render();
   return elol && nincsX && marad; }));
 
+// ---- 77. Töltőkép: az első festésben ott van, betöltés után eltűnik ----
+ok('77 töltőkép: statikus HTML-ben van, a betöltés után kikerül a DOM-ból', await page.evaluate(async ()=>{
+  const html=await (await fetch('index.html')).text();
+  const statikus=/<div id="splash"/.test(html) && html.indexOf('id="splash"')<html.indexOf('<script src="js/');
+  await new Promise(r=>setTimeout(r,400));
+  return statikus && !document.getElementById('splash') && typeof hideSplash==='function'; }));
+
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));
