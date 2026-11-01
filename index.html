@@ -778,17 +778,28 @@ button.tday:active{transform:scale(var(--press-sm))}
 #splash .spbar i{display:block;width:40%;height:100%;background:var(--brass);border-radius:2px}
 #splash.gone{opacity:0;transition:opacity 220ms var(--ease-out);pointer-events:none}
 @media (prefers-reduced-motion: no-preference){
-  #splash svg{animation:spPulse 1.1s var(--ease-in-out) infinite alternate}
+  /* A súlyzó összeáll: előbb a rúd nő ki, aztán a belső, majd a külső tárcsák
+     csúsznak fel két oldalról – utána a teljes súlyzó ütemesen „emelkedik". */
+  #splash svg rect{transform-box:fill-box;transform-origin:center}
+  #splash .sp-bar{animation:spBar 360ms var(--ease-out) both}
+  #splash .sp-i.sp-l{animation:spInL 320ms var(--ease-out) 200ms both}
+  #splash .sp-i.sp-r{animation:spInR 320ms var(--ease-out) 200ms both}
+  #splash .sp-o.sp-l{animation:spInL 320ms var(--ease-out) 330ms both}
+  #splash .sp-o.sp-r{animation:spInR 320ms var(--ease-out) 330ms both}
+  #splash .splift{transform-box:fill-box;transform-origin:center;animation:spLift 1.1s var(--ease-in-out) 700ms infinite alternate}
   #splash .spbar i{animation:spRun 1s var(--ease-in-out) infinite}
 }
-@keyframes spPulse{from{transform:scale(.94)}to{transform:scale(1)}}
+@keyframes spBar{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes spInL{from{transform:translateX(-6px);opacity:0}to{transform:none;opacity:1}}
+@keyframes spInR{from{transform:translateX(6px);opacity:0}to{transform:none;opacity:1}}
+@keyframes spLift{from{transform:translateY(1.2px) rotate(-3deg)}to{transform:translateY(-1.6px) rotate(3deg)}}
 @keyframes spRun{from{transform:translateX(-100%)}to{transform:translateX(250%)}}
 </style>
 <div id="splash" role="status" aria-label="Betöltés">
-  <svg viewBox="0 0 24 24" aria-hidden="true"><g fill="currentColor">
-    <rect x="2" y="9" width="3" height="6" rx="1.2"/><rect x="5" y="6.5" width="2.6" height="11" rx="1.1"/>
-    <rect x="7.6" y="10.4" width="8.8" height="3.2" rx="1.4"/><rect x="16.4" y="6.5" width="2.6" height="11" rx="1.1"/>
-    <rect x="19" y="9" width="3" height="6" rx="1.2"/></g></svg>
+  <svg viewBox="0 0 24 24" aria-hidden="true"><g class="splift" fill="currentColor">
+    <rect class="sp-o sp-l" x="2" y="9" width="3" height="6" rx="1.2"/><rect class="sp-i sp-l" x="5" y="6.5" width="2.6" height="11" rx="1.1"/>
+    <rect class="sp-bar" x="7.6" y="10.4" width="8.8" height="3.2" rx="1.4"/><rect class="sp-i sp-r" x="16.4" y="6.5" width="2.6" height="11" rx="1.1"/>
+    <rect class="sp-o sp-r" x="19" y="9" width="3" height="6" rx="1.2"/></g></svg>
   <span class="spn">Edzésnapló</span>
   <span class="spbar"><i></i></span>
 </div>

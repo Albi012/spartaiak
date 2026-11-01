@@ -1674,7 +1674,8 @@ Az app telepíthető és offline is fut. Fájlok:
 futó csík, téma-tokenekkel), így már az első festésnél látszik, mielőtt bármelyik
 script lefut. A `boot.js` `hideSplash()` veszi le a `load()` után (220 ms-os
 halványulás, majd ki a DOM-ból); védőháló: 4 mp után akkor is eltűnik, ha a
-betöltés hibára fut. Csökkentett mozgásnál nincs pulzálás/futás. E2E: 77.
+betöltés hibára fut. A logó animált: a rúd kinő, a tárcsák két oldalról felcsúsznak, majd a súlyzó ütemesen
+„emelkedik" (`spBar`/`spInL`/`spInR`/`spLift`). Csökkentett mozgásnál statikus. E2E: 77.
 
 Stratégia: a HTML network-first (offline a cache-elt `index.html`), a
 statikus fájlok cache-first, a fontok stale-while-revalidate.
