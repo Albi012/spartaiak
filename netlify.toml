@@ -4,6 +4,9 @@
 [build]
   publish = "."
   command = ""
+  # DEPLOY LEÁLLÍTVA: a Netlify minden push után kihagyja a buildet, az utolsó
+  # élesített verzió marad kint. Visszakapcsolás: töröld ezt a sort.
+  ignore = "exit 0"
 
 # A service worker mindig friss legyen, hogy a frissítések eljussanak
 # a klienshez (különben a régi sw.js ragadna a CDN cache-ben).
