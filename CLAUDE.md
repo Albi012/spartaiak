@@ -1682,7 +1682,7 @@ még a régi cache-ből jöhet – a v160-ban egy régi boot.js nem ismerte a t�
 (`load` + 300 ms, illetve 4 mp), és végső hálóként CSS (`spAuto`) 5 mp után
 JS nélkül is eltünteti. Csökkentett mozgásnál statikus. E2E: 77.
 
-Stratégia: a HTML network-first (offline a cache-elt `index.html`), a
+Stratégia (v163): a HTML is CACHE-FIRST, háttérbeli frissítéssel (stale-while-revalidate) – indításkor nincs fehér képernyő a hálózatra várva; az új verzió a KÖVETKEZŐ indításkor jön be. Első látogatáskor (üres cache) a hálózat. E2E: 79, a
 statikus fájlok cache-first, a fontok stale-while-revalidate.
 
 **Frissítés:** ha az app-héjon változtatsz, emeld a `VERSION` konstanst a

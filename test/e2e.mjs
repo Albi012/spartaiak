@@ -3080,6 +3080,14 @@ ok('78 töltőkép: inline levevő a HTML-ben és CSS-háló, boot.js nélkül i
   const inl=html.lastIndexOf("getElementById('splash')")>html.indexOf('<script src="js/boot.js">');
   return inl && /#splash\{animation:spAuto/.test(html); }));
 
+
+// ===== 79. SW: a navigáció cache-first =====
+{
+  const sw = readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
+  const nav = sw.slice(sw.indexOf("req.mode === 'navigate'"), sw.indexOf("req.mode === 'navigate'") + 900);
+  ok('79: navigáció cache-ből indul', /caches\.match\('\.\/index\.html'\)\.then\(\(cached\)/.test(nav) && /if \(cached\)/.test(nav));
+  ok('79: háttérben frissít', /waitUntil\(net/.test(nav));
+}
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));

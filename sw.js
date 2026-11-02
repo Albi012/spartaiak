@@ -3,7 +3,7 @@
  * azt a böngésző kezeli – a service worker csak a statikus fájlokat
  * cache-eli, az éles edzésadatot nem érinti.
  */
-const VERSION = 'v162';
+const VERSION = 'v163';
 const APP_CACHE = 'edzesnaplo-app-' + VERSION;
 const FONT_CACHE = 'edzesnaplo-fonts';
 
@@ -108,12 +108,21 @@ self.addEventListener('fetch', (e) => {
 
   // Navigáció (HTML): network-first, offline esetén a cache-elt index.html.
   if (req.mode === 'navigate') {
-    e.respondWith(
-      fetch(req).then((res) => {
+    // Navigáció (HTML): CACHE-FIRST, háttérben frissít (stale-while-revalidate).
+    // Így indításkor nincs fehér képernyő a hálózatra várva; az új verzió a
+    // KÖVETKEZŐ indításkor jön be. Cache híján (első látogatás) a hálózat.
+    const net = fetch(req).then((res) => {
+      if (res && res.ok) {
         const copy = res.clone();
         caches.open(APP_CACHE).then((c) => c.put('./index.html', copy));
-        return res;
-      }).catch(() => caches.match('./index.html').then((r) => r || caches.match('./')))
+      }
+      return res;
+    });
+    e.respondWith(
+      caches.match('./index.html').then((cached) => {
+        if (cached) { e.waitUntil(net.catch(() => {})); return cached; }
+        return net.catch(() => caches.match('./'));
+      })
     );
     return;
   }
