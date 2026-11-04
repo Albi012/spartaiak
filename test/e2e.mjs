@@ -3088,6 +3088,25 @@ ok('78 töltőkép: inline levevő a HTML-ben és CSS-háló, boot.js nélkül i
   ok('79: navigáció cache-ből indul', /caches\.match\('\.\/index\.html'\)\.then\(\(cached\)/.test(nav) && /if \(cached\)/.test(nav));
   ok('79: háttérben frissít', /waitUntil\(net/.test(nav));
 }
+
+// ===== 80. Izom-regeneráció =====
+{
+  const r = await page.evaluate(()=>{
+    const keep=JSON.parse(JSON.stringify(S.sessions)); const now=Date.now();
+    S.sessions=[{day:'pa',t:now-3*36e5,end:now-2*36e5,log:{bench:{w:60,sets:[8,8,8,8]},legcurl:{w:30,sets:[10,10,10],rpe:[9,9.5,10]}}}];
+    const L=muscleRecovery(now); const html=recoveryHomeCard();
+    S.sessions=[]; const empty=recoveryHomeCard();
+    S.sessions=keep;
+    return {mgs:L.map(o=>o.mg), mell:L.find(o=>o.mg==='mell'), lab:L.find(o=>o.mg==='láb'), html, empty, need:recNeedH('mell',4,null), lab0:recNeedH('láb',3,null)};
+  });
+  ok('80: érintett csoportok', r.mgs.includes('mell') && r.mgs.includes('láb'));
+  ok('80: mell 4 szett ≈ 49 ó, még pihen', r.need===49 && r.mell.left>40 && r.mell.left<48);
+  ok('80: magas RPE nyújt', r.lab.need>r.lab0);
+  ok('80: kártya mutatja', /Izom-regeneráció/.test(r.html) && /még/.test(r.html));
+  ok('80: edzés nélkül nincs kártya', r.empty==='');
+  await page.evaluate(()=>{tab='home';render();});
+  ok('80: főoldalon kirajzolva', await page.evaluate(()=>!!document.querySelector('.reccard')===(muscleRecovery().length>0)));
+}
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));

@@ -219,6 +219,7 @@ function homeView(){
     }
   }
   if(done) h+=weekPlanCard();
+  h+=recoveryHomeCard();
   h+=dailyHomeCard();
   // Az aktív terv EGY sorban (a napjai a heti kártyán és a Tervek fülön).
   const plist=programsList(), act=activeProg();

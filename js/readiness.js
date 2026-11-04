@@ -335,3 +335,52 @@ function stallCard(){
   if(list.length>6) h+=`<div class="small dim">…és további ${list.length-6}.</div>`;
   return h+`</div></div>`;
 }
+
+// ===== Izomcsoport-regeneráció (v164) =====
+// A naplóból SZÁRMAZTATOTT becslés, nincs tárolt mező (mint a készenlét):
+// minden edzés után az érintett izomcsoport pihenőigénye = alap (méret
+// szerint) × szett-szorzó × RPE-szorzó. Az utolsó 7 nap edzéseiből a
+// LEGKÉSŐBBI „kész" időpont számít. Tájékoztat, nem tilt.
+const REC_BASE={'láb':72,'hát':60,'mell':60,'váll':48,'tricepsz':42,'bicepsz':42,'törzs':30};
+const REC_WIN=7*864e5;
+function recNeedH(mg, sets, rpeAvg){
+  const base=REC_BASE[mg]||48;
+  const fs=Math.max(0.6, Math.min(1.4, 0.5+sets*0.08));
+  const fr=rpeAvg==null?1:rpeAvg>=9?1.15:rpeAvg<=7.5?0.9:1;
+  return Math.round(base*fs*fr);
+}
+function muscleRecovery(now){
+  now=now||Date.now(); const out={};
+  (S.sessions||[]).forEach(s=>{
+    if(now-s.t>REC_WIN || s.t>now) return;
+    const end=s.end&&s.end>s.t?s.end:s.t, acc={};
+    Object.keys(s.log||{}).forEach(id=>{
+      const L=s.log[id], mg=exDef(id).mg; if(!REC_BASE[mg]) return;
+      const a=acc[mg]||(acc[mg]={n:0,r:[]});
+      (L.sets||[]).forEach((x,i)=>{ if(x==null) return; a.n++; const r=L.rpe&&L.rpe[i]; if(r!=null) a.r.push(r); });
+    });
+    Object.keys(acc).forEach(mg=>{ const a=acc[mg]; if(!a.n) return;
+      const rpe=a.r.length?a.r.reduce((x,y)=>x+y,0)/a.r.length:null;
+      const need=recNeedH(mg,a.n,rpe), ready=end+need*36e5;
+      if(!out[mg]||ready>out[mg].ready) out[mg]={mg,sets:a.n,need,from:end,ready};
+    });
+  });
+  return MGS.filter(m=>out[m]).map(m=>{ const o=out[m];
+    o.left=Math.max(0,(o.ready-now)/36e5); o.pct=Math.min(1,Math.max(0,(now-o.from)/(o.ready-o.from))); return o; })
+    .sort((a,b)=>b.left-a.left);
+}
+function recLeftTxt(h){ if(h<=0) return 'kész'; if(h<1) return 'még <1 ó'; return h>=24?`még ${Math.floor(h/24)} n ${Math.round(h%24)} ó`:`még ${Math.round(h)} ó`; }
+function recoveryHomeCard(){
+  const L=muscleRecovery(); if(!L.length) return '';
+  const busy=L.filter(o=>o.left>0), fresh=L.filter(o=>o.left<=0);
+  const rested=MGS.filter(m=>!busy.some(o=>o.mg===m));
+  const rows=busy.map(o=>`<div class="recrow"><span class="recn">${esc(trmg(o.mg))}</span>
+    <span class="rdybar"><span style="--p:${o.pct.toFixed(3)};background:${o.pct<.5?'var(--red)':'var(--brass)'}"></span></span>
+    <span class="recl">${recLeftTxt(o.left)}</span></div>`).join('');
+  return `<div class="card reccard"><div class="pad">
+    <span class="eyebrow">${tr('Izom-regeneráció')}</span>
+    ${rows||`<div class="small" style="margin:6px 0 2px">${tr('Minden izomcsoport kipihente magát.')}</div>`}
+    ${busy.length?`<div class="small dim" style="margin-top:8px">${tr('Pihent')}: ${rested.map(trmg).join(', ')||'–'}</div>`:''}
+    <div class="small dim" style="margin-top:4px;font-size:12px">${tr('Becslés az elmúlt 7 nap szettjeiből és RPE-jéből.')}</div>
+  </div></div>`;
+}

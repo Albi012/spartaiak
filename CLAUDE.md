@@ -1137,6 +1137,17 @@ megy) + „Aktív terv" sor (→ Tervek fül) → mentés-emlékeztető a LAP AL
 kártya hátralévő gombjait duplázta, és MÁSIK napot ajánlott, mint a „Mit edzek
 ma?". A felső összegző sor is kikerült (Profil/Haladás mutatja). E2E: 69.
 
+## Izom-regeneráció (v164)
+
+`muscleRecovery()` (`readiness.js`) a naplóból SZÁRMAZTATJA, mennyi pihenő kell
+még izomcsoportonként – nincs tárolt mező. Edzésenként: `REC_BASE[mg]` óra
+(láb 72, hát/mell 60, váll 48, kar 42, törzs 30) × szett-szorzó
+(`0.5+szett·0.08`, 0,6–1,4) × RPE-szorzó (átlag ≥9 → 1,15, ≤7,5 → 0,9), a
+befejezéstől (`end`) számolva; az utolsó 7 nap legkésőbbi „kész" ideje számít.
+A főoldalon `recoveryHomeCard()` (a heti kártya után): a még pihenő csoportok
+sávval + hátralévő idővel, alatta a pihent csoportok. 7 napon belüli edzés
+nélkül el sem készül. Becslés, tájékoztat – semmit nem tilt. E2E: 80.
+
 ## Redundancia-takarítás (v145)
 
 A felső sávban csak a fiók és a gyógytorna ikon maradt: a téma-gomb (→ Profil
