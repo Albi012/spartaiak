@@ -53,10 +53,10 @@ function playerView(){
     // amúgy is látszik a chipek helyzetéből.
     const r=L.rpe&&L.rpe[i]!=null ? L.rpe[i] : null;
     chips+=`<button class="chip ${cls}" data-i="${i}" onclick="openSet('${e.id}',${i})">
-      <span class="r">${v==null?'·':v}</span>${dropN(L,i)?`<span class="l em">+${dropN(L,i)} drop</span>`:r!=null?`<span class="l em">@${rpeNum(r)}</span>`:`<span class="l">${i+1}</span>`}</button>`; });
+      ${v==null?`<span class="r rn">${i+1}</span>`:`<span class="r">${v}</span>${dropN(L,i)?`<span class="l em">+${dropN(L,i)} drop</span>`:r!=null?`<span class="l em">@${rpeNum(r)}</span>`:''}`}</button>`; });
   // Menet közben plusz szett (pl. jól ment, belefér még egy) – a cél-szám
   // nem változik, csak a lista nő. Gyógytornánál nincs.
-  if(!isPhysioActive()) chips+=`<button class="chip addset" onclick="addLiveSet('${e.id}')" aria-label="Szett hozzáadása"><span class="r">+</span><span class="l">szett</span></button>`;
+  if(!isPhysioActive()) chips+=`<button class="chip addset" onclick="addLiveSet('${e.id}')" aria-label="Szett hozzáadása"><span class="r">+</span></button>`;
 
   const physioMode=isPhysioActive();   // mobilitás: nincs súlyállító/eszköz
   let wt='';
@@ -72,8 +72,7 @@ function playerView(){
   let tools='';
   if(!e.time && !physioMode){
     const t=[];
-    if(!e.bw) t.push(`<button class="tool" onclick="openPlateCalc(${L.w})">${ICON.dumbbell} Tárcsák</button>`);
-    if(t.length) tools=`<div class="toolrow">${t.join('')}</div>`;
+    if(!e.bw) tools=`<button class="iconbtn" onclick="openPlateCalc(${L.w})" aria-label="Tárcsák" title="Tárcsa-kalkulátor">${ICON.dumbbell}</button>`;
   }
   let note='';
   if(last){ const dw=Math.round(((L.w||0)-(last.w||0))*100)/100;
@@ -97,8 +96,7 @@ function playerView(){
     const nx=progNext(e.id,{w:L.w,sets:L.sets},e);
     const arrow = nx.delta>0?`↑ ${wLabel(e,nx.w)} kg`:nx.delta<0?`↓ ${wLabel(e,nx.w)} kg`:`= ${wLabel(e,nx.w)} kg`;
     hint=`<button class="hint" onclick="openProgPolicy('${e.id}')" title="${esc(nx.reason)}">Következőre: <b>${arrow}</b> <span class="hr">${esc(nx.reason)}</span> <span class="dim">›</span></button>`;
-  } else if(!e.bw && !physioMode && !e.time)
-    hint=`<button class="hint" onclick="openProgPolicy('${e.id}')">Következőre: <span class="hr">a szettek után számolom · ${esc(POLICY_NAME[progPolicy(e.id)].split(' ')[0])}</span> <span class="dim">›</span></button>`;
+  }
 
   // Állandó gyakorlat-jegyzet + fotó
   const pn=S.notes[e.id], ph=S.photos[e.id];
@@ -125,7 +123,7 @@ function playerView(){
       <span class="ns-go">${e.time?'Indítás':'Rögzítés'} ›</span></button>` : '';
   // Mi jön utána – a pöttysor nevet nem mond.
   const nx2=exs[curEx+1];
-  const upNext = nx2 ? `<button class="upnext" onclick="exNav(${curEx+1})"><span class="dim">Következik:</span> <b>${esc(exN(nx2))}</b> <span class="dim">· ${nx2.s}×${esc(nx2.r)}</span></button>` : '';
+  const nxLbl = nx2 ? `<span class="nxk">${tr('Következik')}</span><span class="nxn">${esc(exN(nx2))} ›</span>` : tr('Következő ›');
 
   const deloadBanner = S.active.deload ? `<div class="banner">Kihagyás utáni visszaépítés: kisebb súly, a célnál pár ismétléssel több.</div>` : '';
 
@@ -154,32 +152,27 @@ function playerView(){
           <div class="grow"><div class="pname">${esc(exN(e))}</div>
           <div class="pmeta">${complete?'<span class="done-badge">kész</span>':`<span class="tgt">cél: ${e.s} × ${e.r}${e.time?'':' ism.'}</span>`}${ssBadge}</div></div>
           ${restPillHtml()}
-          <button class="iconbtn" onclick="openNoteSheet('ex','${e.id}')" aria-label="Jegyzet és fotó" title="Jegyzet és fotó">${ICON.edit}</button>
+          ${physioMode?'':tools}
         </div>
       </div>
       ${physioMode ? physioCounterHtml(e,L) : `${noteBlock}
       ${ssHint}
       ${wt}
-      ${tools}
       <div class="pchips">${chips}</div>
       ${rpeAskHtml(e,L)}
       ${nextSet}
       ${note}${hint}`}
       ${why}
     </div>
-    ${upNext}
     <div class="pfoot">
-      <button class="btn" onclick="exNav(${curEx-1})" ${curEx===0?'disabled':''} style="flex:0 0 40%">${tr('‹ Előző')}</button>
+      <button class="iconbtn pfb" onclick="exNav(${curEx-1})" ${curEx===0?'disabled':''} aria-label="${tr('Előző')}" title="${tr('Előző')}">${ICON.back}</button>
       ${isLast && isFreeActive()
-        ? `<button class="btn pri" onclick="openExPicker('free')" style="flex:1">${tr('+ Következő gyakorlat')}</button>`
+        ? `<button class="btn pri pfmain" onclick="openExPicker('free')">${tr('+ Következő gyakorlat')}</button>`
         : isLast
-        ? `<button class="btn pri" onclick="finish()" style="flex:1">${tr('Edzés lezárása')}</button>`
-        : `<button class="btn${complete?' pri':''}" onclick="exNav(${curEx+1})" style="flex:1">${tr('Következő ›')}</button>`}
-    </div>
-    <div class="row" style="gap:10px;max-width:560px;margin:0 auto;padding:0 16px 16px;width:100%">
-      ${isFreeActive()&&isLast?`<button class="btn" style="flex:1;margin:0" onclick="finish()">${tr('Lezárás')}</button>`:`<button class="btn" style="flex:1;margin:0" onclick="openExPicker('free')">+ Gyakorlat</button>`}
-      <button class="btn" style="flex:1;margin:0" onclick="openPlayerNote()">Jegyzet${noteHasText()?' •':''}</button>
-      <button class="iconbtn" style="flex:none;width:52px;height:52px" onclick="openPlayerMenu()" aria-label="Továbbiak" title="Továbbiak">${ICON.more}</button>
+        ? `<button class="btn pri pfmain" onclick="finish()">${tr('Edzés lezárása')}</button>`
+        : `<button class="btn pfmain${complete?' pri':''}" onclick="exNav(${curEx+1})">${nxLbl}</button>`}
+      <button class="iconbtn pfb" onclick="openPlayerNote()" aria-label="Jegyzet" title="Jegyzet">${ICON.edit}${noteHasText()?'<span class="pfdot"></span>':''}</button>
+      <button class="iconbtn pfb" onclick="openPlayerMenu()" aria-label="Továbbiak" title="Továbbiak">${ICON.more}</button>
     </div>
   </div>`;
 }
@@ -246,6 +239,7 @@ function openPlayerMenu(){
       <button onclick="closeSheet()" style="font-size:26px;color:var(--dim);padding:0 8px">×</button></div>
     <h2 style="font-size:22px;margin:2px 0 12px">${esc(S.active.dayName||'Edzés')}</h2>
     <button class="btn" style="margin-bottom:8px" onclick="closeSheet();openExPicker('free')">+ Gyakorlat hozzáadása</button>
+    ${(()=>{const x=playerExId();return x?`<button class="btn" style="margin-bottom:8px" onclick="closeSheet();openNoteSheet('ex','${x}')">${tr('Gyakorlat jegyzet és gépbeállítás-fotó')}</button>`:'';})()}
     <button class="btn" style="margin-bottom:8px" onclick="closeSheet();finish()">Edzés lezárása</button>
     <button class="btn" style="margin-bottom:8px" onclick="closeSheet();pausePlayer()">Szünet – vissza a főoldalra</button>
     <button class="btn ghost" style="margin-bottom:4px;color:var(--red)" onclick="closeSheet();discardActive()">Edzés eldobása</button>`;
@@ -316,8 +310,8 @@ function setRpeAfter(v){ if(!rpeAsk||!S.active) return; const L=S.active.log[rpe
   if(L && L.sets[rpeAsk.i]!=null && v!=null){ if(!L.rpe) L.rpe=[]; L.rpe[rpeAsk.i]=v; S.activeT=Date.now(); save(); }
   rpeAsk=null; render(); }
 function rpeAskHtml(e,L){ if(!rpeAsk||rpeAsk.id!==e.id||L.sets[rpeAsk.i]==null||(L.rpe&&L.rpe[rpeAsk.i]!=null)) return '';
-  return `<div class="rpeask"><span class="small dim">${rpeAsk.i+1}. szett – mennyire volt nehéz? <span class="dim">(RPE, nem kötelező)</span></span>
-    <div class="rpeaskrow">${RPE_VALS.map(v=>`<button class="whyc" onclick="setRpeAfter(${v})">${rpeNum(v)}</button>`).join('')}<button class="whyc" onclick="setRpeAfter(null)" aria-label="Kihagyás">×</button></div></div>`; }
+  return `<div class="rpeask"><span class="small dim rpeq">${rpeAsk.i+1}. RPE?</span>
+    <div class="rpeaskrow hscroll">${RPE_VALS.map(v=>`<button class="whyc" onclick="setRpeAfter(${v})">${rpeNum(v)}</button>`).join('')}<button class="whyc" onclick="setRpeAfter(null)" aria-label="Kihagyás">×</button></div></div>`; }
 function openSet(id,i){
   cur={id,i}; const e=activeExDef(id), t=parseInt(e.r);
   const _L=S.active.log[id];

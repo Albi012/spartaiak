@@ -1902,7 +1902,7 @@ ok('40 a szám-koppintás rögzíti az ismétlést ÉS az RPE-t', await page.eva
   return L.sets[1]===5 && L.rpe[1]===8.5 && L.rpe[0]==null; }));
 ok('40 a chip kiírja az RPE-t, ahol van', await page.evaluate(()=>{
   const c=[...document.querySelectorAll('.chip')].slice(0,2).map(x=>x.textContent);
-  return /^\D*\d+\s*1$/.test(c[0].trim()) && /@8,5/.test(c[1]); }));
+  return /^\d+$/.test(c[0].trim()) && /@8,5/.test(c[1]); }));
 ok('40 visszanyitva a RÖGZÍTETT érték van kiválasztva, új szettnél semmi', await page.evaluate(async ()=>{
   openSet('bench',1); await new Promise(r=>setTimeout(r,250));
   const megvan=_rpePick===8.5;
@@ -2956,15 +2956,15 @@ ok('70 lejátszó: semleges hint félúton, nem-elsődleges Következő, eltelt 
   S.active={day:'pa',t:Date.now()-754e3,log:{bench:{w:200,sets:[5,null,null,null]}}}; playing=true; curEx=0; render();
   await new Promise(r=>setTimeout(r,300));
   const a=document.getElementById('app');
-  const semleges=/a szettek után számolom/.test(a.textContent) && !/nem lett meg minden/.test(a.textContent);
-  const kov=[...a.querySelectorAll('.pfoot .btn')].find(b=>/Következő/.test(b.textContent));
+  const semleges=!/Következőre/.test(a.textContent) && !/nem lett meg minden/.test(a.textContent);
+  const kov=[...a.querySelectorAll('.pfoot .pfmain')].find(b=>/Következ/.test(b.textContent));
   const nemSarga=!kov || !kov.classList.contains('pri');
   const ido=/^12:3\d$/.test((document.getElementById('pElapsed')||{}).textContent||'');
   const nincsProg=!/Progresszió:/.test(a.textContent);
   const ch=[...document.querySelectorAll('#app .pchips .chip')], egySor=ch.length===5 && new Set(ch.map(c=>Math.round(c.getBoundingClientRect().top))).size===1;
-  const csend=!/sz$/i.test(ch[1].querySelector('.l').textContent.trim());
+  const csend=!ch[1].querySelector('.l') && ch[1].querySelector('.rn').textContent.trim()==='2';
   S.active.log.bench.sets=[5,5,5,5,5]; render(); await new Promise(r=>setTimeout(r,100));
-  const kov2=[...document.querySelectorAll('#app .pfoot .btn')].find(b=>/Következő/.test(b.textContent));
+  const kov2=[...document.querySelectorAll('#app .pfoot .pfmain')].find(b=>/Következ/.test(b.textContent));
   const sarga=!kov2 || kov2.classList.contains('pri');
   const valodi=/Következőre: <b>|Következőre: [↑↓=]/.test(document.getElementById('app').innerHTML) || /Következőre:\s*[↑↓=]/.test(document.getElementById('app').textContent);
   const fmt=fmtElapsed(3723e3)==='1:02:03' && fmtElapsed(65e3)==='1:05';
@@ -3107,6 +3107,26 @@ ok('78 töltőkép: inline levevő a HTML-ben és CSS-háló, boot.js nélkül i
   await page.evaluate(()=>{tab='home';render();});
   ok('80: főoldalon kirajzolva', await page.evaluate(()=>!!document.querySelector('.reccard')===(muscleRecovery().length>0)));
 }
+
+// ===== 81. Lejátszó v165: egysoros lábléc, fix, RPE egy sor, készenlét-izom =====
+ok('81 lejátszó: egy lábléc-sor fixen, a Következő gombban a következő név, nincs Tárcsák-sor', await page.evaluate(async ()=>{
+  const bak=S.sessions; S.sessions=[]; S.active=null; await startDay('pa'); await new Promise(r=>setTimeout(r,250));
+  const a=document.getElementById('app'), f=a.querySelector('.pfoot');
+  const fix=getComputedStyle(f).position==='fixed';
+  const egy=a.querySelectorAll('.pfoot').length===1 && !a.querySelector('.upnext') && !a.querySelector('.toolrow');
+  const nev=/Következik/.test(f.querySelector('.pfmain').textContent);
+  const y0=f.getBoundingClientRect().top; exNav(1); await new Promise(r=>setTimeout(r,300));
+  const y1=document.querySelector('#app .pfoot').getBoundingClientRect().top;
+  cur={id:activeExList()[1].id,i:0}; _rpePick=null; setRep(8); await new Promise(r=>setTimeout(r,150));
+  const row=document.querySelector('#app .rpeaskrow'); const rs=row && getComputedStyle(row).flexWrap==='nowrap';
+  S.sessions=bak; S.active=null; playing=false; tab='home'; render();
+  return fix && egy && nev && Math.abs(y0-y1)<1 && rs; }));
+ok('81 készenlét: izom-regeneráció tényező', await page.evaluate(()=>{
+  const keep=S.sessions, now=Date.now();
+  S.sessions=[{day:'pa',t:now-5*36e5,end:now-4*36e5,log:{bench:{w:60,sets:[8,8,8,8,8]}}}];
+  const m=rdyMusc(now); S.sessions=[]; const e=rdyMusc(now); S.sessions=keep; rdyInvalidate();
+  return m.ok && m.delta<0 && /mell/i.test(m.why) && !e.ok && RDY_DEF.some(f=>f.id==='musc'&&f.on); }));
+ok('81 elforgatás: álló nézet + fekvő fedőlap', await page.evaluate(()=>!!document.getElementById('rotlock')) && /"orientation":\s*"portrait"/.test(readFileSync(new URL('../manifest.webmanifest', import.meta.url),'utf8')));
 console.log('\n==== ÖSSZEGZÉS ====');
 console.log('PASS:', pass, 'FAIL:', fail);
 if(fails.length) console.log('BUKOTT:', JSON.stringify(fails,null,1));

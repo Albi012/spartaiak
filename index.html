@@ -273,18 +273,31 @@ a.btn{text-decoration:none;color:var(--ink)}
 .pname{font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:700;line-height:1.08}
 .pmeta{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-top:4px}
 .pchips{display:flex;gap:8px;flex-wrap:wrap}
-.pchips .chip{width:60px;height:60px}
+.pchips .chip{width:56px;height:52px}
+.pchips .chip .r.rn{font-size:18px;color:var(--dim);opacity:.6}
 .pchips .chip .l{opacity:.6;letter-spacing:0}
 .pchips .chip .l.em{opacity:1;color:var(--brass)}
 .rpeask{display:flex;flex-direction:column;gap:6px}
-.rpeaskrow{display:flex;gap:6px;flex-wrap:wrap}
+.rpeask{flex-direction:row;align-items:center;gap:8px}.rpeq{flex:none}
+.rpeaskrow{display:flex;gap:6px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;min-width:0}.rpeaskrow::-webkit-scrollbar{display:none}
+.rpeaskrow .whyc{flex:none}
 .rpeaskrow .whyc{min-width:44px;min-height:44px}
 .prev.exx{color:var(--brass)}
 .wdelta{font-variant-numeric:tabular-nums;margin-left:6px;font-weight:600}
 .wdelta.up{color:var(--sage)}.wdelta.down{color:var(--red)}
 .pchips .chip .r{font-size:27px}
-.pfoot{display:flex;gap:10px;padding:10px 16px calc(10px + env(safe-area-inset-bottom));
-  max-width:560px;margin:0 auto;width:100%;position:sticky;bottom:0;background:linear-gradient(to top,var(--bg) 55%,transparent)}
+.player{padding-bottom:calc(84px + env(safe-area-inset-bottom))}
+.pfoot{display:flex;gap:8px;align-items:center;padding:10px 16px calc(10px + env(safe-area-inset-bottom));
+  max-width:560px;margin:0 auto;width:100%;position:fixed;left:0;right:0;bottom:0;z-index:20;
+  background:linear-gradient(to top,var(--bg) 70%,transparent);view-transition-name:pfoot}
+.pfoot .pfb{flex:none;width:52px;height:52px;position:relative}
+.pfoot .pfmain{flex:1;min-width:0;height:52px;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;overflow:hidden}
+.pfmain .nxk{font-size:12px;opacity:.7;font-weight:500}.pfmain .nxn{overflow:hidden;text-overflow:ellipsis}
+.pfdot{position:absolute;top:9px;right:9px;width:7px;height:7px;border-radius:50%;background:var(--brass)}
+#rotlock{display:none}
+@media (orientation:landscape) and (max-height:500px) and (pointer:coarse){
+  #rotlock{display:flex;position:fixed;inset:0;z-index:200;background:var(--bg);color:var(--ink);align-items:center;justify-content:center;text-align:center;padding:24px;font-size:17px}
+}
 .pfoot .btn{margin:0}
 .discard{display:block;margin:2px auto 0;padding:8px 14px;color:var(--dim);font-size:13px}
 
@@ -798,6 +811,7 @@ button.tday:active{transform:scale(var(--press-sm))}
 @keyframes spLift{from{transform:translateY(1.2px) rotate(-3deg)}to{transform:translateY(-1.6px) rotate(3deg)}}
 @keyframes spRun{from{transform:translateX(-100%)}to{transform:translateX(250%)}}
 </style>
+<div id="rotlock">Fordítsd vissza álló helyzetbe a telefont – az app álló nézetre készült.</div>
 <div id="splash" role="status" aria-label="Betöltés">
   <svg viewBox="0 0 24 24" aria-hidden="true"><g class="splift" fill="currentColor">
     <rect class="sp-o sp-l" x="2" y="9" width="3" height="6" rx="1.2"/><rect class="sp-i sp-l" x="5" y="6.5" width="2.6" height="11" rx="1.1"/>

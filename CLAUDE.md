@@ -1148,6 +1148,20 @@ A főoldalon `recoveryHomeCard()` (a heti kártya után): a még pihenő csoport
 sávval + hátralévő idővel, alatta a pihent csoportok. 7 napon belüli edzés
 nélkül el sem készül. Becslés, tájékoztat – semmit nem tilt. E2E: 80.
 
+## Lejátszó v165 + izom a készenlétben
+
+- **Lejátszó:** a lábléc EGY sor és `position:fixed` (`.pfoot`: ‹ ikon · széles
+  `.pfmain` „Következik <név> ›" · Jegyzet ikon · ⋯), saját `view-transition-name`,
+  hogy gyakorlatváltáskor ne ugráljon; a „+ Gyakorlat" és a gyakorlat-jegyzet/fotó a
+  ⋯ menüben. A Tárcsák ikon a név mellett (a ceruza helyén), a „Következik" sor a
+  gombba olvadt, a „Következőre" csak kész gyakorlatnál látszik, az üres chip csak
+  halvány sorszám (56×52), az utólagos RPE egy vízszintesen görgethető sor.
+- **Elforgatás:** a manifest `portrait`, a `boot.js` `screen.orientation.lock`-ot kér
+  (ahol engedett), iOS-en fekvő telefonon a `#rotlock` fedőlap kér visszafordítást.
+- **Készenlét `musc` tényező** (`rdyMusc`, alapból BE): a `muscleRecovery()` még
+  pihenő csoportjai a hátralévő arányban húznak le (csoportonként ≤ −5, össz. ≤ −15),
+  minden kipihent → +3; 7 napon belüli edzés nélkül `ok:false`. E2E: 81.
+
 ## Redundancia-takarítás (v145)
 
 A felső sávban csak a fiók és a gyógytorna ikon maradt: a téma-gomb (→ Profil

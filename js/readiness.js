@@ -21,7 +21,8 @@ const RDY_DEF=[
   {id:'sleep', n:'Alvás',           s:'Alvás',    on:1},
   {id:'load',  n:'Heti terhelés',   s:'Terhelés', on:1},
   {id:'bw',    n:'Testsúly-trend',  s:'Testsúly', on:1},
-  {id:'rest',  n:'Pihenőnapok',     s:'Pihenő',   on:0}
+  {id:'rest',  n:'Pihenőnapok',     s:'Pihenő',   on:0},
+  {id:'musc',  n:'Izom-regeneráció', s:'Izmok',    on:1}
 ];
 function rdyShort(id){ const d=RDY_DEF.find(f=>f.id===id); return (d&&d.s)||id; }
 function rdyEnabled(id){ const r=S.rdy||{}, d=RDY_DEF.find(f=>f.id===id);
@@ -138,7 +139,24 @@ function rdyRest(t){
           : `${days} nap telt el a legutóbbi edzés óta.`;
   return out;
 }
-const RDY_FN={sleep:rdySleep, load:rdyLoad, bw:rdyBw, rest:rdyRest};
+// Izom-regeneráció (v165): a még pihenő izomcsoportok a hátralévő
+// pihenő ARÁNYÁBAN húznak le (csoportonként max. −5, összesen −15).
+// 7 napon belüli edzés nélkül nem pontoz (ok:false) – nem tippel.
+function rdyMusc(t){
+  const out={id:'musc',n:'Izom-regeneráció',ok:false,delta:0,val:'–',why:'Az elmúlt 7 napban nem volt edzés.',pct:0,tone:'dim'};
+  const now=Math.min(t||Date.now(),Date.now());
+  const L=muscleRecovery(now); if(!L.length) return out;
+  const busy=L.filter(o=>o.left>0);
+  const sum=busy.reduce((a,o)=>a+(1-o.pct),0);
+  const d=busy.length? -Math.min(15,Math.round(sum*5)) : 3;
+  out.ok=true; out.delta=d;
+  out.val=busy.length? busy.length+' pihen' : 'kipihent';
+  out.pct=rdyClamp(1-sum/Math.max(1,L.length),0,1);
+  out.tone=d>=2?'sage':d<=-5?'red':'mut';
+  out.why=busy.length? 'Még regenerálódik: '+busy.slice(0,3).map(o=>trmg(o.mg)+' ('+recLeftTxt(o.left)+')').join(', ')+'.' : 'Minden terhelt izomcsoport kipihente magát.';
+  return out;
+}
+const RDY_FN={sleep:rdySleep, load:rdyLoad, bw:rdyBw, rest:rdyRest, musc:rdyMusc};
 
 // A nap készenléte. `t` bármely időpont lehet (múltbeli napokra is jó).
 // Visszatérés: null, ha egyetlen bekapcsolt tényezőhöz sincs adat.

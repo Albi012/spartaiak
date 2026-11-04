@@ -153,3 +153,6 @@ if('serviceWorker' in navigator){
   });
 }
 setInterval(tickElapsed,1000);  // a lejátszó fejlécének eltelt ideje
+// Álló nézet rögzítése, ahol a böngésző engedi (telepített PWA, Android).
+// iOS-en nem lehet: ott a #rotlock fedőlap kéri a visszafordítást.
+try{ screen.orientation && screen.orientation.lock && screen.orientation.lock('portrait').catch(()=>{}); }catch(e){}
